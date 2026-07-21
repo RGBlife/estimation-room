@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import AvatarBuilder, { makeAvatarUrl } from '../components/AvatarBuilder.jsx';
 import { randomRoomCode } from '../lib/roomCode.js';
+import { loadProfile, saveProfile } from '../lib/profile.js';
 
-const initialAvatar = () => ({
+const randomAvatar = () => ({
   seed: Math.random().toString(36).slice(2, 10),
   bgIdx: Math.floor(Math.random() * 8),
   glasses: false,
@@ -10,12 +11,13 @@ const initialAvatar = () => ({
   flair: false,
 });
 
-export default function JoinScreen({ onJoin, onCreate, joinError }) {
-  const [avatar, setAvatar] = useState(initialAvatar);
-  const [name, setName] = useState('');
+export default function JoinScreen({ onJoin, onCreate, joinError, prefillRoomCode }) {
+  const storedProfile = loadProfile();
+  const [avatar, setAvatar] = useState(() => storedProfile?.avatar ?? randomAvatar());
+  const [name, setName] = useState(() => storedProfile?.name ?? '');
   const [mode, setMode] = useState('join');
   const [role, setRole] = useState('participant');
-  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [roomCodeInput, setRoomCodeInput] = useState(prefillRoomCode ?? '');
   const [busy, setBusy] = useState(false);
 
   const switchToCreate = () => { setMode('create'); setRoomCodeInput(randomRoomCode()); };
@@ -32,13 +34,15 @@ export default function JoinScreen({ onJoin, onCreate, joinError }) {
     if (joinDisabled) return;
     setBusy(true);
     const avatarUrl = makeAvatarUrl(avatar);
-    const payload = { name: name.trim(), avatarUrl, isObserver: role === 'observer' };
+    const trimmedName = name.trim();
+    const payload = { name: trimmedName, avatarUrl, isObserver: role === 'observer' };
     try {
       if (mode === 'create') {
         await onCreate(payload);
       } else {
         await onJoin(roomCodeInput, payload);
       }
+      saveProfile({ name: trimmedName, avatar });
     } finally {
       setBusy(false);
     }
@@ -49,8 +53,8 @@ export default function JoinScreen({ onJoin, onCreate, joinError }) {
       <div style={{ width: '100%', maxWidth: 460, animation: 'sp-fade-in 0.4s ease' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 28 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sp-mono)', fontWeight: 700, fontSize: 13, color: 'var(--sp-bg)' }}>SP</div>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Scrum Poker</span>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sp-mono)', fontWeight: 700, fontSize: 13, color: 'var(--sp-bg)' }}>ER</div>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Estimation Room</span>
         </div>
 
         <div style={{ background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 14, padding: 28 }}>

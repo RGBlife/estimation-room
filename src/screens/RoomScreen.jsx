@@ -14,7 +14,11 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
   const { anyVote, hasAverage, average, isWideSpread } = computeStats(room.participants);
 
   const handleCopy = () => {
-    if (navigator.clipboard) navigator.clipboard.writeText(roomCode).catch(() => {});
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.searchParams.set('room', roomCode);
+    const text = url.toString();
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   };
@@ -23,10 +27,10 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 28px', borderBottom: '1px solid var(--sp-border)', gap: 20, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', flex: 1, minWidth: 280 }}>
-          <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sp-mono)', fontWeight: 700, fontSize: 10, color: 'var(--sp-bg)' }}>SP</div>
-          <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: 'var(--sp-text-dim)' }}>
+          <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sp-mono)', fontWeight: 700, fontSize: 10, color: 'var(--sp-bg)' }}>ER</div>
+          <button onClick={handleCopy} title="Copy shareable invite link" style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: 'var(--sp-text-dim)' }}>
             <span style={{ fontFamily: 'var(--sp-mono)', fontSize: 13, letterSpacing: '0.08em' }}>{roomCode}</span>
-            <span style={{ fontSize: 11, color: 'var(--sp-text-faint)' }}>{copied ? 'copied' : 'copy'}</span>
+            <span style={{ fontSize: 11, color: 'var(--sp-text-faint)' }}>{copied ? 'link copied' : 'copy link'}</span>
           </button>
 
           {isCreator ? (

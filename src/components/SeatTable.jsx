@@ -1,6 +1,10 @@
+function byJoinOrder([, a], [, b]) {
+  return (a.joinedAt ?? 0) - (b.joinedAt ?? 0);
+}
+
 export default function SeatTable({ participants, uid, roomCode, isRevealed }) {
-  const active = Object.entries(participants).filter(([, p]) => !p.isObserver);
-  const observers = Object.entries(participants).filter(([, p]) => p.isObserver);
+  const active = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
+  const observers = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
   const n = active.length;
 
   const seats = active.map(([id, p], idx) => {

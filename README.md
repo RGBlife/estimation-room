@@ -1,4 +1,4 @@
-# Scrum Poker
+# Estimation Room
 
 Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore + Anonymous Auth) backend — no custom server.
 
