@@ -48,6 +48,20 @@ export default function App() {
       .finally(() => setAutoJoining(false));
   }, [uid, sharedRoomCode, room, joinRoom]);
 
+  // Keep the address bar in sync with the current room so the URL itself
+  // is always a valid shareable/refreshable link, not just the copy-link button.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (roomCode) {
+      url.searchParams.set('room', roomCode);
+    } else {
+      url.searchParams.delete('room');
+    }
+    if (url.toString() !== window.location.href) {
+      window.history.replaceState(null, '', url);
+    }
+  }, [roomCode]);
+
   if (autoJoining) {
     return (
       <div className="sp-app" style={{ alignItems: 'center', justifyContent: 'center' }}>
