@@ -1,0 +1,98 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function existingData() {
+      return resource.data;
+    }
+
+    function incomingData() {
+      return request.resource.data;
+    }
+
+    // Keys of the participants map that changed between old and new document.
+    function changedParticipantKeys() {
+      return existingData().participants.diff(incomingData().participants).affectedKeys();
+    }
+
+    match /rooms/{roomCode} {
+
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && incomingData().code == roomCode
+        && incomingData().isRevealed == false
+        && incomingData().story == ''
+        && incomingData().creatorId == request.auth.uid
+        && incomingData().participants.size() == 1
+        && incomingData().participants.keys()[0] == request.auth.uid;
+
+      allow update: if isSignedIn() && (
+        // A participant joining: adds exactly their own key, nothing else changes.
+        (
+          changedParticipantKeys().hasOnly([request.auth.uid])
+          && !(request.auth.uid in existingData().participants)
+          && request.auth.uid in incomingData().participants
+          && incomingData().code == existingData().code
+          && incomingData().creatorId == existingData().creatorId
+          && incomingData().isRevealed == existingData().isRevealed
+          && incomingData().story == existingData().story
+        )
+        ||
+        // A participant updating only their own participant entry (role/vote).
+        (
+          request.auth.uid in existingData().participants
+          && changedParticipantKeys().hasOnly([request.auth.uid])
+          && incomingData().code == existingData().code
+          && incomingData().creatorId == existingData().creatorId
+          && incomingData().isRevealed == existingData().isRevealed
+          && incomingData().story == existingData().story
+        )
+        ||
+        // A participant leaving: removes exactly their own key, nothing else changes.
+        (
+          request.auth.uid in existingData().participants
+          && !(request.auth.uid in incomingData().participants)
+          && changedParticipantKeys().hasOnly([request.auth.uid])
+          && incomingData().code == existingData().code
+          && incomingData().creatorId == existingData().creatorId
+          && incomingData().isRevealed == existingData().isRevealed
+          && incomingData().story == existingData().story
+        )
+        ||
+        // The creator editing the story text; nothing else changes.
+        (
+          request.auth.uid == existingData().creatorId
+          && incomingData().diff(existingData()).affectedKeys().hasOnly(['story'])
+        )
+        ||
+        // Any current participant revealing votes. The "at least one vote cast"
+        // requirement is enforced client-side (Reveal button is disabled otherwise);
+        // rules have no iteration/filter construct to check this over an arbitrary-size map.
+        (
+          request.auth.uid in existingData().participants
+          && existingData().isRevealed == false
+          && incomingData().isRevealed == true
+          && incomingData().diff(existingData()).affectedKeys().hasOnly(['isRevealed'])
+        )
+        ||
+        // Any current participant starting the next round: clears votes, unreveals, clears story.
+        (
+          request.auth.uid in existingData().participants
+          && existingData().isRevealed == true
+          && incomingData().isRevealed == false
+          && incomingData().story == ''
+          && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
+        )
+      );
+
+      allow delete: if isSignedIn() && request.auth.uid in existingData().participants;
+    }
+  }
+}
