@@ -1,14 +1,16 @@
 # Estimation Room
 
-Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore + Anonymous Auth) backend — no custom server.
+Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore + Realtime Database + Anonymous Auth) backend — no custom server.
 
 ## Local development
 
-1. Copy `.env.example` to `.env` and fill in your Firebase web app config (Project Settings → your web app → SDK setup and configuration).
-2. In the Firebase console, enable **Firestore Database** and **Authentication → Sign-in method → Anonymous**.
-3. Publish the rules in `firestore.rules` via the Firestore **Rules** tab in the console.
+1. Copy `.env.example` to `.env` and fill in your Firebase web app config (Project Settings → your web app → SDK setup and configuration), including `VITE_FIREBASE_DATABASE_URL` from the Realtime Database console.
+2. In the Firebase console, enable **Firestore Database**, **Realtime Database**, and **Authentication → Sign-in method → Anonymous**.
+3. Publish the rules in `firestore.rules` via the Firestore **Rules** tab, and the rules in `database.rules.json` via the Realtime Database **Rules** tab.
 4. `npm install`
 5. `npm run dev`
+
+Realtime Database is used only for presence (detecting when a tab closes/crashes so a participant is removed from the room automatically) — all room/vote data still lives in Firestore.
 
 ## Deployment (GitHub Pages)
 
@@ -20,6 +22,7 @@ Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore
 - `VITE_FIREBASE_STORAGE_BUCKET`
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_FIREBASE_DATABASE_URL`
 
 Also enable Pages under Settings → Pages → Source → GitHub Actions.
 
@@ -30,5 +33,5 @@ Firebase web config values aren't secret in the traditional sense (they're safe 
 ## Future improvements
 
 - **Rate limiting on room creation.** Currently unbounded — an anonymous client can create rooms as fast as it wants. Firestore security rules can't track request rate across documents/time on their own; the practical options are a per-uid Firestore counter doc checked in rules, and/or Firebase App Check to block non-browser scripted abuse.
-- **Presence/heartbeat.** A user who force-quits their tab (rather than clicking "Leave room") lingers in the room's participant list until another participant's write touches the room. Could add a TTL sweep via a Cloud Function if this becomes annoying.
-- **Bundle size.** The production build is ~770KB (mostly the Firebase SDK). Could reduce with more aggressive tree-shaking or code-splitting if load time becomes a concern.
+- **Presence cleanup trust model.** Disconnect cleanup (tab close/crash) is detected via Realtime Database and enforced with a Firestore rule that lets any current participant remove one other participant's key once presence confirms they're gone. This is a client-trust model — a malicious client could in theory remove a still-connected participant — accepted as low-severity (a griefing annoyance, not a data exposure) to avoid needing Cloud Functions/Blaze billing.
+- **Bundle size.** The production build is ~900KB (mostly the Firebase SDK, now including Realtime Database). Could reduce with more aggressive tree-shaking or code-splitting if load time becomes a concern.

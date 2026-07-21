@@ -66,6 +66,22 @@ service cloud.firestore {
           && incomingData().story == existingData().story
         )
         ||
+        // Any current participant removing exactly one OTHER participant's key
+        // (disconnect cleanup, driven by Realtime Database presence). Limited to
+        // a single-key removal per write, and it must not be the caller's own key
+        // (that case is covered by the "leaving" branch above); cannot touch
+        // any other field.
+        (
+          request.auth.uid in existingData().participants
+          && changedParticipantKeys().size() == 1
+          && !changedParticipantKeys().hasAny([request.auth.uid])
+          && incomingData().participants.size() == existingData().participants.size() - 1
+          && incomingData().code == existingData().code
+          && incomingData().creatorId == existingData().creatorId
+          && incomingData().isRevealed == existingData().isRevealed
+          && incomingData().story == existingData().story
+        )
+        ||
         // The creator editing the story text; nothing else changes.
         (
           request.auth.uid == existingData().creatorId

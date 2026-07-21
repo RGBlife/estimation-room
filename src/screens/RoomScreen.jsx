@@ -6,12 +6,20 @@ import { computeStats } from '../lib/stats.js';
 
 export default function RoomScreen({ room, roomCode, uid, actions }) {
   const [copied, setCopied] = useState(false);
+  const [voteError, setVoteError] = useState(null);
   const me = room.participants[uid] || {};
   const isCreator = room.creatorId === uid;
   const isObserver = !!me.isObserver;
   const isRevealed = room.isRevealed;
 
   const { anyVote, hasAverage, average, isWideSpread } = computeStats(room.participants);
+
+  const handleCastVote = (value) => {
+    setVoteError(null);
+    actions.castVote(value).catch(() => {
+      setVoteError("Your vote didn't save — check your connection and try again.");
+    });
+  };
 
   const handleCopy = () => {
     const url = new URL(window.location.href);
@@ -71,11 +79,17 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
 
       <SeatTable participants={room.participants} uid={uid} roomCode={roomCode} isRevealed={isRevealed} />
 
+      {voteError && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 92, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div style={{ background: 'var(--sp-warn-bg)', border: '1px solid var(--sp-warn-border)', color: 'var(--sp-warn-text)', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{voteError}</div>
+        </div>
+      )}
+
       <VotingBar
         isObserver={isObserver}
         myVote={me.vote}
         isRevealed={isRevealed}
-        onSelect={actions.castVote}
+        onSelect={handleCastVote}
         onJoinVoting={() => actions.setRole(false)}
       />
     </>

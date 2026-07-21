@@ -3,7 +3,10 @@ import {
   doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, deleteField,
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../firebase.js';
+import {
+  ref as rtdbRef, onValue, onDisconnect, set as rtdbSet, remove as rtdbRemove,
+} from 'firebase/database';
+import { db, auth, rtdb } from '../firebase.js';
 import { randomRoomCode } from './roomCode.js';
 
 const MAX_CREATE_ATTEMPTS = 3;
@@ -14,6 +17,9 @@ export function useRoom() {
   const [roomCode, setRoomCode] = useState(null);
   const [error, setError] = useState(null);
   const unsubscribeRef = useRef(null);
+  const presenceUnsubscribeRef = useRef(null);
+  const roomRef = useRef(null);
+  roomRef.current = room;
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, user => {
@@ -29,7 +35,36 @@ export function useRoom() {
   useEffect(() => {
     return () => {
       if (unsubscribeRef.current) unsubscribeRef.current();
+      if (presenceUnsubscribeRef.current) presenceUnsubscribeRef.current();
     };
+  }, []);
+
+  // Marks this client present in the room via Realtime Database, which (unlike
+  // Firestore) can detect disconnects — clean tab close, crash, or network loss —
+  // server-side via onDisconnect(), even when our own JS never gets to run again.
+  const trackPresence = useCallback((code, myUid) => {
+    const myPresenceRef = rtdbRef(rtdb, `presence/${code}/${myUid}`);
+    rtdbSet(myPresenceRef, true).catch(() => {});
+    onDisconnect(myPresenceRef).remove().catch(() => {});
+
+    if (presenceUnsubscribeRef.current) presenceUnsubscribeRef.current();
+    const roomPresenceRef = rtdbRef(rtdb, `presence/${code}`);
+    presenceUnsubscribeRef.current = onValue(roomPresenceRef, snap => {
+      const present = snap.val() || {};
+      const currentRoom = roomRef.current;
+      if (!currentRoom) return;
+      const stale = Object.keys(currentRoom.participants).filter(id => !(id in present));
+      if (stale.length === 0) return;
+      const remaining = Object.keys(currentRoom.participants).filter(id => !stale.includes(id));
+      if (remaining.length === 0) {
+        deleteDoc(doc(db, 'rooms', code)).catch(() => {});
+        rtdbRemove(rtdbRef(rtdb, `presence/${code}`)).catch(() => {});
+        return;
+      }
+      const updates = {};
+      stale.forEach(staleId => { updates[`participants.${staleId}`] = deleteField(); });
+      updateDoc(doc(db, 'rooms', code), updates).catch(() => {});
+    });
   }, []);
 
   const subscribeTo = useCallback((code) => {
@@ -63,10 +98,11 @@ export function useRoom() {
       };
       await setDoc(ref, data);
       subscribeTo(code);
+      trackPresence(code, uid);
       return code;
     }
     throw new Error('Could not allocate a room code, please try again');
-  }, [uid, subscribeTo]);
+  }, [uid, subscribeTo, trackPresence]);
 
   const joinRoom = useCallback(async (code, { name, avatarUrl, isObserver }) => {
     if (!uid) throw new Error('Not signed in yet');
@@ -79,7 +115,8 @@ export function useRoom() {
       [`participants.${uid}`]: { name, avatarUrl, isObserver, vote: null, joinedAt: Date.now() },
     });
     subscribeTo(code);
-  }, [uid, subscribeTo]);
+    trackPresence(code, uid);
+  }, [uid, subscribeTo, trackPresence]);
 
   const setRole = useCallback(async (isObserver) => {
     if (!uid || !roomCode) return;
@@ -128,9 +165,17 @@ export function useRoom() {
       const remaining = Object.keys(data.participants).filter(id => id !== uid);
       if (remaining.length === 0) {
         await deleteDoc(ref);
+        await rtdbRemove(rtdbRef(rtdb, `presence/${roomCode}`)).catch(() => {});
       } else {
         await updateDoc(ref, { [`participants.${uid}`]: deleteField() });
+        await rtdbRemove(rtdbRef(rtdb, `presence/${roomCode}/${uid}`)).catch(() => {});
       }
+    } else {
+      await rtdbRemove(rtdbRef(rtdb, `presence/${roomCode}/${uid}`)).catch(() => {});
+    }
+    if (presenceUnsubscribeRef.current) {
+      presenceUnsubscribeRef.current();
+      presenceUnsubscribeRef.current = null;
     }
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
