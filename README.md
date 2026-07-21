@@ -23,6 +23,8 @@ Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore
 
 Also enable Pages under Settings → Pages → Source → GitHub Actions.
 
+Live at: https://rgblife.github.io/estimation-room/
+
 Firebase web config values aren't secret in the traditional sense (they're safe to expose in a shipped client bundle), but they're kept out of the repo as a matter of hygiene and to keep the codebase config-agnostic.
 
 ## Future improvements

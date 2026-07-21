@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: process.env.GITHUB_PAGES ? '/scrum-poker/' : '/',
+  base: process.env.GITHUB_PAGES ? '/estimation-room/' : '/',
 });
