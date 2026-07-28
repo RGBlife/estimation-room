@@ -1,4 +1,4 @@
-import { AVATAR_BG, buildAdventurerUrl } from '../lib/avatar.js';
+import { AVATAR_BG, avatarDataUri, randomSeed } from '../lib/avatar.js';
 
 function toggleBtnStyle(active) {
   return {
@@ -13,9 +13,9 @@ function toggleBtnStyle(active) {
 }
 
 export default function AvatarBuilder({ avatar, onChange }) {
-  const avatarUrl = buildAdventurerUrl(avatar.seed, AVATAR_BG[avatar.bgIdx], avatar.glasses, avatar.earrings, avatar.flair);
+  const avatarUrl = avatarDataUri(avatar);
 
-  const shuffle = () => onChange({ ...avatar, seed: Math.random().toString(36).slice(2, 10) });
+  const shuffle = () => onChange({ ...avatar, seed: randomSeed() });
   const selectBg = (idx) => onChange({ ...avatar, bgIdx: idx });
   const toggle = (key) => onChange({ ...avatar, [key]: !avatar[key] });
 
@@ -82,8 +82,4 @@ export default function AvatarBuilder({ avatar, onChange }) {
       </div>
     </div>
   );
-}
-
-export function makeAvatarUrl(avatar) {
-  return buildAdventurerUrl(avatar.seed, AVATAR_BG[avatar.bgIdx], avatar.glasses, avatar.earrings, avatar.flair);
 }

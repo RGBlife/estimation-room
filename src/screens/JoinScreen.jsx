@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import AvatarBuilder, { makeAvatarUrl } from '../components/AvatarBuilder.jsx';
+import AvatarBuilder from '../components/AvatarBuilder.jsx';
 import { randomRoomCode } from '../lib/roomCode.js';
 import { loadProfile, saveProfile } from '../lib/profile.js';
 
@@ -11,8 +11,8 @@ const randomAvatar = () => ({
   flair: false,
 });
 
-export default function JoinScreen({ onJoin, onCreate, joinError, prefillRoomCode }) {
-  const storedProfile = loadProfile();
+export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready }) {
+  const [storedProfile] = useState(loadProfile);
   const [avatar, setAvatar] = useState(() => storedProfile?.avatar ?? randomAvatar());
   const [name, setName] = useState(() => storedProfile?.name ?? '');
   const [mode, setMode] = useState('join');
@@ -28,21 +28,16 @@ export default function JoinScreen({ onJoin, onCreate, joinError, prefillRoomCod
     setRoomCodeInput(v);
   };
 
-  const joinDisabled = !name.trim() || !roomCodeInput || busy;
+  const joinDisabled = !name.trim() || !roomCodeInput || busy || !ready;
 
   const handleSubmit = async () => {
     if (joinDisabled) return;
     setBusy(true);
-    const avatarUrl = makeAvatarUrl(avatar);
-    const trimmedName = name.trim();
-    const payload = { name: trimmedName, avatarUrl, isObserver: role === 'observer' };
+    const trimmedName = name.trim().slice(0, 40);
+    const payload = { name: trimmedName, avatar, isObserver: role === 'observer' };
     try {
-      if (mode === 'create') {
-        await onCreate(payload);
-      } else {
-        await onJoin(roomCodeInput, payload);
-      }
-      saveProfile({ name: trimmedName, avatar });
+      const ok = mode === 'create' ? await onCreate(payload) : await onJoin(roomCodeInput, payload);
+      if (ok) saveProfile({ name: trimmedName, avatar });
     } finally {
       setBusy(false);
     }
@@ -68,6 +63,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, prefillRoomCod
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Sam Rivera"
+                maxLength={40}
                 style={{ width: '100%', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: '11px 12px', color: 'var(--sp-text)', fontFamily: 'var(--sp-font)', fontSize: 14, outline: 'none' }}
               />
             </div>
@@ -110,7 +106,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, prefillRoomCod
               onClick={handleSubmit}
               disabled={joinDisabled}
               style={{ width: '100%', background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: 12, color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 14, fontWeight: 700, cursor: joinDisabled ? 'default' : 'pointer', marginTop: 6, opacity: joinDisabled ? 0.6 : 1 }}
-            >{busy ? 'Please wait…' : (mode === 'create' ? 'Create room' : 'Join room')}</button>
+            >{busy ? 'Please wait…' : !ready ? 'Connecting…' : (mode === 'create' ? 'Create room' : 'Join room')}</button>
 
             {mode === 'join' ? (
               <button onClick={switchToCreate} style={{ background: 'none', border: 'none', color: 'var(--sp-text-faint)', fontSize: 13, cursor: 'pointer', textAlign: 'center', padding: 2 }}>or create a new room</button>
@@ -120,6 +116,10 @@ export default function JoinScreen({ onJoin, onCreate, joinError, prefillRoomCod
 
             {joinError && (
               <div style={{ color: 'var(--sp-warn-text)', fontSize: 13, textAlign: 'center' }}>{joinError}</div>
+            )}
+
+            {!joinError && notice && (
+              <div style={{ color: 'var(--sp-text-faint)', fontSize: 13, textAlign: 'center' }}>{notice}</div>
             )}
           </div>
         </div>

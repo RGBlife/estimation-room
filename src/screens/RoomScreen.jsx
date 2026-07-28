@@ -1,24 +1,49 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SeatTable from '../components/SeatTable.jsx';
 import VotingBar from '../components/VotingBar.jsx';
 import StatsBar from '../components/StatsBar.jsx';
 import { computeStats } from '../lib/stats.js';
 
+const STORY_MAX_LENGTH = 200;
+const STORY_DEBOUNCE_MS = 300;
+
 export default function RoomScreen({ room, roomCode, uid, actions }) {
   const [copied, setCopied] = useState(false);
-  const [voteError, setVoteError] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const me = room.participants[uid] || {};
   const isCreator = room.creatorId === uid;
   const isObserver = !!me.isObserver;
   const isRevealed = room.isRevealed;
 
+  // The story input is edited locally and written to Firestore debounced, so
+  // we don't do one write per keystroke and the snapshot echo can't fight the
+  // creator's in-progress typing.
+  const [storyDraft, setStoryDraft] = useState(room.story);
+  const storyInputRef = useRef(null);
+  const storyTimerRef = useRef(null);
+  useEffect(() => {
+    if (document.activeElement !== storyInputRef.current) setStoryDraft(room.story);
+  }, [room.story]);
+  useEffect(() => () => clearTimeout(storyTimerRef.current), []);
+
   const { anyVote, hasAverage, average, isWideSpread } = computeStats(room.participants);
 
+  const runAction = (fn, failureMessage) => {
+    setActionError(null);
+    fn().catch(() => setActionError(failureMessage));
+  };
+
   const handleCastVote = (value) => {
-    setVoteError(null);
-    actions.castVote(value).catch(() => {
-      setVoteError("Your vote didn't save — check your connection and try again.");
-    });
+    runAction(() => actions.castVote(value), "Your vote didn't save — check your connection and try again.");
+  };
+
+  const handleStoryChange = (e) => {
+    const value = e.target.value.slice(0, STORY_MAX_LENGTH);
+    setStoryDraft(value);
+    clearTimeout(storyTimerRef.current);
+    storyTimerRef.current = setTimeout(() => {
+      runAction(() => actions.setStory(value), "The story title didn't save — check your connection.");
+    }, STORY_DEBOUNCE_MS);
   };
 
   const handleCopy = () => {
@@ -44,8 +69,10 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
           {isCreator ? (
             <div style={{ position: 'relative', flex: 1, minWidth: 180, maxWidth: 420 }}>
               <input
-                value={room.story}
-                onChange={e => actions.setStory(e.target.value)}
+                ref={storyInputRef}
+                value={storyDraft}
+                onChange={handleStoryChange}
+                maxLength={STORY_MAX_LENGTH}
                 placeholder="Click to add a story title or ticket ref..."
                 style={{ width: '100%', background: 'transparent', border: '1px solid transparent', borderRadius: 7, padding: '6px 10px', color: 'var(--sp-text)', fontFamily: 'var(--sp-mono)', fontSize: 14, outline: 'none' }}
               />
@@ -57,20 +84,20 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {!isObserver ? (
-            <button onClick={() => actions.setRole(true)} style={{ background: 'var(--sp-panel-2)', border: '1px solid oklch(1 0 0 / 0.12)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
+            <button onClick={() => runAction(() => actions.setRole(true), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-panel-2)', border: '1px solid oklch(1 0 0 / 0.12)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
           ) : (
-            <button onClick={() => actions.setRole(false)} style={{ background: 'var(--sp-accent-panel-2)', border: '1px solid oklch(0.62 0.19 265 / 0.5)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-accent-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to voting</button>
+            <button onClick={() => runAction(() => actions.setRole(false), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-accent-panel-2)', border: '1px solid oklch(0.62 0.19 265 / 0.5)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-accent-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to voting</button>
           )}
           <button onClick={actions.leave} style={{ background: 'none', border: 'none', color: 'var(--sp-text-faintest)', fontSize: 12, cursor: 'pointer' }}>Leave room</button>
 
           {!isRevealed ? (
             <button
-              onClick={actions.reveal}
+              onClick={() => runAction(actions.reveal, "Couldn't reveal votes — try again.")}
               disabled={!anyVote}
               style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45 }}
             >Reveal votes</button>
           ) : (
-            <button onClick={actions.startNextRound} style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Start next round</button>
+            <button onClick={() => runAction(actions.startNextRound, "Couldn't start the next round — try again.")} style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Start next round</button>
           )}
         </div>
       </div>
@@ -79,9 +106,9 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
 
       <SeatTable participants={room.participants} uid={uid} roomCode={roomCode} isRevealed={isRevealed} />
 
-      {voteError && (
+      {actionError && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 92, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ background: 'var(--sp-warn-bg)', border: '1px solid var(--sp-warn-border)', color: 'var(--sp-warn-text)', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{voteError}</div>
+          <div style={{ background: 'var(--sp-warn-bg)', border: '1px solid var(--sp-warn-border)', color: 'var(--sp-warn-text)', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{actionError}</div>
         </div>
       )}
 
@@ -90,7 +117,7 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
         myVote={me.vote}
         isRevealed={isRevealed}
         onSelect={handleCastVote}
-        onJoinVoting={() => actions.setRole(false)}
+        onJoinVoting={() => runAction(() => actions.setRole(false), "Couldn't switch role — check your connection.")}
       />
     </>
   );

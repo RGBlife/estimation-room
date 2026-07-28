@@ -1,3 +1,5 @@
+import { participantAvatarSrc } from '../lib/avatar.js';
+
 function byJoinOrder([, a], [, b]) {
   return (a.joinedAt ?? 0) - (b.joinedAt ?? 0);
 }
@@ -42,7 +44,7 @@ export default function SeatTable({ participants, uid, roomCode, isRevealed }) {
     const hasVoted = p.vote != null;
     return {
       id, isMe,
-      avatarUrl: p.avatarUrl,
+      avatarUrl: participantAvatarSrc(p),
       size: isMe ? meAvatarSize : avatarSize,
       displayName: isMe ? p.name + ' (you)' : p.name,
       leftPct: left.toFixed(1) + '%',
@@ -88,7 +90,7 @@ export default function SeatTable({ participants, uid, roomCode, isRevealed }) {
           <span style={{ fontSize: 11, color: 'var(--sp-text-faintest)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Observing</span>
           {observers.map(([id, p]) => (
             <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: 0.6 }}>
-              <img src={p.avatarUrl} alt="" style={{ width: 24, height: 24, borderRadius: '50%', display: 'block' }} />
+              <img src={participantAvatarSrc(p)} alt="" style={{ width: 24, height: 24, borderRadius: '50%', display: 'block' }} />
               <span style={{ fontSize: 12, color: 'var(--sp-text-dim)' }}>{id === uid ? p.name + ' (you)' : p.name}</span>
             </div>
           ))}

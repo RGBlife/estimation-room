@@ -20,6 +20,43 @@ service cloud.firestore {
       return existingData().participants.diff(incomingData().participants).affectedKeys();
     }
 
+    // Key-set checks come before any field access: reading a missing field
+    // errors out the whole condition rather than evaluating false.
+    function validAvatar(a) {
+      return a is map
+        && a.keys().hasAll(['seed', 'bgIdx', 'glasses', 'earrings', 'flair'])
+        && a.keys().hasOnly(['seed', 'bgIdx', 'glasses', 'earrings', 'flair'])
+        && a.seed is string && a.seed.size() <= 32
+        && a.bgIdx is int && a.bgIdx >= 0 && a.bgIdx < 8
+        && a.glasses is bool && a.earrings is bool && a.flair is bool;
+    }
+
+    function validParticipant(p) {
+      return p is map
+        && (
+          // Current format: avatar options rendered locally by the client.
+          (p.keys().hasAll(['name', 'avatar', 'isObserver', 'vote', 'joinedAt'])
+            && p.keys().hasOnly(['name', 'avatar', 'isObserver', 'vote', 'joinedAt'])
+            && validAvatar(p.avatar))
+          ||
+          // Transitional: participants written by pre-local-avatar builds store
+          // a dicebear API URL. Removable once no such clients/rooms remain.
+          (p.keys().hasAll(['name', 'avatarUrl', 'isObserver', 'vote', 'joinedAt'])
+            && p.keys().hasOnly(['name', 'avatarUrl', 'isObserver', 'vote', 'joinedAt'])
+            && p.avatarUrl is string
+            && p.avatarUrl.size() <= 300
+            && p.avatarUrl.matches('https://api[.]dicebear[.]com/.*'))
+        )
+        && p.name is string && p.name.size() >= 1 && p.name.size() <= 40
+        && p.isObserver is bool
+        && p.joinedAt is number
+        && (p.vote == null || p.vote in ['0', '1', '2', '3', '5', '8', '13', '20', '?', '☕']);
+    }
+
+    function myIncomingParticipant() {
+      return incomingData().participants[request.auth.uid];
+    }
+
     match /rooms/{roomCode} {
 
       allow get: if true;
@@ -31,7 +68,8 @@ service cloud.firestore {
         && incomingData().story == ''
         && incomingData().creatorId == request.auth.uid
         && incomingData().participants.size() == 1
-        && incomingData().participants.keys()[0] == request.auth.uid;
+        && incomingData().participants.keys()[0] == request.auth.uid
+        && validParticipant(myIncomingParticipant());
 
       allow update: if isSignedIn() && (
         // A participant joining: adds exactly their own key, nothing else changes.
@@ -39,6 +77,7 @@ service cloud.firestore {
           changedParticipantKeys().hasOnly([request.auth.uid])
           && !(request.auth.uid in existingData().participants)
           && request.auth.uid in incomingData().participants
+          && validParticipant(myIncomingParticipant())
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
@@ -49,6 +88,8 @@ service cloud.firestore {
         (
           request.auth.uid in existingData().participants
           && changedParticipantKeys().hasOnly([request.auth.uid])
+          && request.auth.uid in incomingData().participants
+          && validParticipant(myIncomingParticipant())
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
@@ -86,6 +127,8 @@ service cloud.firestore {
         (
           request.auth.uid == existingData().creatorId
           && incomingData().diff(existingData()).affectedKeys().hasOnly(['story'])
+          && incomingData().story is string
+          && incomingData().story.size() <= 200
         )
         ||
         // Any current participant revealing votes. The "at least one vote cast"
@@ -108,7 +151,13 @@ service cloud.firestore {
         )
       );
 
-      allow delete: if isSignedIn() && request.auth.uid in existingData().participants;
+      // Participants can close their room; anyone signed in can garbage-collect
+      // a room whose participants map has emptied out (e.g. simultaneous
+      // leaves, where each leaver saw someone else remaining).
+      allow delete: if isSignedIn() && (
+        request.auth.uid in existingData().participants
+        || existingData().participants.size() == 0
+      );
     }
   }
 }

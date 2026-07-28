@@ -10,7 +10,13 @@ Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore
 4. `npm install`
 5. `npm run dev`
 
-Realtime Database is used only for presence (detecting when a tab closes/crashes so a participant is removed from the room automatically) — all room/vote data still lives in Firestore.
+`npm test` runs the unit tests (vitest).
+
+Realtime Database is used only for presence (detecting when a tab closes/crashes so a participant is removed from the room automatically) — all room/vote data still lives in Firestore. Presence is re-registered on every reconnect (via `.info/connected`), and other clients only remove a participant after they've been absent from presence for a continuous grace period, so brief network blips don't get anyone kicked.
+
+Avatars are generated locally with `@dicebear/core` — participants store just the avatar options, so nothing depends on the dicebear API at runtime.
+
+**When changing `firestore.rules` or `database.rules.json`, remember to re-publish them in the Firebase console** — they are not deployed automatically.
 
 ## Deployment (GitHub Pages)
 
@@ -33,5 +39,7 @@ Firebase web config values aren't secret in the traditional sense (they're safe 
 ## Future improvements
 
 - **Rate limiting on room creation.** Currently unbounded — an anonymous client can create rooms as fast as it wants. Firestore security rules can't track request rate across documents/time on their own; the practical options are a per-uid Firestore counter doc checked in rules, and/or Firebase App Check to block non-browser scripted abuse.
-- **Presence cleanup trust model.** Disconnect cleanup (tab close/crash) is detected via Realtime Database and enforced with a Firestore rule that lets any current participant remove one other participant's key once presence confirms they're gone. This is a client-trust model — a malicious client could in theory remove a still-connected participant — accepted as low-severity (a griefing annoyance, not a data exposure) to avoid needing Cloud Functions/Blaze billing.
-- **Bundle size.** The production build is ~900KB (mostly the Firebase SDK, now including Realtime Database). Could reduce with more aggressive tree-shaking or code-splitting if load time becomes a concern.
+- **Presence cleanup trust model.** Disconnect cleanup (tab close/crash) is detected via Realtime Database and enforced with a Firestore rule that lets any current participant remove one other participant's key once presence confirms they're gone. This is a client-trust model — a malicious client could in theory remove a still-connected participant — accepted as low-severity (a griefing annoyance, not a data exposure) to avoid needing Cloud Functions/Blaze billing. Mitigations in place: an 8s absence grace period, clients whose own presence entry is missing never remove anyone, and an evicted client detects its removal and exits to the join screen cleanly.
+- **Orphaned room documents.** If the last participant crashes (rather than leaving), no client remains to delete the room doc, so it lingers until someone reuses the code. A scheduled Cloud Function (Blaze) or a TTL policy on `createdAt` could garbage-collect these.
+- **Votes are readable pre-reveal.** Votes live in plaintext on the room document, so anyone with the room code can technically read them from the network tab before "Reveal". Fine for a trusting team; hiding them for real would need per-participant vote docs with read rules, revealed by a server-side step.
+- **Bundle size.** The production build is ~1.2MB minified / ~380KB gzipped (mostly the Firebase SDK plus the local dicebear avatar collection). Could reduce with code-splitting if load time becomes a concern.
