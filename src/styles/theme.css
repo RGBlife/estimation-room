@@ -3,9 +3,12 @@
   --sp-panel: oklch(0.21 0.012 260);
   --sp-panel-2: oklch(0.26 0.012 260);
   --sp-panel-3: oklch(0.29 0.012 260);
+  --sp-table-center: oklch(0.23 0.02 260);
   --sp-border: oklch(1 0 0 / 0.08);
   --sp-border-strong: oklch(1 0 0 / 0.16);
   --sp-border-stronger: oklch(1 0 0 / 0.28);
+  --sp-card-bg: oklch(0.19 0.012 260);
+  --sp-bar-track: oklch(1 0 0 / 0.14);
   --sp-text: oklch(0.95 0.005 260);
   --sp-text-dim: oklch(0.85 0.005 260);
   --sp-text-dimmer: oklch(0.7 0.005 260);
@@ -15,9 +18,12 @@
   --sp-accent: oklch(0.62 0.19 265);
   --sp-accent-hover: oklch(0.8 0.14 265);
   --sp-accent-text: oklch(0.72 0.14 265);
+  --sp-accent-on-card: oklch(0.95 0.01 265);
+  --sp-accent-glow: oklch(0.62 0.19 265 / 0.18);
   --sp-accent-panel: oklch(0.24 0.03 265);
   --sp-accent-panel-2: oklch(0.26 0.03 265);
   --sp-accent-panel-3: oklch(0.3 0.09 265);
+  --sp-accent-border: oklch(0.62 0.19 265 / 0.5);
   --sp-warn-bg: oklch(0.62 0.11 60 / 0.14);
   --sp-warn-border: oklch(0.62 0.11 60 / 0.4);
   --sp-warn-text: oklch(0.78 0.1 60);

@@ -20,7 +20,7 @@ const MIN_CARD_HEIGHT = 34;
 const BASE_NAME_WIDTH = 100;
 const MIN_NAME_WIDTH = 68;
 
-export default function SeatTable({ participants, uid, roomCode, isRevealed }) {
+export default function SeatTable({ participants, uid, isRevealed, anyVote, allVoted, onReveal }) {
   const active = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
   const observers = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
   const n = active.length;
@@ -62,23 +62,40 @@ export default function SeatTable({ participants, uid, roomCode, isRevealed }) {
     <>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 150px' }}>
         <div style={{ position: 'relative', width: '100%', maxWidth: tableMaxWidth, height: tableHeight }}>
-          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: '58%', height: '52%', borderRadius: '50%', background: 'oklch(0.23 0.02 260)', border: '1px solid var(--sp-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'var(--sp-mono)', fontSize: 12, color: 'oklch(0.4 0.01 260)' }}>{roomCode}</span>
+          <div
+            style={{
+              position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: '58%', height: '52%',
+              borderRadius: '50%', background: 'var(--sp-table-center)',
+              border: !isRevealed && allVoted ? '2px solid var(--sp-accent)' : '1px solid var(--sp-border)',
+              boxShadow: !isRevealed && allVoted ? '0 0 0 3px var(--sp-accent-glow)' : 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+            }}
+          >
+            {!isRevealed && (
+              <button
+                onClick={onReveal}
+                disabled={!anyVote}
+                style={{
+                  background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
+                  fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
+                }}
+              >Reveal votes</button>
+            )}
           </div>
 
           {seats.map(seat => (
             <div key={seat.id} style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, left: seat.leftPct, top: seat.topPct, transform: 'translate(-50%,-50%)' }}>
-              <img src={seat.avatarUrl} alt="" style={{ width: seat.size, height: seat.size, borderRadius: '50%', display: 'block', background: 'oklch(0.19 0.012 260)', border: '1px solid var(--sp-border)' }} />
+              <img src={seat.avatarUrl} alt="" style={{ width: seat.size, height: seat.size, borderRadius: '50%', display: 'block', background: 'var(--sp-card-bg)', border: '1px solid var(--sp-border)' }} />
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sp-text-dim)', maxWidth: nameWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{seat.displayName}</div>
 
               {seat.showBlank && (
-                <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'oklch(0.19 0.012 260)', border: '1.5px solid var(--sp-border-strong)' }} />
+                <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)' }} />
               )}
               {seat.showPlaced && (
                 <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: cardFontSize, fontWeight: 700 }}>?</div>
               )}
               {seat.showValue && (
-                <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'oklch(0.95 0.01 265)', fontFamily: 'var(--sp-mono)', fontSize: cardFontSize, fontWeight: 700 }}>{seat.voteValue}</div>
+                <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)', fontSize: cardFontSize, fontWeight: 700 }}>{seat.voteValue}</div>
               )}
             </div>
           ))}

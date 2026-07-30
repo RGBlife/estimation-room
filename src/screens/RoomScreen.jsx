@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import SeatTable from '../components/SeatTable.jsx';
 import VotingBar from '../components/VotingBar.jsx';
-import StatsBar from '../components/StatsBar.jsx';
-import { computeStats } from '../lib/stats.js';
+import { computeStats, computeDistribution } from '../lib/stats.js';
 
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;
@@ -26,7 +25,8 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
   }, [room.story]);
   useEffect(() => () => clearTimeout(storyTimerRef.current), []);
 
-  const { anyVote, hasAverage, average, isWideSpread } = computeStats(room.participants);
+  const { anyVote, allVoted, hasAverage, average, isWideSpread } = computeStats(room.participants);
+  const distribution = isRevealed ? computeDistribution(room.participants) : [];
 
   const runAction = (fn, failureMessage) => {
     setActionError(null);
@@ -35,6 +35,14 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
 
   const handleCastVote = (value) => {
     runAction(() => actions.castVote(value), "Your vote didn't save — check your connection and try again.");
+  };
+
+  const handleReveal = () => {
+    runAction(actions.reveal, "Couldn't reveal votes — try again.");
+  };
+
+  const handleStartNextRound = () => {
+    runAction(actions.startNextRound, "Couldn't start the next round — try again.");
   };
 
   const handleStoryChange = (e) => {
@@ -84,27 +92,22 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {!isObserver ? (
-            <button onClick={() => runAction(() => actions.setRole(true), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-panel-2)', border: '1px solid oklch(1 0 0 / 0.12)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
+            <button onClick={() => runAction(() => actions.setRole(true), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border-strong)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
           ) : (
-            <button onClick={() => runAction(() => actions.setRole(false), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-accent-panel-2)', border: '1px solid oklch(0.62 0.19 265 / 0.5)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-accent-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to voting</button>
+            <button onClick={() => runAction(() => actions.setRole(false), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-accent-panel-2)', border: '1px solid var(--sp-accent-border)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-accent-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to voting</button>
           )}
           <button onClick={actions.leave} style={{ background: 'none', border: 'none', color: 'var(--sp-text-faintest)', fontSize: 12, cursor: 'pointer' }}>Leave room</button>
-
-          {!isRevealed ? (
-            <button
-              onClick={() => runAction(actions.reveal, "Couldn't reveal votes — try again.")}
-              disabled={!anyVote}
-              style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45 }}
-            >Reveal votes</button>
-          ) : (
-            <button onClick={() => runAction(actions.startNextRound, "Couldn't start the next round — try again.")} style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Start next round</button>
-          )}
         </div>
       </div>
 
-      {isRevealed && <StatsBar hasAverage={hasAverage} average={average} isWideSpread={isWideSpread} />}
-
-      <SeatTable participants={room.participants} uid={uid} roomCode={roomCode} isRevealed={isRevealed} />
+      <SeatTable
+        participants={room.participants}
+        uid={uid}
+        isRevealed={isRevealed}
+        anyVote={anyVote}
+        allVoted={allVoted}
+        onReveal={handleReveal}
+      />
 
       {actionError && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 92, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
@@ -118,6 +121,11 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
         isRevealed={isRevealed}
         onSelect={handleCastVote}
         onJoinVoting={() => runAction(() => actions.setRole(false), "Couldn't switch role — check your connection.")}
+        distribution={distribution}
+        hasAverage={hasAverage}
+        average={average}
+        isWideSpread={isWideSpread}
+        onStartNextRound={handleStartNextRound}
       />
     </>
   );
