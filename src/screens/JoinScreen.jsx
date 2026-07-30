@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import AvatarBuilder from '../components/AvatarBuilder.jsx';
+import ThemeToggle from '../components/ThemeToggle.jsx';
 import { randomRoomCode } from '../lib/roomCode.js';
 import { loadProfile, saveProfile } from '../lib/profile.js';
 
@@ -11,7 +12,7 @@ const randomAvatar = () => ({
   flair: false,
 });
 
-export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready }) {
+export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme }) {
   const [storedProfile] = useState(loadProfile);
   const [avatar, setAvatar] = useState(() => storedProfile?.avatar ?? randomAvatar());
   const [name, setName] = useState(() => storedProfile?.name ?? '');
@@ -47,6 +48,9 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
       <div style={{ width: '100%', maxWidth: 460, animation: 'sp-fade-in 0.4s ease' }}>
 
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 28 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sp-mono)', fontWeight: 700, fontSize: 13, color: 'var(--sp-bg)' }}>ER</div>
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Estimation Room</span>

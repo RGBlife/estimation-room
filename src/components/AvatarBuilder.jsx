@@ -7,7 +7,7 @@ function toggleBtnStyle(active) {
     border: `1px solid ${active ? 'var(--sp-accent)' : 'var(--sp-border)'}`,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer',
-    color: active ? 'oklch(0.85 0.14 265)' : 'var(--sp-text-dimmer)',
+    color: active ? 'var(--sp-accent-text-strong)' : 'var(--sp-text-dimmer)',
     flex: 'none',
   };
 }
@@ -22,7 +22,7 @@ export default function AvatarBuilder({ avatar, onChange }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginBottom: 24, width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 104, height: 104, borderRadius: '50%', overflow: 'hidden', flex: 'none', background: 'var(--sp-bg)', border: '1px solid oklch(1 0 0 / 0.1)' }}>
+        <div style={{ width: 104, height: 104, borderRadius: '50%', overflow: 'hidden', flex: 'none', background: 'var(--sp-bg)', border: '1px solid var(--sp-card-idle-border)' }}>
           <img src={avatarUrl} alt="avatar preview" style={{ width: '100%', height: '100%', display: 'block' }} />
         </div>
         <button

@@ -14,6 +14,17 @@
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Estimation Room" />
   <meta name="twitter:description" content="Real-time collaborative estimation for agile teams — join a room, vote, and reveal together." />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('sp_theme');
+        var theme = saved === 'light' || saved === 'dark'
+          ? saved
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

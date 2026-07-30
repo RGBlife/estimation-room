@@ -3,6 +3,7 @@ import JoinScreen from './screens/JoinScreen.jsx';
 import RoomScreen from './screens/RoomScreen.jsx';
 import { useRoom } from './lib/useRoom.js';
 import { loadProfile } from './lib/profile.js';
+import { loadTheme, saveTheme } from './lib/theme.js';
 
 function roomCodeFromUrl() {
   const code = new URLSearchParams(window.location.search).get('room');
@@ -21,6 +22,22 @@ export default function App() {
   // underneath a pending auto-join (and can't take edits that the auto-join
   // would then silently discard).
   const [autoJoining, setAutoJoining] = useState(() => !!(roomCodeFromUrl() && loadProfile()));
+  // The inline script in index.html already set data-theme on <html> before
+  // paint (avoiding a flash); read that back instead of recomputing it, so
+  // this state and the DOM start in agreement.
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || loadTheme());
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(t => {
+      const next = t === 'dark' ? 'light' : 'dark';
+      saveTheme(next);
+      return next;
+    });
+  };
 
   const handleCreate = async (payload) => {
     setJoinError(null);
@@ -96,6 +113,8 @@ export default function App() {
           notice={notice}
           prefillRoomCode={initialRoomCode}
           ready={!!uid}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       ) : (
         <RoomScreen
@@ -103,6 +122,8 @@ export default function App() {
           roomCode={roomCode}
           uid={uid}
           actions={{ setRole, castVote, setStory, reveal, startNextRound, leave }}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       )}
     </div>

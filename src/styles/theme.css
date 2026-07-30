@@ -8,6 +8,7 @@
   --sp-border-strong: oklch(1 0 0 / 0.16);
   --sp-border-stronger: oklch(1 0 0 / 0.28);
   --sp-card-bg: oklch(0.19 0.012 260);
+  --sp-card-idle-border: oklch(1 0 0 / 0.1);
   --sp-bar-track: oklch(1 0 0 / 0.14);
   --sp-text: oklch(0.95 0.005 260);
   --sp-text-dim: oklch(0.85 0.005 260);
@@ -18,6 +19,7 @@
   --sp-accent: oklch(0.62 0.19 265);
   --sp-accent-hover: oklch(0.8 0.14 265);
   --sp-accent-text: oklch(0.72 0.14 265);
+  --sp-accent-text-strong: oklch(0.85 0.14 265);
   --sp-accent-on-card: oklch(0.95 0.01 265);
   --sp-accent-glow: oklch(0.62 0.19 265 / 0.18);
   --sp-accent-panel: oklch(0.24 0.03 265);
@@ -29,6 +31,39 @@
   --sp-warn-text: oklch(0.78 0.1 60);
   --sp-font: 'Manrope', sans-serif;
   --sp-mono: 'JetBrains Mono', monospace;
+}
+
+:root[data-theme='light'] {
+  --sp-bg: oklch(0.95 0.005 260);
+  --sp-panel: oklch(0.99 0.002 260);
+  --sp-panel-2: oklch(0.89 0.008 260);
+  --sp-panel-3: oklch(0.83 0.008 260);
+  --sp-table-center: oklch(0.86 0.012 260);
+  --sp-border: oklch(0 0 0 / 0.14);
+  --sp-border-strong: oklch(0 0 0 / 0.24);
+  --sp-border-stronger: oklch(0 0 0 / 0.36);
+  --sp-card-bg: oklch(0.89 0.008 260);
+  --sp-card-idle-border: oklch(0 0 0 / 0.16);
+  --sp-bar-track: oklch(0 0 0 / 0.16);
+  --sp-text: oklch(0.15 0.012 260);
+  --sp-text-dim: oklch(0.26 0.012 260);
+  --sp-text-dimmer: oklch(0.34 0.012 260);
+  --sp-text-faint: oklch(0.4 0.012 260);
+  --sp-text-faintest: oklch(0.45 0.012 260);
+  --sp-text-placeholder: oklch(0.5 0.012 260);
+  --sp-accent: oklch(0.52 0.2 265);
+  --sp-accent-hover: oklch(0.38 0.17 265);
+  --sp-accent-text: oklch(0.45 0.18 265);
+  --sp-accent-text-strong: oklch(0.38 0.18 265);
+  --sp-accent-on-card: oklch(0.26 0.14 265);
+  --sp-accent-glow: oklch(0.52 0.2 265 / 0.2);
+  --sp-accent-panel: oklch(0.89 0.045 265);
+  --sp-accent-panel-2: oklch(0.86 0.055 265);
+  --sp-accent-panel-3: oklch(0.83 0.09 265);
+  --sp-accent-border: oklch(0.52 0.2 265 / 0.55);
+  --sp-warn-bg: oklch(0.62 0.11 60 / 0.18);
+  --sp-warn-border: oklch(0.55 0.13 60 / 0.5);
+  --sp-warn-text: oklch(0.36 0.12 60);
 }
 
 body {

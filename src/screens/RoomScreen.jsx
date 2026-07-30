@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import SeatTable from '../components/SeatTable.jsx';
 import VotingBar from '../components/VotingBar.jsx';
+import ThemeToggle from '../components/ThemeToggle.jsx';
 import { computeStats, computeDistribution } from '../lib/stats.js';
 
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;
 
-export default function RoomScreen({ room, roomCode, uid, actions }) {
+export default function RoomScreen({ room, roomCode, uid, actions, theme, onToggleTheme }) {
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState(null);
   const me = room.participants[uid] || {};
@@ -91,6 +92,7 @@ export default function RoomScreen({ room, roomCode, uid, actions }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} size={34} />
           {!isObserver ? (
             <button onClick={() => runAction(() => actions.setRole(true), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border-strong)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
           ) : (
