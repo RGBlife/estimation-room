@@ -3,14 +3,19 @@ import { participantAvatarSrc } from '../lib/avatar.js';
 
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
+const STAGGER_MS = 45;
 
 function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound }) {
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '4px 0' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {distribution.map(d => (
-          <div key={d.value} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        {distribution.map((d, i) => (
+          <div
+            key={d.value}
+            className="sp-dist-column"
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, animationDelay: `${i * STAGGER_MS}ms` }}
+          >
             <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 4, alignItems: 'center', minHeight: 26 }}>
               {d.voters.map((v, i) => (
                 <img
@@ -22,11 +27,13 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
               ))}
             </div>
             <div
+              className="sp-dist-bar"
               style={{
                 width: 38,
                 height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
                 background: d.isTop ? 'var(--sp-accent)' : 'var(--sp-bar-track)',
                 borderRadius: '5px 5px 0 0',
+                animationDelay: `${i * STAGGER_MS}ms`,
               }}
             />
             <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 14, fontWeight: 700, color: 'var(--sp-text)' }}>{d.value}</div>
@@ -34,7 +41,13 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
         ))}
 
         {hasAverage && (
-          <div style={{ textAlign: 'center', paddingLeft: 8, borderLeft: '1px solid var(--sp-border)', marginLeft: 4 }}>
+          <div
+            className="sp-dist-average"
+            style={{
+              textAlign: 'center', paddingLeft: 8, borderLeft: '1px solid var(--sp-border)', marginLeft: 4,
+              animationDelay: `${distribution.length * STAGGER_MS}ms`,
+            }}
+          >
             <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 24, fontWeight: 700, color: 'var(--sp-text)' }}>{average}</div>
             <div style={{ fontSize: 11, color: 'var(--sp-text-faint)', marginTop: 2 }}>average</div>
           </div>
@@ -42,7 +55,14 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
       </div>
 
       {isWideSpread && (
-        <div style={{ background: 'var(--sp-warn-bg)', border: '1px solid var(--sp-warn-border)', color: 'var(--sp-warn-text)', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>⚠ Wide spread — discuss?</div>
+        <div
+          className="sp-dist-average"
+          style={{
+            background: 'var(--sp-warn-bg)', border: '1px solid var(--sp-warn-border)', color: 'var(--sp-warn-text)',
+            padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            animationDelay: `${distribution.length * STAGGER_MS + 80}ms`,
+          }}
+        >⚠ Wide spread — discuss?</div>
       )}
 
       <button

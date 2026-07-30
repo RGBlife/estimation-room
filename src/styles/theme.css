@@ -97,6 +97,29 @@ a:hover {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes sp-bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes sp-fade-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sp-dist-bar {
+  transform-origin: bottom;
+  animation: sp-bar-grow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.sp-dist-column {
+  animation: sp-fade-rise 0.35s ease backwards;
+}
+
+.sp-dist-average {
+  animation: sp-fade-rise 0.35s ease backwards;
+}
+
 .sp-app {
   min-height: 100vh;
   width: 100%;
