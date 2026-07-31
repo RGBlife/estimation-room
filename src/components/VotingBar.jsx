@@ -1,5 +1,4 @@
 import { CARD_VALUES } from '../lib/avatar.js';
-import { participantAvatarSrc } from '../lib/avatar.js';
 
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
@@ -16,16 +15,6 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
             className="sp-dist-column"
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, animationDelay: `${i * STAGGER_MS}ms` }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 4, alignItems: 'center', minHeight: 26 }}>
-              {d.voters.map((v, i) => (
-                <img
-                  key={i}
-                  src={participantAvatarSrc(v)}
-                  alt=""
-                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1.5px solid var(--sp-panel)', display: 'block' }}
-                />
-              ))}
-            </div>
             <div
               className="sp-dist-bar"
               style={{
@@ -33,9 +22,12 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
                 height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
                 background: d.isTop ? 'var(--sp-accent)' : 'var(--sp-bar-track)',
                 borderRadius: '5px 5px 0 0',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 4,
                 animationDelay: `${i * STAGGER_MS}ms`,
               }}
-            />
+            >
+              <span style={{ fontFamily: 'var(--sp-mono)', fontSize: 11, fontWeight: 700, color: d.isTop ? 'var(--sp-bg)' : 'var(--sp-text-dim)' }}>{d.count}</span>
+            </div>
             <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 14, fontWeight: 700, color: 'var(--sp-text)' }}>{d.value}</div>
           </div>
         ))}
