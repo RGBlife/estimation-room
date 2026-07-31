@@ -1,4 +1,5 @@
 import { participantAvatarSrc } from '../lib/avatar.js';
+import useMediaQuery from '../lib/useMediaQuery.js';
 import ObserverRail from './ObserverRail.jsx';
 import ThrowOverlay from './ThrowOverlay.jsx';
 
@@ -6,21 +7,71 @@ function byJoinOrder([, a], [, b]) {
   return (a.joinedAt ?? 0) - (b.joinedAt ?? 0);
 }
 
-// Base layout comfortably fits 8 seats. Beyond that, grow the table and
-// shrink avatars so seats stay evenly spaced without overlapping.
-const BASE_SEAT_COUNT = 8;
-const BASE_MAX_WIDTH = 820;
-const BASE_HEIGHT = 420;
-const BASE_AVATAR_SIZE = 52;
-const BASE_ME_AVATAR_SIZE = 60;
-const MIN_AVATAR_SIZE = 34;
-const MIN_ME_AVATAR_SIZE = 38;
-const BASE_CARD_WIDTH = 34;
-const BASE_CARD_HEIGHT = 48;
-const MIN_CARD_WIDTH = 24;
-const MIN_CARD_HEIGHT = 34;
-const BASE_NAME_WIDTH = 100;
-const MIN_NAME_WIDTH = 68;
+// Seats sit in wrapping flex rows above and below the table, plus one on each
+// table end on wide viewports, so any player count lays out without overlap.
+// Two sizing steps: default, and compact once the room gets big — wrapping
+// absorbs crowding, so no continuous shrink is needed.
+const SEAT_GAP = 8;
+const DEFAULT_SIZES = { seatW: 96, avatar: 52, meAvatar: 60, cardW: 34, cardH: 48, cardFont: 16 };
+const COMPACT_SIZES = { seatW: 78, avatar: 40, meAvatar: 46, cardW: 26, cardH: 36, cardFont: 12 };
+const COMPACT_AT = 17;
+const STAGE_MAX_CAP = 1180;
+const TABLE_HEIGHT = 170;
+const TABLE_MIN_WIDTH = 200;
+const END_SEAT_BREAKPOINT = '(min-width: 640px)';
+
+// Index-based so nobody reshuffles when someone joins (new joiners sort last
+// by joinedAt). Ends are pinned to indices 2 and 3; everyone else alternates
+// bottom/top, keeping the rows balanced within one seat.
+function distributeSeats(seats, useEnds) {
+  const top = [];
+  const bottom = [];
+  let leftEnd = null;
+  let rightEnd = null;
+  seats.forEach((seat, idx) => {
+    if (useEnds && idx === 2) { leftEnd = seat; return; }
+    if (useEnds && idx === 3) { rightEnd = seat; return; }
+    (idx % 2 === 0 ? bottom : top).push(seat);
+  });
+  return { top, bottom, leftEnd, rightEnd };
+}
+
+// reverse flips the column so the vote card sits adjacent to the table on the
+// bottom row.
+function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }) {
+  const canClick = canTarget && !seat.isMe;
+  return (
+    <div style={{ width: sizes.seatW, flexShrink: 0, display: 'flex', flexDirection: reverse ? 'column-reverse' : 'column', alignItems: 'center', gap: 8 }}>
+      <img
+        ref={node => registerSeatNode(seat.id, node)}
+        src={seat.avatarUrl}
+        alt=""
+        onClick={canClick ? (e) => onThrowAt(seat.id, e) : undefined}
+        style={{ width: seat.size, height: seat.size, borderRadius: '50%', display: 'block', background: 'var(--sp-card-bg)', border: '1px solid var(--sp-border)', cursor: canClick ? 'crosshair' : 'default' }}
+      />
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sp-text-dim)', maxWidth: sizes.seatW - 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{seat.displayName}</div>
+
+      {seat.showBlank && (
+        <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)' }} />
+      )}
+      {seat.showPlaced && (
+        <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>?</div>
+      )}
+      {seat.showValue && (
+        <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>{seat.voteValue}</div>
+      )}
+    </div>
+  );
+}
+
+function SeatRow({ seats, reverse, ...seatProps }) {
+  if (seats.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: reverse ? 'flex-start' : 'flex-end', gap: `14px ${SEAT_GAP}px` }}>
+      {seats.map(seat => <Seat key={seat.id} seat={seat} reverse={reverse} {...seatProps} />)}
+    </div>
+  );
+}
 
 export default function SeatTable({
   participants, uid, isRevealed, anyVote, allVoted, onReveal,
@@ -30,31 +81,20 @@ export default function SeatTable({
   const observers = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
   const n = active.length;
   const votedCount = active.filter(([, p]) => p.vote != null).length;
+  // One breakpoint governs both wide-only behaviors: end seats on the table's
+  // short sides, and the vertical observer rail (which drops below the table
+  // on narrow viewports so seats keep the full width).
+  const wide = useMediaQuery(END_SEAT_BREAKPOINT);
+  const sizes = n >= COMPACT_AT ? COMPACT_SIZES : DEFAULT_SIZES;
 
-  const growth = Math.max(1, n / BASE_SEAT_COUNT);
-  const tableMaxWidth = Math.round(BASE_MAX_WIDTH * Math.min(growth, 1.8));
-  const tableHeight = Math.round(BASE_HEIGHT * Math.min(growth, 1.6));
-  const shrink = n > BASE_SEAT_COUNT ? BASE_SEAT_COUNT / n : 1;
-  const avatarSize = Math.max(MIN_AVATAR_SIZE, Math.round(BASE_AVATAR_SIZE * shrink));
-  const meAvatarSize = Math.max(MIN_ME_AVATAR_SIZE, Math.round(BASE_ME_AVATAR_SIZE * shrink));
-  const cardWidth = Math.max(MIN_CARD_WIDTH, Math.round(BASE_CARD_WIDTH * shrink));
-  const cardHeight = Math.max(MIN_CARD_HEIGHT, Math.round(BASE_CARD_HEIGHT * shrink));
-  const nameWidth = Math.max(MIN_NAME_WIDTH, Math.round(BASE_NAME_WIDTH * shrink));
-
-  const seats = active.map(([id, p], idx) => {
-    const thetaDeg = 180 + idx * (360 / Math.max(n, 1));
-    const thetaRad = thetaDeg * Math.PI / 180;
-    const left = 50 + 44 * Math.sin(thetaRad);
-    const top = 50 - 32 * Math.cos(thetaRad);
+  const seats = active.map(([id, p]) => {
     const isMe = id === uid;
     const hasVoted = p.vote != null;
     return {
       id, isMe,
       avatarUrl: participantAvatarSrc(p),
-      size: isMe ? meAvatarSize : avatarSize,
+      size: isMe ? sizes.meAvatar : sizes.avatar,
       displayName: isMe ? p.name + ' (you)' : p.name,
-      leftPct: left.toFixed(1) + '%',
-      topPct: top.toFixed(1) + '%',
       showBlank: !isRevealed && !hasVoted,
       showPlaced: !isRevealed && hasVoted,
       showValue: isRevealed,
@@ -62,73 +102,61 @@ export default function SeatTable({
     };
   });
 
-  const cardFontSize = Math.max(11, Math.round(16 * shrink));
+  const { top, bottom, leftEnd, rightEnd } = distributeSeats(seats, wide);
+  const widestRow = Math.max(top.length, bottom.length, 1);
+  const stageMaxWidth = Math.min(STAGE_MAX_CAP, Math.max(360, widestRow * (sizes.seatW + SEAT_GAP) + 48));
+  // Clearance for the fixed VotingBar, which is much taller when the
+  // distribution panel renders after reveal.
+  const bottomClearance = isRevealed ? 300 : 120;
+  const seatProps = { canTarget, onThrowAt, registerSeatNode, sizes };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0 }}>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 150px' }}>
-        <div ref={stageRef} style={{ position: 'relative', width: '100%', maxWidth: tableMaxWidth, height: tableHeight }}>
-          <div
-            style={{
-              position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: '58%', height: '52%',
-              borderRadius: '50%', background: 'var(--sp-table-center)',
-              border: !isRevealed && allVoted ? '2px solid var(--sp-accent)' : '1px solid var(--sp-border)',
-              boxShadow: !isRevealed && allVoted ? '0 0 0 3px var(--sp-accent-glow)' : 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-            }}
-          >
-            {!isRevealed && (
-              allVoted ? (
-                <button
-                  onClick={onReveal}
-                  disabled={!anyVote}
-                  style={{
-                    background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
-                    fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
-                  }}
-                >Reveal votes</button>
-              ) : (
-                <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 15, fontWeight: 700, color: 'var(--sp-text-dim)' }}>
-                  {votedCount}/{n}
-                </div>
-              )
-            )}
+    // The stage contains every throwable avatar (seats and observers), so
+    // ThrowOverlay's rect math is valid for all targets.
+    <div ref={stageRef} style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: `20px 16px ${bottomClearance}px` }}>
+        <div style={{ width: '100%', maxWidth: stageMaxWidth, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <SeatRow seats={top} {...seatProps} />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {leftEnd && <Seat seat={leftEnd} {...seatProps} />}
+            <div
+              style={{
+                flex: 1, minWidth: TABLE_MIN_WIDTH, height: TABLE_HEIGHT, borderRadius: 28, background: 'var(--sp-table-center)',
+                border: !isRevealed && allVoted ? '2px solid var(--sp-accent)' : '1px solid var(--sp-border)',
+                boxShadow: !isRevealed && allVoted ? '0 0 0 3px var(--sp-accent-glow)' : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+              }}
+            >
+              {!isRevealed && (
+                allVoted ? (
+                  <button
+                    onClick={onReveal}
+                    disabled={!anyVote}
+                    style={{
+                      background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
+                      fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
+                    }}
+                  >Reveal votes</button>
+                ) : (
+                  <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 15, fontWeight: 700, color: 'var(--sp-text-dim)' }}>
+                    {votedCount}/{n}
+                  </div>
+                )
+              )}
+            </div>
+            {rightEnd && <Seat seat={rightEnd} {...seatProps} />}
           </div>
 
-          {seats.map(seat => {
-            const canClick = canTarget && !seat.isMe;
-            return (
-              <div
-                key={seat.id}
-                style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, left: seat.leftPct, top: seat.topPct, transform: 'translate(-50%,-50%)' }}
-              >
-                <img
-                  ref={node => registerSeatNode(seat.id, node)}
-                  src={seat.avatarUrl}
-                  alt=""
-                  onClick={canClick ? (e) => onThrowAt(seat.id, e) : undefined}
-                  style={{ width: seat.size, height: seat.size, borderRadius: '50%', display: 'block', background: 'var(--sp-card-bg)', border: '1px solid var(--sp-border)', cursor: canClick ? 'crosshair' : 'default' }}
-                />
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sp-text-dim)', maxWidth: nameWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{seat.displayName}</div>
+          <SeatRow seats={bottom} reverse {...seatProps} />
 
-                {seat.showBlank && (
-                  <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)' }} />
-                )}
-                {seat.showPlaced && (
-                  <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: cardFontSize, fontWeight: 700 }}>?</div>
-                )}
-                {seat.showValue && (
-                  <div style={{ width: cardWidth, height: cardHeight, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)', fontSize: cardFontSize, fontWeight: 700 }}>{seat.voteValue}</div>
-                )}
-              </div>
-            );
-          })}
-
-          <ThrowOverlay throws={throws} getSeatNode={getSeatNode} stageNode={stageRef.current} onThrowDone={onThrowDone} />
+          {!wide && <ObserverRail horizontal observers={observers} uid={uid} canTarget={canTarget} onThrowAt={onThrowAt} registerSeatNode={registerSeatNode} />}
         </div>
       </div>
 
-      <ObserverRail observers={observers} uid={uid} canTarget={canTarget} onThrowAt={onThrowAt} registerSeatNode={registerSeatNode} />
+      {wide && <ObserverRail observers={observers} uid={uid} canTarget={canTarget} onThrowAt={onThrowAt} registerSeatNode={registerSeatNode} />}
+
+      <ThrowOverlay throws={throws} getSeatNode={getSeatNode} stageNode={stageRef.current} onThrowDone={onThrowDone} />
     </div>
   );
 }

@@ -5,16 +5,40 @@ import ThemeToggle from '../components/ThemeToggle.jsx';
 import WeaponTray from '../components/WeaponTray.jsx';
 import { computeStats, computeDistribution } from '../lib/stats.js';
 import { WEAPONS } from '../lib/weapons.js';
+import { randomAvatar, CARD_VALUES } from '../lib/avatar.js';
 
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;
+
+// Dev-only layout testing: ?fakes=N&fakeobs=M merges N fake voters and M fake
+// observers into the room client-side. Never written to Firestore, stripped
+// from production builds.
+const FAKE_PARTICIPANTS = (() => {
+  if (!import.meta.env.DEV) return null;
+  const params = new URLSearchParams(window.location.search);
+  const fakes = Number(params.get('fakes') || 0);
+  const fakeObs = Number(params.get('fakeobs') || 0);
+  if (!fakes && !fakeObs) return null;
+  const out = {};
+  for (let i = 0; i < fakes + fakeObs; i++) {
+    out[`fake-${i}`] = {
+      name: `Player ${i + 1}`,
+      avatar: randomAvatar(),
+      joinedAt: 1e12 + i,
+      isObserver: i >= fakes,
+      vote: i < fakes ? CARD_VALUES[i % 8] : null,
+    };
+  }
+  return out;
+})();
 
 export default function RoomScreen({ room, roomCode, uid, throws, actions, theme, onToggleTheme }) {
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [weaponTrayOpen, setWeaponTrayOpen] = useState(false);
   const [equippedWeaponId, setEquippedWeaponId] = useState(null);
-  const me = room.participants[uid] || {};
+  const participants = FAKE_PARTICIPANTS ? { ...FAKE_PARTICIPANTS, ...room.participants } : room.participants;
+  const me = participants[uid] || {};
   const isCreator = room.creatorId === uid;
   const isObserver = !!me.isObserver;
   const isRevealed = room.isRevealed;
@@ -40,8 +64,8 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   }, [room.story]);
   useEffect(() => () => clearTimeout(storyTimerRef.current), []);
 
-  const { anyVote, allVoted, hasAverage, average, isWideSpread } = computeStats(room.participants);
-  const distribution = isRevealed ? computeDistribution(room.participants) : [];
+  const { anyVote, allVoted, hasAverage, average, isWideSpread } = computeStats(participants);
+  const distribution = isRevealed ? computeDistribution(participants) : [];
 
   const runAction = (fn, failureMessage) => {
     setActionError(null);
@@ -129,7 +153,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} size={34} />
           {!isObserver && (
             <button onClick={() => setWeaponTrayOpen(true)} style={{ border: 'none', background: 'var(--sp-accent)', color: 'var(--sp-bg)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
@@ -155,7 +179,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
       )}
 
       <SeatTable
-        participants={room.participants}
+        participants={participants}
         uid={uid}
         isRevealed={isRevealed}
         anyVote={anyVote}

@@ -1,23 +1,32 @@
 import { participantAvatarSrc } from '../lib/avatar.js';
 
 // Each observer sits on a small CSS-drawn chair: back, two legs, seat, avatar
-// on top, and a "gaze" triangle pointing toward the table.
-export default function ObserverRail({ observers, uid, canTarget = false, onThrowAt, registerSeatNode = () => {} }) {
+// on top, and a "gaze" triangle pointing toward the table. Vertical rail on the
+// right of the table by default; `horizontal` renders it as a wrapping strip
+// instead, for narrow viewports where a side rail would starve the seats.
+export default function ObserverRail({ observers, uid, canTarget = false, onThrowAt, registerSeatNode = () => {}, horizontal = false }) {
   if (observers.length === 0) return null;
 
-  return (
-    <div
-      style={{
+  const containerStyle = horizontal
+    ? {
+        width: '100%', background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)',
+        display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center', padding: '14px 10px', gap: 10,
+      }
+    : {
         width: 150, flexShrink: 0, background: 'var(--sp-panel)', borderLeft: '1px solid var(--sp-border)',
         display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '18px 10px', gap: 10, overflowY: 'auto',
-      }}
-    >
-      <div style={{ fontWeight: 800, color: 'var(--sp-text-faint)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+      };
+
+  return (
+    <div style={containerStyle}>
+      <div style={{ width: horizontal ? '100%' : undefined, textAlign: 'center', fontWeight: 800, color: 'var(--sp-text-faint)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
         Observers
       </div>
-      <div style={{ fontSize: 10, color: 'var(--sp-text-faintest)', textAlign: 'center', lineHeight: 1.4, marginBottom: 4 }}>
-        Seated at the rail, watching the table
-      </div>
+      {!horizontal && (
+        <div style={{ fontSize: 10, color: 'var(--sp-text-faintest)', textAlign: 'center', lineHeight: 1.4, marginBottom: 4 }}>
+          Seated at the rail, watching the table
+        </div>
+      )}
 
       {observers.map(([id, p]) => {
         const canClick = canTarget && id !== uid;
