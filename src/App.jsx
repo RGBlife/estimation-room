@@ -10,6 +10,14 @@ function roomCodeFromUrl() {
   return code ? code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) : null;
 }
 
+// A profile with no name yet (e.g. someone who loaded the join screen but
+// never typed one) can't join a room — Firestore rules require a non-empty
+// name. Auto-join must fall back to the form rather than attempt that write.
+function usableProfile() {
+  const profile = loadProfile();
+  return profile?.name?.trim() ? profile : null;
+}
+
 export default function App() {
   const { uid, room, roomCode, error, notice, createRoom, joinRoom, setRole, castVote, setStory, reveal, startNextRound, leave } = useRoom();
   const [joinError, setJoinError] = useState(null);
@@ -21,7 +29,7 @@ export default function App() {
   // Decided synchronously on first render so the join form never flashes
   // underneath a pending auto-join (and can't take edits that the auto-join
   // would then silently discard).
-  const [autoJoining, setAutoJoining] = useState(() => !!(roomCodeFromUrl() && loadProfile()));
+  const [autoJoining, setAutoJoining] = useState(() => !!(roomCodeFromUrl() && usableProfile()));
   // The inline script in index.html already set data-theme on <html> before
   // paint (avoiding a flash); read that back instead of recomputing it, so
   // this state and the DOM start in agreement.
@@ -72,7 +80,7 @@ export default function App() {
   // skipping the join form entirely.
   useEffect(() => {
     if (!uid || !initialRoomCode || room || autoJoinAttempted.current) return;
-    const profile = loadProfile();
+    const profile = usableProfile();
     if (!profile) return;
     autoJoinAttempted.current = true;
     setAutoJoining(true);
