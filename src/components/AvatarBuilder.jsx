@@ -85,26 +85,29 @@ function ProModal({ onSubscribe, onClose }) {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ background: 'linear-gradient(135deg,#f5a623,#f76b1c)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 7px', borderRadius: 5, letterSpacing: '0.04em' }}>PRO</span>
-          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--sp-text)' }}>Unlock Scrum Poker Pro</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--sp-text)' }}>Unlock Estimation Room Pro</span>
         </div>
 
         <div style={{ fontSize: 13, color: 'var(--sp-text-dim)', lineHeight: 1.5 }}>Get Pro for the following:</div>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--sp-text-dim)', lineHeight: 1.4 }}>
-          <li>All your implementations will work first time, won't ever error</li>
+          <li>Any feature you build will be perfect and work first time</li>
           <li>AI will no longer make any mistakes</li>
-          <li>Each pro user will get a personal cleaning robot (due 2050)</li>
+          <li>Each pro user will get a personal cleaning robot (coming 2050)</li>
           <li>We'll send Microsoft Teams every month a strongly worded complaint letter</li>
           <li>Priority queue for the one guy who understands the legacy VB.NET codebase</li>
           <li>The power to fly (enhanced durability not included)</li>
           <li>Oh, and access to the extras section of the avatar creator</li>
         </ul>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, justifyContent: 'center', padding: '6px 0' }}>
-          <span style={{ fontSize: 15, color: 'var(--sp-text-placeholder)', textDecoration: 'line-through' }}>€10,000 a month</span>
-          <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--sp-accent-text-strong)' }}>€5.00 a month</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '6px 0' }}>
+          <span style={{ background: 'linear-gradient(135deg,#f5a623,#f76b1c)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 7px', borderRadius: 5, letterSpacing: '0.04em' }}>LIMITED TIME OFFER</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, justifyContent: 'center' }}>
+            <span style={{ fontSize: 15, color: 'var(--sp-text-placeholder)', textDecoration: 'line-through' }}>£10,000 a month</span>
+            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--sp-accent-text-strong)' }}>£5.00 a month</span>
+          </div>
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--sp-text-placeholder)', textAlign: 'center' }}>(Disclaimer: none of it is true.)</div>
+        <div style={{ fontSize: 11, color: 'var(--sp-text-placeholder)', textAlign: 'center' }}>(Disclaimer: this is a joke, please don't sue me.)</div>
 
         <button
           onClick={onSubscribe}
@@ -240,7 +243,7 @@ export default function AvatarBuilder({ avatar, onChange, onExpandedChange }) {
         onClick={() => setExpanded(!expanded)}
         style={{ border: 'none', background: 'none', padding: 0, fontSize: 12, color: 'var(--sp-accent-text)', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'var(--sp-font)' }}
       >
-        {expanded ? 'Collapse ▲' : 'Customize ▾'}
+        {expanded ? 'Collapse ▲' : 'Customise ▾'}
       </button>
 
       <div
