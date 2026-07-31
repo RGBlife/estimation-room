@@ -100,9 +100,9 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
                 <input
                   value={roomCodeInput}
                   onChange={handleRoomCodeChange}
-                  placeholder="ABCD"
+                  placeholder="Enter your room code"
                   maxLength={6}
-                  style={{ width: '100%', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: '11px 12px', color: 'var(--sp-text)', fontFamily: 'var(--sp-mono)', fontSize: 14, letterSpacing: '0.1em', outline: 'none', textTransform: 'uppercase' }}
+                  style={{ width: '100%', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: '11px 12px', color: 'var(--sp-text)', fontFamily: roomCodeInput ? 'var(--sp-mono)' : 'var(--sp-font)', fontSize: 14, letterSpacing: roomCodeInput ? '0.1em' : 'normal', outline: 'none', textTransform: roomCodeInput ? 'uppercase' : 'none' }}
                 />
               </div>
             )}

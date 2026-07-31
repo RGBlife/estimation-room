@@ -24,6 +24,7 @@ export default function SeatTable({ participants, uid, isRevealed, anyVote, allV
   const active = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
   const observers = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
   const n = active.length;
+  const votedCount = active.filter(([, p]) => p.vote != null).length;
 
   const growth = Math.max(1, n / BASE_SEAT_COUNT);
   const tableMaxWidth = Math.round(BASE_MAX_WIDTH * Math.min(growth, 1.8));
@@ -72,14 +73,20 @@ export default function SeatTable({ participants, uid, isRevealed, anyVote, allV
             }}
           >
             {!isRevealed && (
-              <button
-                onClick={onReveal}
-                disabled={!anyVote}
-                style={{
-                  background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
-                  fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
-                }}
-              >Reveal votes</button>
+              allVoted ? (
+                <button
+                  onClick={onReveal}
+                  disabled={!anyVote}
+                  style={{
+                    background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
+                    fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
+                  }}
+                >Reveal votes</button>
+              ) : (
+                <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 15, fontWeight: 700, color: 'var(--sp-text-dim)' }}>
+                  {votedCount}/{n}
+                </div>
+              )
             )}
           </div>
 
