@@ -146,6 +146,14 @@ a:hover {
   100% { transform: translate(var(--tx), var(--ty)) scale(1.15) rotate(var(--rot)); opacity: 1; }
 }
 
+@keyframes sp-fly-glide {
+  0% { transform: translate(var(--sx), var(--sy)) scale(.5) rotate(var(--glide-start)); opacity: 0; }
+  10% { opacity: 1; }
+  35% { transform: translate(var(--glide-mx), calc(var(--glide-my) - 22px)) scale(.95) rotate(var(--glide-mid)); }
+  70% { transform: translate(var(--glide-mx2), calc(var(--glide-my2) + 8px)) scale(1.05) rotate(var(--glide-mid2)); }
+  100% { transform: translate(var(--tx), var(--ty)) scale(1.15) rotate(var(--rot)); opacity: 1; }
+}
+
 @keyframes sp-impact-stick {
   0% { transform: translate(var(--tx), var(--ty)) scale(1.15) rotate(var(--rot)); opacity: 1; }
   30% { transform: translate(var(--tx), var(--ty)) scale(1) rotate(calc(var(--rot) + 8deg)); }

@@ -18,9 +18,9 @@ const MAX_CREATE_ATTEMPTS = 3;
 // as a corrupt half-participant).
 const STALE_GRACE_MS = 8000;
 
-// Fly (0.55s) + impact (0.85s) animation, plus margin, before the thrower
-// cleans up their own throw node.
-const THROW_CLEANUP_MS = 1800;
+// Longest flight (the paper airplane's 0.95s glide) + impact (0.85s), plus
+// margin, before the thrower cleans up their own throw node.
+const THROW_CLEANUP_MS = 2200;
 
 function clearMyPresence(code, myUid) {
   const myPresenceRef = rtdbRef(rtdb, `presence/${code}/${myUid}`);

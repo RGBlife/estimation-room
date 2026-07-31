@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { WEAPONS, FRAG_ANGLES } from '../lib/weapons.js';
+import WeaponShape from './WeaponShape.jsx';
 
 const FLY_MS = 550;
+const GLIDE_MS = 950;
 const IMPACT_MS = 850;
 
 function randomRotation() {
@@ -24,12 +26,31 @@ function ThrowVisual({ t, geometry, onDone }) {
   if (!meta || !geometry) return null;
 
   const isSnowball = t.weaponId === 'snowball';
+  const isGlide = meta.flight === 'sp-fly-glide';
   const showBall = phase === 'fly' || (phase === 'impact' && !isSnowball);
   const showFragments = phase === 'impact' && isSnowball;
 
   const vars = { '--sx': `${geometry.sx}px`, '--sy': `${geometry.sy}px`, '--tx': `${geometry.tx}px`, '--ty': `${geometry.ty}px`, '--rot': rot };
+  if (isGlide) {
+    // A gentle S-curve bank: swing wide past the midpoint, then curl back in
+    // to the target, so the plane reads as gliding rather than flying dead-straight.
+    const mx1 = geometry.sx + (geometry.tx - geometry.sx) * 0.4 + (geometry.ty - geometry.sy) * 0.18;
+    const my1 = geometry.sy + (geometry.ty - geometry.sy) * 0.4 - (geometry.tx - geometry.sx) * 0.18;
+    const mx2 = geometry.sx + (geometry.tx - geometry.sx) * 0.75 - (geometry.ty - geometry.sy) * 0.1;
+    const my2 = geometry.sy + (geometry.ty - geometry.sy) * 0.75 + (geometry.tx - geometry.sx) * 0.1;
+    const baseAngle = Math.atan2(geometry.ty - geometry.sy, geometry.tx - geometry.sx) * 180 / Math.PI;
+    vars['--glide-start'] = `${baseAngle - 10}deg`;
+    vars['--glide-mid'] = `${baseAngle + 14}deg`;
+    vars['--glide-mid2'] = `${baseAngle - 8}deg`;
+    vars['--rot'] = `${baseAngle}deg`;
+    vars['--glide-mx'] = `${mx1}px`;
+    vars['--glide-my'] = `${my1}px`;
+    vars['--glide-mx2'] = `${mx2}px`;
+    vars['--glide-my2'] = `${my2}px`;
+  }
+  const flyMs = isGlide ? GLIDE_MS : FLY_MS;
   const wrapStyle = phase === 'fly'
-    ? { position: 'absolute', left: 0, top: 0, ...vars, animation: `sp-fly-to ${FLY_MS / 1000}s cubic-bezier(.3,.6,.3,1) forwards` }
+    ? { position: 'absolute', left: 0, top: 0, ...vars, animation: `${isGlide ? 'sp-fly-glide' : 'sp-fly-to'} ${flyMs / 1000}s cubic-bezier(.3,.6,.3,1) forwards` }
     : { position: 'absolute', left: 0, top: 0, ...vars, animation: `${meta.impact} ${IMPACT_MS / 1000}s ease-out forwards` };
 
   const handleAnimEnd = () => {
@@ -43,14 +64,7 @@ function ThrowVisual({ t, geometry, onDone }) {
     <>
       {showBall && (
         <div style={wrapStyle} onAnimationEnd={handleAnimEnd}>
-          {meta.shape === 'microwave' && (
-            <div style={{ width: 26, height: 19, borderRadius: 4, background: '#c7cdd6', border: '2px solid #4a5568', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: 3, left: 3, width: 11, height: 11, borderRadius: '50%', background: '#2b3440' }} />
-            </div>
-          )}
-          {meta.shape === 'snowball' && (
-            <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fdfeff', border: '2px solid #cfe3f7', boxShadow: 'inset -3px -3px 0 #e3eef9' }} />
-          )}
+          {meta.shape ? <WeaponShape shape={meta.shape} /> : null}
           {meta.hasEmoji && <span style={{ fontSize: 30, lineHeight: 1 }}>{meta.glyph}</span>}
         </div>
       )}

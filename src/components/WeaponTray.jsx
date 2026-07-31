@@ -1,20 +1,5 @@
 import { WEAPONS } from '../lib/weapons.js';
-
-function WeaponShape({ shape }) {
-  if (shape === 'microwave') {
-    return (
-      <div style={{ width: 26, height: 19, borderRadius: 4, background: '#c7cdd6', border: '2px solid #4a5568', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 3, left: 3, width: 11, height: 11, borderRadius: '50%', background: '#2b3440' }} />
-      </div>
-    );
-  }
-  if (shape === 'snowball') {
-    return (
-      <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fdfeff', border: '2px solid #cfe3f7', boxShadow: 'inset -3px -3px 0 #e3eef9' }} />
-    );
-  }
-  return null;
-}
+import WeaponShape from './WeaponShape.jsx';
 
 export default function WeaponTray({ selectedWeaponId, onSelect, onClose }) {
   return (
