@@ -23,7 +23,9 @@ export default function WeaponTray({ selectedWeaponId, onSelect, onClose }) {
                 background: 'var(--sp-card-bg)', cursor: 'pointer', fontFamily: 'var(--sp-font)',
               }}
             >
-              {w.hasEmoji ? <span style={{ fontSize: 26 }}>{w.glyph}</span> : <WeaponShape shape={w.shape} />}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}>
+                {w.hasEmoji ? <span style={{ fontSize: 26, lineHeight: 1 }}>{w.glyph}</span> : <WeaponShape shape={w.shape} />}
+              </div>
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--sp-text-dim)' }}>{w.label}</span>
             </button>
           ))}

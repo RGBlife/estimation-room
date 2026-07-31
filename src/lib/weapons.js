@@ -5,7 +5,7 @@ export const WEAPONS = [
   { id: 'heart', label: 'Heart', hasEmoji: true, glyph: '❤️', impact: 'sp-impact-pop' },
   { id: 'microwave', label: 'Microwave', shape: 'microwave', impact: 'sp-impact-shake' },
   { id: 'flower', label: 'Flower', hasEmoji: true, glyph: '🌸', impact: 'sp-impact-spin' },
-  { id: 'bob-ross', label: 'Bob Ross', shape: 'bob-ross', impact: 'sp-impact-splat' },
+  { id: 'bob-ross', label: 'Bob Ross', shape: 'custom-image', impact: 'sp-impact-splat' },
   { id: 'snowball', label: 'Snowball', shape: 'snowball', impact: 'sp-frag-burst' },
   { id: 'rubber-duck', label: 'Rubber Duck', hasEmoji: true, glyph: '🦆', impact: 'sp-impact-bounce' },
   { id: 'confetti', label: 'Confetti', hasEmoji: true, glyph: '🎉', impact: 'sp-impact-burst' },
