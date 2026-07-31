@@ -127,6 +127,19 @@ a:hover {
   to { opacity: 0; }
 }
 
+@keyframes sp-vote-card-out {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(10px) scale(.85); }
+}
+
+.sp-vote-card-enter {
+  animation: sp-fade-rise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.sp-vote-card-exit {
+  animation: sp-vote-card-out 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 .sp-dist-bar {
   transform-origin: bottom;
   animation: sp-bar-grow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;

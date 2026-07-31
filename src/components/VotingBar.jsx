@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react';
 import { CARD_VALUES } from '../lib/avatar.js';
 
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
 const STAGGER_MS = 45;
+const VOTE_ROW_EXIT_MS = 260;
 
 function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound, hoveredValue, onHoverValue }) {
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
@@ -70,47 +72,73 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
   );
 }
 
+function VoteCardRow({ myVote, onSelect, exiting }) {
+  return (
+    <>
+      <span style={{ fontSize: 11, color: 'var(--sp-text-faintest)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, whiteSpace: 'nowrap' }}>Your vote</span>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {CARD_VALUES.map((value, i) => {
+          const selected = value === myVote;
+          return (
+            <button
+              key={value}
+              onClick={() => onSelect(value)}
+              className={exiting ? 'sp-vote-card-exit' : 'sp-vote-card-enter'}
+              style={{
+                ...(selected ? {
+                  width: 42, height: 58, borderRadius: 8, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)',
+                  boxShadow: '0 0 0 3px var(--sp-accent-glow)', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)',
+                  fontSize: 16, fontWeight: 700, cursor: 'pointer', transform: exiting ? undefined : 'translateY(-6px)', transition: 'transform 0.15s ease',
+                } : {
+                  width: 42, height: 58, borderRadius: 8, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)',
+                  color: 'var(--sp-text-dim)', fontFamily: 'var(--sp-mono)', fontSize: 16, fontWeight: 700, cursor: 'pointer',
+                  transition: 'transform 0.15s ease, border-color 0.15s ease',
+                }),
+                animationDelay: `${(exiting ? CARD_VALUES.length - 1 - i : i) * 20}ms`,
+              }}
+            >{value}</button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 export default function VotingBar({
   isObserver, myVote, isRevealed, onSelect, onJoinVoting,
   distribution, hasAverage, average, isWideSpread, onStartNextRound,
   hoveredValue, onHoverValue,
 }) {
+  // The vote-card row stays mounted briefly after reveal so it can animate
+  // out instead of being swapped for the distribution bar instantly.
+  const [showExitingCards, setShowExitingCards] = useState(false);
+  useEffect(() => {
+    if (isRevealed) {
+      setShowExitingCards(true);
+      const t = setTimeout(() => setShowExitingCards(false), VOTE_ROW_EXIT_MS);
+      return () => clearTimeout(t);
+    }
+    setShowExitingCards(false);
+  }, [isRevealed]);
+
   return (
     <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
       {isRevealed ? (
-        <DistributionBar
-          distribution={distribution}
-          hasAverage={hasAverage}
-          average={average}
-          isWideSpread={isWideSpread}
-          onStartNextRound={onStartNextRound}
-          hoveredValue={hoveredValue}
-          onHoverValue={onHoverValue}
-        />
+        showExitingCards && !isObserver ? (
+          <VoteCardRow myVote={myVote} onSelect={onSelect} exiting />
+        ) : (
+          <DistributionBar
+            distribution={distribution}
+            hasAverage={hasAverage}
+            average={average}
+            isWideSpread={isWideSpread}
+            onStartNextRound={onStartNextRound}
+            hoveredValue={hoveredValue}
+            onHoverValue={onHoverValue}
+          />
+        )
       ) : !isObserver ? (
-        <>
-          <span style={{ fontSize: 11, color: 'var(--sp-text-faintest)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, whiteSpace: 'nowrap' }}>Your vote</span>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {CARD_VALUES.map(value => {
-              const selected = value === myVote;
-              return (
-                <button
-                  key={value}
-                  onClick={() => onSelect(value)}
-                  style={selected ? {
-                    width: 42, height: 58, borderRadius: 8, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)',
-                    boxShadow: '0 0 0 3px var(--sp-accent-glow)', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)',
-                    fontSize: 16, fontWeight: 700, cursor: 'pointer', transform: 'translateY(-6px)', transition: 'transform 0.15s ease',
-                  } : {
-                    width: 42, height: 58, borderRadius: 8, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)',
-                    color: 'var(--sp-text-dim)', fontFamily: 'var(--sp-mono)', fontSize: 16, fontWeight: 700, cursor: 'pointer',
-                    transition: 'transform 0.15s ease, border-color 0.15s ease',
-                  }}
-                >{value}</button>
-              );
-            })}
-          </div>
-        </>
+        <VoteCardRow myVote={myVote} onSelect={onSelect} />
       ) : (
         <>
           <span style={{ fontSize: 13, color: 'var(--sp-text-faintest)' }}>You're observing this round — no vote needed.</span>
