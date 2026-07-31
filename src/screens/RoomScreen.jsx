@@ -9,6 +9,8 @@ import { randomAvatar, CARD_VALUES } from '../lib/avatar.js';
 
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;
+const WEAPON_TIP_MS = 10000;
+const HAS_THROWN_KEY = 'sp_has_thrown_weapon';
 
 // Dev-only layout testing: ?fakes=N&fakeobs=M merges N fake voters and M fake
 // observers into the room client-side. Never written to Firestore, stripped
@@ -37,6 +39,8 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   const [actionError, setActionError] = useState(null);
   const [weaponTrayOpen, setWeaponTrayOpen] = useState(false);
   const [equippedWeaponId, setEquippedWeaponId] = useState(null);
+  const [showWeaponTip, setShowWeaponTip] = useState(false);
+  const weaponTipTimerRef = useRef(null);
   const participants = FAKE_PARTICIPANTS ? { ...FAKE_PARTICIPANTS, ...room.participants } : room.participants;
   const me = participants[uid] || {};
   const isCreator = room.creatorId === uid;
@@ -84,12 +88,27 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
     runAction(actions.startNextRound, "Couldn't start the next round — try again.");
   };
 
+  // The "click someone to hit them" banner is a one-time tip: it only shows
+  // the first time this browser ever equips a weapon, and auto-fades after
+  // WEAPON_TIP_MS. Once the user has actually thrown once, it never shows
+  // again (tracked in localStorage so it stays gone across sessions/rounds).
   const handleSelectWeapon = (weaponId) => {
     setEquippedWeaponId(weaponId);
     setWeaponTrayOpen(false);
+    clearTimeout(weaponTipTimerRef.current);
+    if (!localStorage.getItem(HAS_THROWN_KEY)) {
+      setShowWeaponTip(true);
+      weaponTipTimerRef.current = setTimeout(() => setShowWeaponTip(false), WEAPON_TIP_MS);
+    }
   };
 
-  const handleCancelTargeting = () => setEquippedWeaponId(null);
+  const handleCancelTargeting = () => {
+    setEquippedWeaponId(null);
+    setShowWeaponTip(false);
+    clearTimeout(weaponTipTimerRef.current);
+  };
+
+  useEffect(() => () => clearTimeout(weaponTipTimerRef.current), []);
 
   // Weapon stays equipped after a throw so people can keep hitting targets
   // without reopening the tray — only Cancel or picking a new weapon clears it.
@@ -105,6 +124,9 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
       offsetX = (event.clientX - rect.left) / rect.width - 0.5;
       offsetY = (event.clientY - rect.top) / rect.height - 0.5;
     }
+    localStorage.setItem(HAS_THROWN_KEY, '1');
+    setShowWeaponTip(false);
+    clearTimeout(weaponTipTimerRef.current);
     runAction(() => actions.throwWeapon(targetUid, equippedWeaponId, offsetX, offsetY), "Couldn't throw — check your connection.");
   };
 
@@ -156,7 +178,13 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} size={34} />
           {!isObserver && (
-            <button onClick={() => setWeaponTrayOpen(true)} style={{ border: 'none', background: 'var(--sp-accent)', color: 'var(--sp-bg)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
+            equippedWeaponId ? (
+              <button onClick={handleCancelTargeting} style={{ border: '1px solid var(--sp-accent-border)', background: 'var(--sp-accent-panel-2)', color: 'var(--sp-accent-text)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>
+                ✕ Cancel throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label}
+              </button>
+            ) : (
+              <button onClick={() => setWeaponTrayOpen(true)} style={{ border: 'none', background: 'var(--sp-accent)', color: 'var(--sp-bg)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
+            )
           )}
           {!isObserver ? (
             <button onClick={() => runAction(() => actions.setRole(true), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border-strong)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
@@ -167,10 +195,10 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         </div>
       </div>
 
-      {equippedWeaponId && (
+      {equippedWeaponId && showWeaponTip && (
         <div style={{ margin: '0 28px 10px', background: 'var(--sp-accent-panel-2)', border: '1px solid var(--sp-accent-border)', borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 700, color: 'var(--sp-accent-text)', flexWrap: 'wrap' }}>
           <span>🎯 Throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label} — click someone to hit them</span>
-          <button onClick={handleCancelTargeting} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--sp-accent-text)', cursor: 'pointer', fontSize: 15 }}>✕ Cancel</button>
+          <button onClick={() => { setShowWeaponTip(false); clearTimeout(weaponTipTimerRef.current); }} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--sp-accent-text)', cursor: 'pointer', fontSize: 15 }}>✕ Close</button>
         </div>
       )}
 
