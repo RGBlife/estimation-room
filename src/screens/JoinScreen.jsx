@@ -75,14 +75,22 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
 
             <div>
               <label style={{ display: 'block', fontSize: 12, color: 'var(--sp-text-faint)', marginBottom: 6, fontWeight: 600 }}>Your role this round</label>
-              <div style={{ display: 'flex', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: 3 }}>
+              <div style={{ position: 'relative', display: 'flex', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: 3 }}>
+                <div
+                  style={{
+                    position: 'absolute', top: 3, bottom: 3, left: 3,
+                    width: 'calc(50% - 3px)', borderRadius: 6, background: 'var(--sp-accent)',
+                    transform: role === 'observer' ? 'translateX(100%)' : 'translateX(0)',
+                    transition: 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                  }}
+                />
                 <button
                   onClick={() => setRole('participant')}
-                  style={{ flex: 1, background: role === 'participant' ? 'var(--sp-accent)' : 'none', border: 'none', borderRadius: 6, padding: 8, color: role === 'participant' ? 'var(--sp-bg)' : 'var(--sp-text-dimmer)', fontSize: 13, fontWeight: role === 'participant' ? 700 : 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}
+                  style={{ position: 'relative', flex: 1, background: 'none', border: 'none', borderRadius: 6, padding: 8, color: role === 'participant' ? 'var(--sp-bg)' : 'var(--sp-text-dimmer)', fontSize: 13, fontWeight: role === 'participant' ? 700 : 600, cursor: 'pointer', fontFamily: 'var(--sp-font)', transition: 'color 0.15s ease' }}
                 >Participant</button>
                 <button
                   onClick={() => setRole('observer')}
-                  style={{ flex: 1, background: role === 'observer' ? 'var(--sp-accent)' : 'none', border: 'none', borderRadius: 6, padding: 8, color: role === 'observer' ? 'var(--sp-bg)' : 'var(--sp-text-dimmer)', fontSize: 13, fontWeight: role === 'observer' ? 700 : 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}
+                  style={{ position: 'relative', flex: 1, background: 'none', border: 'none', borderRadius: 6, padding: 8, color: role === 'observer' ? 'var(--sp-bg)' : 'var(--sp-text-dimmer)', fontSize: 13, fontWeight: role === 'observer' ? 700 : 600, cursor: 'pointer', fontFamily: 'var(--sp-font)', transition: 'color 0.15s ease' }}
                 >Observer</button>
               </div>
             </div>
