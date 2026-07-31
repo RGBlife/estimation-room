@@ -103,7 +103,7 @@ function ProModal({ onSubscribe, onClose }) {
           <span style={{ background: 'linear-gradient(135deg,#f5a623,#f76b1c)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 7px', borderRadius: 5, letterSpacing: '0.04em' }}>LIMITED TIME OFFER</span>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, justifyContent: 'center' }}>
             <span style={{ fontSize: 15, color: 'var(--sp-text-placeholder)', textDecoration: 'line-through' }}>£10,000 a month</span>
-            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--sp-accent-text-strong)' }}>£5.00 a month</span>
+            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--sp-accent-text-strong)' }}>£5 a month</span>
           </div>
         </div>
 
