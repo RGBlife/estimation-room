@@ -71,11 +71,10 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
 
   const { anyVote, allVoted, hasAverage, average, isWideSpread } = computeStats(participants);
   const distribution = isRevealed ? computeDistribution(participants) : [];
-  // Seats highlight the value currently hovered in the distribution bar, or
-  // the majority value(s) by default (ties highlight every tied group, same
-  // as computeDistribution's own isTop tie handling).
-  const majorityValues = distribution.filter(d => d.isTop).map(d => d.value);
-  const highlightValues = hoveredVoteValue != null ? [hoveredVoteValue] : majorityValues;
+  // Seats only dim while actively hovering a bar in the distribution panel —
+  // no highlight is shown by default, so the table stays at full brightness
+  // until the user is inspecting a specific vote group.
+  const highlightValues = hoveredVoteValue != null ? [hoveredVoteValue] : [];
   useEffect(() => {
     if (!isRevealed) setHoveredVoteValue(null);
   }, [isRevealed]);
