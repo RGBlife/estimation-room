@@ -6,7 +6,7 @@ Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore
 
 1. Copy `.env.example` to `.env` and fill in your Firebase web app config (Project Settings → your web app → SDK setup and configuration), including `VITE_FIREBASE_DATABASE_URL` from the Realtime Database console.
 2. In the Firebase console, enable **Firestore Database**, **Realtime Database**, and **Authentication → Sign-in method → Anonymous**.
-3. Publish the rules in `firestore.rules` via the Firestore **Rules** tab, and the rules in `database.rules.json` via the Realtime Database **Rules** tab.
+3. For local development only, publish the current rules once via the console: `firestore.rules` via the Firestore **Rules** tab, and `database.rules.json` via the Realtime Database **Rules** tab. (On `main`, pushes that touch either file publish automatically — see Deployment below.)
 4. `npm install`
 5. `npm run dev`
 
@@ -15,8 +15,6 @@ Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore
 Realtime Database is used only for presence (detecting when a tab closes/crashes so a participant is removed from the room automatically) — all room/vote data still lives in Firestore. Presence is re-registered on every reconnect (via `.info/connected`), and other clients only remove a participant after they've been absent from presence for a continuous grace period, so brief network blips don't get anyone kicked.
 
 Avatars are generated locally with `@dicebear/core` — participants store just the avatar options, so nothing depends on the dicebear API at runtime.
-
-**When changing `firestore.rules` or `database.rules.json`, remember to re-publish them in the Firebase console** — they are not deployed automatically.
 
 ## Deployment (GitHub Pages)
 
@@ -35,6 +33,20 @@ Also enable Pages under Settings → Pages → Source → GitHub Actions.
 Live at: https://rgblife.github.io/estimation-room/
 
 Firebase web config values aren't secret in the traditional sense (they're safe to expose in a shipped client bundle), but they're kept out of the repo as a matter of hygiene and to keep the codebase config-agnostic.
+
+### Firebase rules deployment
+
+`.github/workflows/deploy-firebase-rules.yml` publishes `firestore.rules` and `database.rules.json` to Firebase automatically on every push to `main` that touches either file (or via manual `workflow_dispatch`) — no separate action needed after merging a rules change.
+
+It needs one additional repository secret:
+
+- `FIREBASE_SERVICE_ACCOUNT` — a Firebase service account key JSON with permission to deploy rules (role **Firebase Rules Admin**, or **Editor**). To create one:
+  1. Firebase console → Project settings → Service accounts → **Generate new private key**. This downloads a JSON file.
+  2. GitHub repo → Settings → Secrets and variables → Actions → New repository secret → name it `FIREBASE_SERVICE_ACCOUNT`, paste the entire JSON file contents as the value.
+
+It reuses the existing `VITE_FIREBASE_PROJECT_ID` secret to know which Firebase project to deploy to.
+
+If this secret isn't set, the workflow fails (rather than silently no-opping) so a stale rules file doesn't go unnoticed — publish manually via the console as a fallback, same as before this workflow existed.
 
 ## Future improvements
 
