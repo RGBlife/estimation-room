@@ -41,6 +41,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   const [equippedWeaponId, setEquippedWeaponId] = useState(null);
   const [showWeaponTip, setShowWeaponTip] = useState(false);
   const weaponTipTimerRef = useRef(null);
+  const [hoveredVoteValue, setHoveredVoteValue] = useState(null);
   const participants = FAKE_PARTICIPANTS ? { ...FAKE_PARTICIPANTS, ...room.participants } : room.participants;
   const me = participants[uid] || {};
   const isCreator = room.creatorId === uid;
@@ -70,6 +71,14 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
 
   const { anyVote, allVoted, hasAverage, average, isWideSpread } = computeStats(participants);
   const distribution = isRevealed ? computeDistribution(participants) : [];
+  // Seats highlight the value currently hovered in the distribution bar, or
+  // the majority value(s) by default (ties highlight every tied group, same
+  // as computeDistribution's own isTop tie handling).
+  const majorityValues = distribution.filter(d => d.isTop).map(d => d.value);
+  const highlightValues = hoveredVoteValue != null ? [hoveredVoteValue] : majorityValues;
+  useEffect(() => {
+    if (!isRevealed) setHoveredVoteValue(null);
+  }, [isRevealed]);
 
   const runAction = (fn, failureMessage) => {
     setActionError(null);
@@ -220,6 +229,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         stageRef={stageNodeRef}
         throws={throws}
         onThrowDone={actions.dismissThrow}
+        highlightValues={highlightValues}
       />
 
       {actionError && (
@@ -239,6 +249,8 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         average={average}
         isWideSpread={isWideSpread}
         onStartNextRound={handleStartNextRound}
+        hoveredValue={hoveredVoteValue}
+        onHoverValue={setHoveredVoteValue}
       />
     </>
   );

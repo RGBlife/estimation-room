@@ -58,7 +58,16 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }) 
         <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>?</div>
       )}
       {seat.showValue && (
-        <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>{seat.voteValue}</div>
+        <div
+          style={{
+            width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)',
+            border: '2px solid var(--sp-accent)',
+            boxShadow: seat.highlighted ? '0 0 0 3px var(--sp-accent-glow)' : 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-on-card)',
+            fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700,
+            transition: 'box-shadow 0.15s ease',
+          }}
+        >{seat.voteValue}</div>
       )}
     </div>
   );
@@ -76,6 +85,7 @@ function SeatRow({ seats, reverse, ...seatProps }) {
 export default function SeatTable({
   participants, uid, isRevealed, anyVote, allVoted, onReveal,
   canTarget, onThrowAt, registerSeatNode, getSeatNode, stageRef, throws, onThrowDone,
+  highlightValues = [],
 }) {
   const active = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
   const observers = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
@@ -99,6 +109,7 @@ export default function SeatTable({
       showPlaced: !isRevealed && hasVoted,
       showValue: isRevealed,
       voteValue: p.vote,
+      highlighted: isRevealed && highlightValues.includes(p.vote),
     };
   });
 

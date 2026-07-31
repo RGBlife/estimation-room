@@ -4,7 +4,7 @@ const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
 const STAGGER_MS = 45;
 
-function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound }) {
+function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound, hoveredValue, onHoverValue }) {
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '4px 0' }}>
@@ -13,7 +13,9 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
           <div
             key={d.value}
             className="sp-dist-column"
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, animationDelay: `${i * STAGGER_MS}ms` }}
+            onMouseEnter={() => onHoverValue(d.value)}
+            onMouseLeave={() => onHoverValue(null)}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'default', animationDelay: `${i * STAGGER_MS}ms` }}
           >
             <div
               className="sp-dist-bar"
@@ -22,7 +24,9 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
                 height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
                 background: d.isTop ? 'var(--sp-accent)' : 'var(--sp-bar-track)',
                 borderRadius: '5px 5px 0 0',
+                boxShadow: hoveredValue === d.value ? '0 0 0 2px var(--sp-accent-glow)' : 'none',
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 4,
+                transition: 'box-shadow 0.15s ease',
                 animationDelay: `${i * STAGGER_MS}ms`,
               }}
             >
@@ -68,6 +72,7 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
 export default function VotingBar({
   isObserver, myVote, isRevealed, onSelect, onJoinVoting,
   distribution, hasAverage, average, isWideSpread, onStartNextRound,
+  hoveredValue, onHoverValue,
 }) {
   return (
     <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
@@ -78,6 +83,8 @@ export default function VotingBar({
           average={average}
           isWideSpread={isWideSpread}
           onStartNextRound={onStartNextRound}
+          hoveredValue={hoveredValue}
+          onHoverValue={onHoverValue}
         />
       ) : !isObserver ? (
         <>
