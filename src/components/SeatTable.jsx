@@ -59,18 +59,20 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }) 
       {seat.showBlank && (
         <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)' }} />
       )}
-      {seat.showPlaced && (
-        <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>?</div>
-      )}
-      {seat.showValue && (
-        <div
-          style={{
-            width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)',
-            border: '2px solid var(--sp-accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-on-card)',
-            fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700,
-          }}
-        >{seat.voteValue}</div>
+      {(seat.showPlaced || seat.showValue) && (
+        <div style={{ width: sizes.cardW, height: sizes.cardH, perspective: 300 }}>
+          {seat.showValue ? (
+            <div
+              className="sp-flip-card"
+              style={{ width: '100%', height: '100%', animationDelay: `${seat.flipDelay}ms` }}
+            >
+              <div className="sp-flip-face" style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>?</div>
+              <div className="sp-flip-face sp-flip-face-back" style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>{seat.voteValue}</div>
+            </div>
+          ) : (
+            <div style={{ width: '100%', height: '100%', borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>?</div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -100,7 +102,7 @@ export default function SeatTable({
   const wide = useMediaQuery(END_SEAT_BREAKPOINT);
   const sizes = n >= COMPACT_AT ? COMPACT_SIZES : DEFAULT_SIZES;
 
-  const seats = active.map(([id, p]) => {
+  const seats = active.map(([id, p], seatIdx) => {
     const isMe = id === uid;
     const hasVoted = p.vote != null;
     return {
@@ -112,6 +114,9 @@ export default function SeatTable({
       showPlaced: !isRevealed && hasVoted,
       showValue: isRevealed,
       voteValue: p.vote,
+      // Staggered per seat so the reveal ripples across the table instead of
+      // every card flipping in perfect unison.
+      flipDelay: (seatIdx % 8) * 45,
       // Only dim once there's something to contrast against — an empty
       // highlight set (nobody has a value in it, e.g. mid-transition) should
       // never fade the whole table out.
