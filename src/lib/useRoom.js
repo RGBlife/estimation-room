@@ -5,6 +5,7 @@ import {
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import {
   ref as rtdbRef, onValue, onDisconnect, set as rtdbSet, remove as rtdbRemove,
+  query, orderByChild, startAt, onChildAdded, push,
 } from 'firebase/database';
 import { db, auth, rtdb } from '../firebase.js';
 import { randomRoomCode } from './roomCode.js';
@@ -16,6 +17,10 @@ const MAX_CREATE_ATTEMPTS = 3;
 // would otherwise get people kicked (and their next write would recreate them
 // as a corrupt half-participant).
 const STALE_GRACE_MS = 8000;
+
+// Fly (0.55s) + impact (0.85s) animation, plus margin, before the thrower
+// cleans up their own throw node.
+const THROW_CLEANUP_MS = 1800;
 
 function clearMyPresence(code, myUid) {
   const myPresenceRef = rtdbRef(rtdb, `presence/${code}/${myUid}`);
@@ -29,9 +34,12 @@ export function useRoom() {
   const [roomCode, setRoomCode] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [throws, setThrows] = useState([]);
   const unsubscribeRef = useRef(null);
   const presenceUnsubscribeRef = useRef(null);
   const connectedUnsubscribeRef = useRef(null);
+  const throwsUnsubscribeRef = useRef(null);
+  const subscribeStartAtRef = useRef(0);
   const graceTimerRef = useRef(null);
   const staleSinceRef = useRef({});
   const presenceSnapshotRef = useRef({});
@@ -55,9 +63,11 @@ export function useRoom() {
     if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null; }
     if (presenceUnsubscribeRef.current) { presenceUnsubscribeRef.current(); presenceUnsubscribeRef.current = null; }
     if (connectedUnsubscribeRef.current) { connectedUnsubscribeRef.current(); connectedUnsubscribeRef.current = null; }
+    if (throwsUnsubscribeRef.current) { throwsUnsubscribeRef.current(); throwsUnsubscribeRef.current = null; }
     if (graceTimerRef.current) { clearTimeout(graceTimerRef.current); graceTimerRef.current = null; }
     staleSinceRef.current = {};
     presenceSnapshotRef.current = {};
+    setThrows([]);
   }, []);
 
   useEffect(() => teardown, [teardown]);
@@ -122,6 +132,26 @@ export function useRoom() {
     });
   }, [reviewPresence]);
 
+  // Subscribes to newly-thrown weapon events for the room. Uses startAt(now)
+  // so a client that just joined never replays the backlog of past throws —
+  // only events written from this moment on arrive. The additional ts check
+  // in the callback guards against clock-skew edge cases around the boundary.
+  const subscribeThrows = useCallback((code) => {
+    if (throwsUnsubscribeRef.current) { throwsUnsubscribeRef.current(); throwsUnsubscribeRef.current = null; }
+    setThrows([]);
+    subscribeStartAtRef.current = Date.now();
+    const throwsQuery = query(
+      rtdbRef(rtdb, `throws/${code}`),
+      orderByChild('ts'),
+      startAt(subscribeStartAtRef.current),
+    );
+    throwsUnsubscribeRef.current = onChildAdded(throwsQuery, snap => {
+      const val = snap.val();
+      if (!val || val.ts < subscribeStartAtRef.current) return;
+      setThrows(prev => [...prev, { id: snap.key, ...val }]);
+    });
+  }, []);
+
   const subscribeTo = useCallback((code) => {
     if (unsubscribeRef.current) unsubscribeRef.current();
     setRoomCode(code);
@@ -171,10 +201,11 @@ export function useRoom() {
       await setDoc(ref, data);
       subscribeTo(code);
       trackPresence(code, uid);
+      subscribeThrows(code);
       return code;
     }
     throw new Error('Could not allocate a room code, please try again');
-  }, [uid, subscribeTo, trackPresence]);
+  }, [uid, subscribeTo, trackPresence, subscribeThrows]);
 
   const joinRoom = useCallback(async (code, { name, avatar, isObserver }) => {
     if (!uid) throw new Error('Not signed in yet');
@@ -189,7 +220,8 @@ export function useRoom() {
     });
     subscribeTo(code);
     trackPresence(code, uid);
-  }, [uid, subscribeTo, trackPresence]);
+    subscribeThrows(code);
+  }, [uid, subscribeTo, trackPresence, subscribeThrows]);
 
   const setRole = useCallback(async (isObserver) => {
     if (!uid || !roomCode) return;
@@ -233,6 +265,27 @@ export function useRoom() {
     });
   }, [roomCode, room]);
 
+  // Observers can be hit but can't throw — enforced here, not just in the UI.
+  const throwWeapon = useCallback(async (targetUid, weaponId) => {
+    if (!uid || !roomCode) return;
+    const me = roomRef.current?.participants?.[uid];
+    if (!me || me.isObserver) return;
+    const throwsListRef = rtdbRef(rtdb, `throws/${roomCode}`);
+    const newThrowRef = push(throwsListRef);
+    onDisconnect(newThrowRef).remove().catch(() => {});
+    await rtdbSet(newThrowRef, { fromUid: uid, toUid: targetUid, weaponId, ts: Date.now() });
+    setTimeout(() => {
+      onDisconnect(newThrowRef).cancel().catch(() => {});
+      rtdbRemove(newThrowRef).catch(() => {});
+    }, THROW_CLEANUP_MS);
+  }, [uid, roomCode]);
+
+  // Removes a throw from local render state once its animation has finished.
+  // Purely local UI cleanup — separate from the RTDB node's own deletion above.
+  const dismissThrow = useCallback((throwId) => {
+    setThrows(prev => prev.filter(t => t.id !== throwId));
+  }, []);
+
   const leave = useCallback(async () => {
     if (!uid || !roomCode) return;
     const code = roomCode;
@@ -267,7 +320,8 @@ export function useRoom() {
   }, [uid, roomCode, teardown]);
 
   return {
-    uid, room, roomCode, error, notice,
+    uid, room, roomCode, error, notice, throws,
     createRoom, joinRoom, setRole, castVote, setStory, reveal, startNextRound, leave,
+    throwWeapon, dismissThrow,
   };
 }

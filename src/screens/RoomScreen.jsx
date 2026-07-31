@@ -1,19 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import SeatTable from '../components/SeatTable.jsx';
 import VotingBar from '../components/VotingBar.jsx';
 import ThemeToggle from '../components/ThemeToggle.jsx';
+import WeaponTray from '../components/WeaponTray.jsx';
 import { computeStats, computeDistribution } from '../lib/stats.js';
+import { WEAPONS } from '../lib/weapons.js';
 
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;
 
-export default function RoomScreen({ room, roomCode, uid, actions, theme, onToggleTheme }) {
+export default function RoomScreen({ room, roomCode, uid, throws, actions, theme, onToggleTheme }) {
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [weaponTrayOpen, setWeaponTrayOpen] = useState(false);
+  const [equippedWeaponId, setEquippedWeaponId] = useState(null);
   const me = room.participants[uid] || {};
   const isCreator = room.creatorId === uid;
   const isObserver = !!me.isObserver;
   const isRevealed = room.isRevealed;
+
+  // uid -> DOM node, covers both active seats and the observer rail — a
+  // single lookup used by ThrowOverlay to compute fly-to animation geometry.
+  const seatNodesRef = useRef(new Map());
+  const stageNodeRef = useRef(null);
+  const registerSeatNode = useCallback((seatUid, node) => {
+    if (node) seatNodesRef.current.set(seatUid, node);
+    else seatNodesRef.current.delete(seatUid);
+  }, []);
+  const getSeatNode = useCallback((seatUid) => seatNodesRef.current.get(seatUid) ?? null, []);
 
   // The story input is edited locally and written to Firestore debounced, so
   // we don't do one write per keystroke and the snapshot echo can't fight the
@@ -44,6 +58,20 @@ export default function RoomScreen({ room, roomCode, uid, actions, theme, onTogg
 
   const handleStartNextRound = () => {
     runAction(actions.startNextRound, "Couldn't start the next round — try again.");
+  };
+
+  const handleSelectWeapon = (weaponId) => {
+    setEquippedWeaponId(weaponId);
+    setWeaponTrayOpen(false);
+  };
+
+  const handleCancelTargeting = () => setEquippedWeaponId(null);
+
+  // Weapon stays equipped after a throw so people can keep hitting targets
+  // without reopening the tray — only Cancel or picking a new weapon clears it.
+  const handleThrowAt = (targetUid) => {
+    if (!equippedWeaponId) return;
+    runAction(() => actions.throwWeapon(targetUid, equippedWeaponId), "Couldn't throw — check your connection.");
   };
 
   const handleStoryChange = (e) => {
@@ -93,6 +121,9 @@ export default function RoomScreen({ room, roomCode, uid, actions, theme, onTogg
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} size={34} />
+          {!isObserver && (
+            <button onClick={() => setWeaponTrayOpen(true)} style={{ border: 'none', background: '#c9704e', color: '#fff', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
+          )}
           {!isObserver ? (
             <button onClick={() => runAction(() => actions.setRole(true), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border-strong)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
           ) : (
@@ -102,6 +133,17 @@ export default function RoomScreen({ room, roomCode, uid, actions, theme, onTogg
         </div>
       </div>
 
+      {equippedWeaponId && (
+        <div style={{ margin: '0 28px 10px', background: 'var(--sp-accent-panel-2)', border: '1px solid var(--sp-accent-border)', borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 700, color: 'var(--sp-accent-text)', flexWrap: 'wrap' }}>
+          <span>🎯 Throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label} — click someone to hit them (pick again to keep throwing)</span>
+          <button onClick={handleCancelTargeting} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--sp-accent-text)', cursor: 'pointer', fontSize: 15 }}>✕ Cancel</button>
+        </div>
+      )}
+
+      {weaponTrayOpen && (
+        <WeaponTray selectedWeaponId={equippedWeaponId} onSelect={handleSelectWeapon} onClose={() => setWeaponTrayOpen(false)} />
+      )}
+
       <SeatTable
         participants={room.participants}
         uid={uid}
@@ -109,6 +151,13 @@ export default function RoomScreen({ room, roomCode, uid, actions, theme, onTogg
         anyVote={anyVote}
         allVoted={allVoted}
         onReveal={handleReveal}
+        canTarget={!!equippedWeaponId}
+        onThrowAt={handleThrowAt}
+        registerSeatNode={registerSeatNode}
+        getSeatNode={getSeatNode}
+        stageRef={stageNodeRef}
+        throws={throws}
+        onThrowDone={actions.dismissThrow}
       />
 
       {actionError && (

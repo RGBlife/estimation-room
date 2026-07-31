@@ -19,7 +19,11 @@ function usableProfile() {
 }
 
 export default function App() {
-  const { uid, room, roomCode, error, notice, createRoom, joinRoom, setRole, castVote, setStory, reveal, startNextRound, leave } = useRoom();
+  const {
+    uid, room, roomCode, error, notice, throws,
+    createRoom, joinRoom, setRole, castVote, setStory, reveal, startNextRound, leave,
+    throwWeapon, dismissThrow,
+  } = useRoom();
   const [joinError, setJoinError] = useState(null);
   // Captured once at page load. Reading the URL on later renders would pick up
   // the ?room= param we put there ourselves while in a room, which made
@@ -129,7 +133,8 @@ export default function App() {
           room={room}
           roomCode={roomCode}
           uid={uid}
-          actions={{ setRole, castVote, setStory, reveal, startNextRound, leave }}
+          throws={throws}
+          actions={{ setRole, castVote, setStory, reveal, startNextRound, leave, throwWeapon, dismissThrow }}
           theme={theme}
           onToggleTheme={toggleTheme}
         />
