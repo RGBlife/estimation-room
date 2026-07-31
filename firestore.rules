@@ -24,11 +24,42 @@ service cloud.firestore {
     // errors out the whole condition rather than evaluating false.
     function validAvatar(a) {
       return a is map
-        && a.keys().hasAll(['seed', 'bgIdx', 'glasses', 'earrings', 'flair'])
-        && a.keys().hasOnly(['seed', 'bgIdx', 'glasses', 'earrings', 'flair'])
-        && a.seed is string && a.seed.size() <= 32
-        && a.bgIdx is int && a.bgIdx >= 0 && a.bgIdx < 8
-        && a.glasses is bool && a.earrings is bool && a.flair is bool;
+        && (
+          // Current format: full customize-panel avatar (avatar.js AVATAR_CATEGORIES).
+          (a.keys().hasAll([
+              'seed', 'bgIdx', 'hairIdx', 'hairColorIdx', 'skinColorIdx',
+              'eyesIdx', 'eyebrowsIdx', 'mouthIdx',
+              'glassesIdx', 'glassesIdxOn', 'earringsIdx', 'earringsIdxOn',
+              'featureIdx', 'featureIdxOn',
+            ])
+            && a.keys().hasOnly([
+              'seed', 'bgIdx', 'hairIdx', 'hairColorIdx', 'skinColorIdx',
+              'eyesIdx', 'eyebrowsIdx', 'mouthIdx',
+              'glassesIdx', 'glassesIdxOn', 'earringsIdx', 'earringsIdxOn',
+              'featureIdx', 'featureIdxOn',
+            ])
+            && a.seed is string && a.seed.size() <= 32
+            && a.bgIdx is int && a.bgIdx >= 0 && a.bgIdx < 8
+            && a.hairIdx is int && a.hairIdx >= 0 && a.hairIdx < 45
+            && a.hairColorIdx is int && a.hairColorIdx >= 0 && a.hairColorIdx < 14
+            && a.skinColorIdx is int && a.skinColorIdx >= 0 && a.skinColorIdx < 4
+            && a.eyesIdx is int && a.eyesIdx >= 0 && a.eyesIdx < 26
+            && a.eyebrowsIdx is int && a.eyebrowsIdx >= 0 && a.eyebrowsIdx < 15
+            && a.mouthIdx is int && a.mouthIdx >= 0 && a.mouthIdx < 30
+            && a.glassesIdx is int && a.glassesIdx >= 0 && a.glassesIdx < 5
+            && a.glassesIdxOn is bool
+            && a.earringsIdx is int && a.earringsIdx >= 0 && a.earringsIdx < 6
+            && a.earringsIdxOn is bool
+            && a.featureIdx is int && a.featureIdx >= 0 && a.featureIdx < 4
+            && a.featureIdxOn is bool)
+          ||
+          // Legacy format: pre-customization-panel avatars (random look only).
+          (a.keys().hasAll(['seed', 'bgIdx', 'glasses', 'earrings', 'flair'])
+            && a.keys().hasOnly(['seed', 'bgIdx', 'glasses', 'earrings', 'flair'])
+            && a.seed is string && a.seed.size() <= 32
+            && a.bgIdx is int && a.bgIdx >= 0 && a.bgIdx < 8
+            && a.glasses is bool && a.earrings is bool && a.flair is bool)
+        );
     }
 
     function validParticipant(p) {

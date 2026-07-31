@@ -1,16 +1,9 @@
-import { useState } from 'react';
-import AvatarBuilder from '../components/AvatarBuilder.jsx';
+import { useEffect, useState } from 'react';
+import AvatarBuilder, { useAvatarPanelWidth } from '../components/AvatarBuilder.jsx';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 import { randomRoomCode } from '../lib/roomCode.js';
 import { loadProfile, saveProfile } from '../lib/profile.js';
-
-const randomAvatar = () => ({
-  seed: Math.random().toString(36).slice(2, 10),
-  bgIdx: Math.floor(Math.random() * 8),
-  glasses: false,
-  earrings: false,
-  flair: false,
-});
+import { randomAvatar } from '../lib/avatar.js';
 
 export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme }) {
   const [storedProfile] = useState(loadProfile);
@@ -20,6 +13,15 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   const [role, setRole] = useState('participant');
   const [roomCodeInput, setRoomCodeInput] = useState(prefillRoomCode ?? '');
   const [busy, setBusy] = useState(false);
+  const [avatarExpanded, setAvatarExpanded] = useState(false);
+  const panelWidth = useAvatarPanelWidth(avatarExpanded);
+  const cardMaxWidth = panelWidth ? panelWidth + 56 : 460;
+
+  // Persist as the user customizes, not just on join, so the look/name
+  // survives closing the tab even if they never actually joined a room.
+  useEffect(() => {
+    saveProfile({ name: name.trim().slice(0, 40), avatar });
+  }, [name, avatar]);
 
   const switchToCreate = () => { setMode('create'); setRoomCodeInput(randomRoomCode()); };
   const switchToJoin = () => { setMode('join'); setRoomCodeInput(''); };
@@ -37,8 +39,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
     const trimmedName = name.trim().slice(0, 40);
     const payload = { name: trimmedName, avatar, isObserver: role === 'observer' };
     try {
-      const ok = mode === 'create' ? await onCreate(payload) : await onJoin(roomCodeInput, payload);
-      if (ok) saveProfile({ name: trimmedName, avatar });
+      await (mode === 'create' ? onCreate(payload) : onJoin(roomCodeInput, payload));
     } finally {
       setBusy(false);
     }
@@ -46,7 +47,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-      <div style={{ width: '100%', maxWidth: 460, animation: 'sp-fade-in 0.4s ease' }}>
+      <div style={{ width: '100%', maxWidth: cardMaxWidth, animation: 'sp-fade-in 0.4s ease', transition: 'max-width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
@@ -58,7 +59,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
 
         <div style={{ background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 14, padding: 28 }}>
 
-          <AvatarBuilder avatar={avatar} onChange={setAvatar} />
+          <AvatarBuilder avatar={avatar} onChange={setAvatar} onExpandedChange={setAvatarExpanded} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>

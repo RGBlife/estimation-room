@@ -14,9 +14,9 @@ describe('avatarDataUri', () => {
     expect(avatarDataUri({ ...base })).toBe(avatarDataUri({ ...base }));
   });
 
-  it('varies with seed and toggles', () => {
+  it('varies with category picks and toggles', () => {
     const plain = avatarDataUri(base);
-    expect(avatarDataUri({ ...base, seed: 'other' })).not.toBe(plain);
+    expect(avatarDataUri({ ...base, hairIdx: 3 })).not.toBe(plain);
     expect(avatarDataUri({ ...base, glasses: true })).not.toEqual(plain);
   });
 
