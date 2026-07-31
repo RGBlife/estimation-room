@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { WEAPONS, FRAG_ANGLES } from '../lib/weapons.js';
 import WeaponShape from './WeaponShape.jsx';
+import TreeShape from './TreeShape.jsx';
 
 const FLY_MS = 550;
 const GLIDE_MS = 950;
 const IMPACT_MS = 850;
+const TREE_MS = 1800;
 
 function randomRotation() {
   return Math.round(Math.random() * 40 - 20) + 'deg';
@@ -29,6 +31,7 @@ function ThrowVisual({ t, geometry, onDone }) {
   const isGlide = meta.flight === 'sp-fly-glide';
   const showBall = phase === 'fly' || (phase === 'impact' && !isSnowball);
   const showFragments = phase === 'impact' && isSnowball;
+  const showTree = phase === 'tree';
 
   const vars = { '--sx': `${geometry.sx}px`, '--sy': `${geometry.sy}px`, '--tx': `${geometry.tx}px`, '--ty': `${geometry.ty}px`, '--rot': rot };
   if (isGlide) {
@@ -53,10 +56,16 @@ function ThrowVisual({ t, geometry, onDone }) {
     ? { position: 'absolute', left: 0, top: 0, ...vars, animation: `${isGlide ? 'sp-fly-glide' : 'sp-fly-to'} ${flyMs / 1000}s cubic-bezier(.3,.6,.3,1) forwards` }
     : { position: 'absolute', left: 0, top: 0, ...vars, animation: `${meta.impact} ${IMPACT_MS / 1000}s ease-out forwards` };
 
+  // Weapons with an afterEffect (currently just Bob Ross's tree) get a third
+  // phase once the impact animation finishes, instead of finishing the throw
+  // right away.
   const handleAnimEnd = () => {
     if (phase === 'fly') {
       setPhase('impact');
-      setTimeout(onDone, IMPACT_MS + 50);
+      if (!meta.afterEffect) setTimeout(onDone, IMPACT_MS + 50);
+    } else if (phase === 'impact' && meta.afterEffect === 'tree') {
+      setPhase('tree');
+      setTimeout(onDone, TREE_MS + 50);
     }
   };
 
@@ -80,6 +89,16 @@ function ThrowVisual({ t, geometry, onDone }) {
           }}
         />
       ))}
+      {showTree && (
+        <div
+          style={{
+            position: 'absolute', left: -17, top: -34, ...vars,
+            animation: `sp-tree-grow ${TREE_MS / 1000}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards`,
+          }}
+        >
+          <TreeShape />
+        </div>
+      )}
     </>
   );
 }
