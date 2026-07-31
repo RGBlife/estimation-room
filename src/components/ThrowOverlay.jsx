@@ -119,7 +119,7 @@ export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDo
   }
 
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
       {throws.map(t => (
         <ThrowVisual key={t.id} t={t} geometry={getGeometry(t)} onDone={() => onThrowDone(t.id)} />
       ))}
