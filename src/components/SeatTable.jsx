@@ -100,11 +100,15 @@ export default function SeatTable({
             return (
               <div
                 key={seat.id}
-                ref={node => registerSeatNode(seat.id, node)}
-                onClick={canClick ? () => onThrowAt(seat.id) : undefined}
-                style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, left: seat.leftPct, top: seat.topPct, transform: 'translate(-50%,-50%)', cursor: canClick ? 'crosshair' : 'default' }}
+                style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, left: seat.leftPct, top: seat.topPct, transform: 'translate(-50%,-50%)' }}
               >
-                <img src={seat.avatarUrl} alt="" style={{ width: seat.size, height: seat.size, borderRadius: '50%', display: 'block', background: 'var(--sp-card-bg)', border: '1px solid var(--sp-border)' }} />
+                <img
+                  ref={node => registerSeatNode(seat.id, node)}
+                  src={seat.avatarUrl}
+                  alt=""
+                  onClick={canClick ? (e) => onThrowAt(seat.id, e) : undefined}
+                  style={{ width: seat.size, height: seat.size, borderRadius: '50%', display: 'block', background: 'var(--sp-card-bg)', border: '1px solid var(--sp-border)', cursor: canClick ? 'crosshair' : 'default' }}
+                />
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sp-text-dim)', maxWidth: nameWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{seat.displayName}</div>
 
                 {seat.showBlank && (

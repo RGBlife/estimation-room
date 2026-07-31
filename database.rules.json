@@ -15,7 +15,7 @@
         ".indexOn": ["ts"],
         "$throwId": {
           ".write": "auth != null && ((newData.exists() && !data.exists() && newData.child('fromUid').val() === auth.uid) || (!newData.exists() && data.exists() && data.child('fromUid').val() === auth.uid))",
-          ".validate": "newData.hasChildren(['fromUid','toUid','weaponId','ts']) && newData.child('fromUid').val() === auth.uid && newData.child('fromUid').isString() && newData.child('fromUid').val().length <= 128 && newData.child('toUid').isString() && newData.child('toUid').val().length <= 128 && newData.child('toUid').val() !== newData.child('fromUid').val() && newData.child('weaponId').isString() && newData.child('weaponId').val().matches(/^(paper-airplane|heart|microwave|flower|bob-ross|snowball|rubber-duck|confetti)$/) && newData.child('ts').isNumber()"
+          ".validate": "newData.hasChildren(['fromUid','toUid','weaponId','ts']) && newData.child('fromUid').val() === auth.uid && newData.child('fromUid').isString() && newData.child('fromUid').val().length <= 128 && newData.child('toUid').isString() && newData.child('toUid').val().length <= 128 && newData.child('toUid').val() !== newData.child('fromUid').val() && newData.child('weaponId').isString() && newData.child('weaponId').val().matches(/^(paper-airplane|heart|microwave|flower|bob-ross|snowball|rubber-duck|confetti)$/) && newData.child('ts').isNumber() && (!newData.hasChild('offsetX') || (newData.child('offsetX').isNumber() && newData.child('offsetX').val() >= -1 && newData.child('offsetX').val() <= 1)) && (!newData.hasChild('offsetY') || (newData.child('offsetY').isNumber() && newData.child('offsetY').val() >= -1 && newData.child('offsetY').val() <= 1))"
         }
       }
     },

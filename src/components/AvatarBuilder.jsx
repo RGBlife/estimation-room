@@ -91,7 +91,7 @@ function ProModal({ onSubscribe, onClose }) {
         <div style={{ fontSize: 13, color: 'var(--sp-text-dim)', lineHeight: 1.5 }}>Get Pro for the following:</div>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--sp-text-dim)', lineHeight: 1.4 }}>
           <li>Any feature you build will be perfect and work first time</li>
-          <li>AI will no longer make any mistakes</li>
+          <li>Your AI models will no longer make any mistakes</li>
           <li>Each pro user will get a personal cleaning robot (coming 2050)</li>
           <li>We'll send Microsoft Teams every month a strongly worded complaint letter</li>
           <li>Priority queue for the one guy who understands the legacy VB.NET codebase</li>
@@ -107,7 +107,7 @@ function ProModal({ onSubscribe, onClose }) {
           </div>
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--sp-text-placeholder)', textAlign: 'center' }}>(Disclaimer: this is a joke, please don't sue me.)</div>
+        <div style={{ fontSize: 11, color: 'var(--sp-text-placeholder)', textAlign: 'center' }}>(Disclaimer: this offer is real, trust me)</div>
 
         <button
           onClick={onSubscribe}

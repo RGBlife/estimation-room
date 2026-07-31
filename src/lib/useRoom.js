@@ -266,14 +266,17 @@ export function useRoom() {
   }, [roomCode, room]);
 
   // Observers can be hit but can't throw — enforced here, not just in the UI.
-  const throwWeapon = useCallback(async (targetUid, weaponId) => {
+  // offsetX/offsetY (roughly -0.5..0.5, fraction of the target avatar's size)
+  // let the impact land wherever on the avatar was actually clicked, instead
+  // of always snapping to its center.
+  const throwWeapon = useCallback(async (targetUid, weaponId, offsetX = 0, offsetY = 0) => {
     if (!uid || !roomCode) return;
     const me = roomRef.current?.participants?.[uid];
     if (!me || me.isObserver) return;
     const throwsListRef = rtdbRef(rtdb, `throws/${roomCode}`);
     const newThrowRef = push(throwsListRef);
     onDisconnect(newThrowRef).remove().catch(() => {});
-    await rtdbSet(newThrowRef, { fromUid: uid, toUid: targetUid, weaponId, ts: Date.now() });
+    await rtdbSet(newThrowRef, { fromUid: uid, toUid: targetUid, weaponId, ts: Date.now(), offsetX, offsetY });
     setTimeout(() => {
       onDisconnect(newThrowRef).cancel().catch(() => {});
       rtdbRemove(newThrowRef).catch(() => {});

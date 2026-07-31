@@ -69,9 +69,19 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
 
   // Weapon stays equipped after a throw so people can keep hitting targets
   // without reopening the tray — only Cancel or picking a new weapon clears it.
-  const handleThrowAt = (targetUid) => {
+  // The click position within the target's avatar (roughly -0.5..0.5 of its
+  // width/height, from center) travels with the throw so the impact lands
+  // where they actually clicked instead of always snapping to the center.
+  const handleThrowAt = (targetUid, event) => {
     if (!equippedWeaponId) return;
-    runAction(() => actions.throwWeapon(targetUid, equippedWeaponId), "Couldn't throw — check your connection.");
+    let offsetX = 0;
+    let offsetY = 0;
+    if (event?.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      offsetX = (event.clientX - rect.left) / rect.width - 0.5;
+      offsetY = (event.clientY - rect.top) / rect.height - 0.5;
+    }
+    runAction(() => actions.throwWeapon(targetUid, equippedWeaponId, offsetX, offsetY), "Couldn't throw — check your connection.");
   };
 
   const handleStoryChange = (e) => {
@@ -122,7 +132,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} size={34} />
           {!isObserver && (
-            <button onClick={() => setWeaponTrayOpen(true)} style={{ border: 'none', background: '#c9704e', color: '#fff', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
+            <button onClick={() => setWeaponTrayOpen(true)} style={{ border: 'none', background: 'var(--sp-accent)', color: 'var(--sp-bg)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
           )}
           {!isObserver ? (
             <button onClick={() => runAction(() => actions.setRole(true), "Couldn't switch role — check your connection.")} style={{ background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border-strong)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
@@ -135,7 +145,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
 
       {equippedWeaponId && (
         <div style={{ margin: '0 28px 10px', background: 'var(--sp-accent-panel-2)', border: '1px solid var(--sp-accent-border)', borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 700, color: 'var(--sp-accent-text)', flexWrap: 'wrap' }}>
-          <span>🎯 Throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label} — click someone to hit them (pick again to keep throwing)</span>
+          <span>🎯 Throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label} — click someone to hit them</span>
           <button onClick={handleCancelTargeting} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--sp-accent-text)', cursor: 'pointer', fontSize: 15 }}>✕ Cancel</button>
         </div>
       )}

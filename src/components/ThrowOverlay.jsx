@@ -87,11 +87,13 @@ export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDo
     const stageBox = stageNode.getBoundingClientRect();
     const fromBox = fromNode.getBoundingClientRect();
     const toBox = toNode.getBoundingClientRect();
+    const offsetX = t.offsetX ?? 0;
+    const offsetY = t.offsetY ?? 0;
     const geometry = {
       sx: fromBox.left + fromBox.width / 2 - stageBox.left,
       sy: fromBox.top + fromBox.height / 2 - stageBox.top,
-      tx: toBox.left + toBox.width / 2 - stageBox.left,
-      ty: toBox.top + toBox.height / 2 - stageBox.top,
+      tx: toBox.left + toBox.width / 2 - stageBox.left + offsetX * toBox.width,
+      ty: toBox.top + toBox.height / 2 - stageBox.top + offsetY * toBox.height,
     };
     cache.set(t.id, geometry);
     return geometry;
