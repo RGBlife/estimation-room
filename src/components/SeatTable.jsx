@@ -1,4 +1,5 @@
 import { participantAvatarSrc } from '../lib/avatar.js';
+import ObserverRail from './ObserverRail.jsx';
 
 function byJoinOrder([, a], [, b]) {
   return (a.joinedAt ?? 0) - (b.joinedAt ?? 0);
@@ -60,7 +61,7 @@ export default function SeatTable({ participants, uid, isRevealed, anyVote, allV
   const cardFontSize = Math.max(11, Math.round(16 * shrink));
 
   return (
-    <>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0 }}>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 150px' }}>
         <div style={{ position: 'relative', width: '100%', maxWidth: tableMaxWidth, height: tableHeight }}>
           <div
@@ -109,17 +110,7 @@ export default function SeatTable({ participants, uid, isRevealed, anyVote, allV
         </div>
       </div>
 
-      {observers.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '0 20px 20px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: 'var(--sp-text-faintest)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Observing</span>
-          {observers.map(([id, p]) => (
-            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: 0.6 }}>
-              <img src={participantAvatarSrc(p)} alt="" style={{ width: 24, height: 24, borderRadius: '50%', display: 'block' }} />
-              <span style={{ fontSize: 12, color: 'var(--sp-text-dim)' }}>{id === uid ? p.name + ' (you)' : p.name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
+      <ObserverRail observers={observers} uid={uid} />
+    </div>
   );
 }
