@@ -9,32 +9,33 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '4px 0' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {distribution.map((d, i) => (
-          <div
-            key={d.value}
-            className="sp-dist-column"
-            onMouseEnter={() => onHoverValue(d.value)}
-            onMouseLeave={() => onHoverValue(null)}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'default', animationDelay: `${i * STAGGER_MS}ms` }}
-          >
+        {distribution.map((d, i) => {
+          const dimmed = hoveredValue != null && hoveredValue !== d.value;
+          return (
             <div
-              className="sp-dist-bar"
-              style={{
-                width: 38,
-                height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
-                background: d.isTop ? 'var(--sp-accent)' : 'var(--sp-bar-track)',
-                borderRadius: '5px 5px 0 0',
-                boxShadow: hoveredValue === d.value ? '0 0 0 2px var(--sp-accent-glow)' : 'none',
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 4,
-                transition: 'box-shadow 0.15s ease',
-                animationDelay: `${i * STAGGER_MS}ms`,
-              }}
+              key={d.value}
+              className="sp-dist-column"
+              onMouseEnter={() => onHoverValue(d.value)}
+              onMouseLeave={() => onHoverValue(null)}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'default', opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.15s ease', animationDelay: `${i * STAGGER_MS}ms` }}
             >
-              <span style={{ fontFamily: 'var(--sp-mono)', fontSize: 11, fontWeight: 700, color: d.isTop ? 'var(--sp-bg)' : 'var(--sp-text-dim)' }}>{d.count}</span>
+              <div
+                className="sp-dist-bar"
+                style={{
+                  width: 38,
+                  height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
+                  background: d.isTop ? 'var(--sp-accent)' : 'var(--sp-bar-track)',
+                  borderRadius: '5px 5px 0 0',
+                  display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 4,
+                  animationDelay: `${i * STAGGER_MS}ms`,
+                }}
+              >
+                <span style={{ fontFamily: 'var(--sp-mono)', fontSize: 11, fontWeight: 700, color: d.isTop ? 'var(--sp-bg)' : 'var(--sp-text-dim)' }}>{d.count}</span>
+              </div>
+              <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 14, fontWeight: 700, color: 'var(--sp-text)' }}>{d.value}</div>
             </div>
-            <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 14, fontWeight: 700, color: 'var(--sp-text)' }}>{d.value}</div>
-          </div>
-        ))}
+          );
+        })}
 
         {hasAverage && (
           <div

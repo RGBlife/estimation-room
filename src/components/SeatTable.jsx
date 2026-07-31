@@ -40,8 +40,13 @@ function distributeSeats(seats, useEnds) {
 // bottom row.
 function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }) {
   const canClick = canTarget && !seat.isMe;
+  // Dimmed, not the highlighted ones themselves, is what carries the contrast:
+  // fading every other seat makes the highlighted group unmissable regardless
+  // of vote-card color, instead of relying on a subtle ring around cards that
+  // are already accent-colored.
+  const dimmed = seat.dimmed;
   return (
-    <div style={{ width: sizes.seatW, flexShrink: 0, display: 'flex', flexDirection: reverse ? 'column-reverse' : 'column', alignItems: 'center', gap: 8 }}>
+    <div style={{ width: sizes.seatW, flexShrink: 0, display: 'flex', flexDirection: reverse ? 'column-reverse' : 'column', alignItems: 'center', gap: 8, opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.15s ease' }}>
       <img
         ref={node => registerSeatNode(seat.id, node)}
         src={seat.avatarUrl}
@@ -62,10 +67,8 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }) 
           style={{
             width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)',
             border: '2px solid var(--sp-accent)',
-            boxShadow: seat.highlighted ? '0 0 0 3px var(--sp-accent-glow)' : 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-on-card)',
             fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700,
-            transition: 'box-shadow 0.15s ease',
           }}
         >{seat.voteValue}</div>
       )}
@@ -109,7 +112,10 @@ export default function SeatTable({
       showPlaced: !isRevealed && hasVoted,
       showValue: isRevealed,
       voteValue: p.vote,
-      highlighted: isRevealed && highlightValues.includes(p.vote),
+      // Only dim once there's something to contrast against — an empty
+      // highlight set (nobody has a value in it, e.g. mid-transition) should
+      // never fade the whole table out.
+      dimmed: isRevealed && highlightValues.length > 0 && !highlightValues.includes(p.vote),
     };
   });
 
