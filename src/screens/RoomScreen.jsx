@@ -210,9 +210,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         </div>
       )}
 
-      {weaponTrayOpen && (
-        <WeaponTray selectedWeaponId={equippedWeaponId} onSelect={handleSelectWeapon} onClose={() => setWeaponTrayOpen(false)} />
-      )}
+      <WeaponTray open={weaponTrayOpen} selectedWeaponId={equippedWeaponId} onSelect={handleSelectWeapon} onClose={() => setWeaponTrayOpen(false)} />
 
       <SeatTable
         participants={participants}
