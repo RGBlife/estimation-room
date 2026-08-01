@@ -96,6 +96,38 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
     runAction(actions.startNextRound, "Couldn't start the next round — try again.");
   };
 
+  // Enter triggers whichever of the two round-progression actions is
+  // currently available, and the number row casts a vote by position (1 is
+  // the 1st card, 2 the 2nd, ... 0 the 10th) — keyed off CARD_VALUES' order
+  // rather than its contents, so this keeps working if the cards ever become
+  // customizable and stop being plain 0/1/2/3/5/8/13/20/?/☕. Both ignored
+  // while typing (story title input) so they don't hijack normal text entry.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'Enter') {
+        if (!isRevealed && allVoted && anyVote) {
+          e.preventDefault();
+          handleReveal();
+        } else if (isRevealed) {
+          e.preventDefault();
+          handleStartNextRound();
+        }
+        return;
+      }
+      if (!isRevealed && !isObserver && /^[0-9]$/.test(e.key)) {
+        const cardIdx = (Number(e.key) + 9) % 10; // '1'->0, '2'->1, ..., '9'->8, '0'->9
+        const value = CARD_VALUES[cardIdx];
+        if (value != null) {
+          e.preventDefault();
+          handleCastVote(value);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isRevealed, allVoted, anyVote, isObserver]);
+
   // The "click someone to hit them" banner is a one-time tip: it only shows
   // the first time this browser ever equips a weapon, and auto-fades after
   // WEAPON_TIP_MS. Once the user has actually thrown once, it never shows

@@ -45,6 +45,16 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
     }
   };
 
+  // Enter submits whichever mode is active (join or create), from either text
+  // field. Not a <form> — the avatar customizer's own buttons live in this
+  // same card and would otherwise trigger a submit on click.
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && (e.target.tagName === 'INPUT')) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
       <div style={{ width: '100%', maxWidth: cardMaxWidth, animation: 'sp-fade-in 0.4s ease', transition: 'max-width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
@@ -57,7 +67,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Estimation Room</span>
         </div>
 
-        <div style={{ background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 14, padding: 28 }}>
+        <div onKeyDown={handleKeyDown} style={{ background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 14, padding: 28 }}>
 
           <AvatarBuilder avatar={avatar} onChange={setAvatar} onExpandedChange={setAvatarExpanded} />
 

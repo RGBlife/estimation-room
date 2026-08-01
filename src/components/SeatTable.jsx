@@ -152,14 +152,21 @@ export default function SeatTable({
             >
               {!isRevealed && (
                 allVoted ? (
-                  <button
-                    onClick={onReveal}
-                    disabled={!anyVote}
-                    style={{
-                      background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
-                      fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
-                    }}
-                  >Reveal votes</button>
+                  <div className="sp-kbd-hint-wrap">
+                    {anyVote && (
+                      <div className="sp-kbd-hint" style={{ background: 'var(--sp-panel-3)', color: 'var(--sp-text-dim)', fontSize: 11, fontWeight: 600, borderRadius: 5, padding: '3px 7px', border: '1px solid var(--sp-border-strong)', boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+                        Enter
+                      </div>
+                    )}
+                    <button
+                      onClick={onReveal}
+                      disabled={!anyVote}
+                      style={{
+                        background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
+                        fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
+                      }}
+                    >Reveal votes</button>
+                  </div>
                 ) : (
                   <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 15, fontWeight: 700, color: 'var(--sp-text-dim)' }}>
                     {votedCount}/{n}

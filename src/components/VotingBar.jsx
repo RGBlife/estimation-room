@@ -28,7 +28,7 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
                   height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
                   background: d.isTop ? 'var(--sp-accent)' : 'var(--sp-bar-track)',
                   borderRadius: '5px 5px 0 0',
-                  display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 4,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   animationDelay: `${i * STAGGER_MS}ms`,
                 }}
               >
@@ -64,10 +64,17 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
         >⚠ Wide spread — discuss?</div>
       )}
 
-      <button
-        onClick={onStartNextRound}
-        style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-      >Start next round</button>
+      <div style={{ width: 120, maxWidth: '60%', height: 1, background: 'var(--sp-border)' }} />
+
+      <div className="sp-kbd-hint-wrap">
+        <div className="sp-kbd-hint" style={{ background: 'var(--sp-panel-3)', color: 'var(--sp-text-dim)', fontSize: 11, fontWeight: 600, borderRadius: 5, padding: '3px 7px', border: '1px solid var(--sp-border-strong)', boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+          Enter
+        </div>
+        <button
+          onClick={onStartNextRound}
+          style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+        >Start next round</button>
+      </div>
     </div>
   );
 }
@@ -79,9 +86,12 @@ function VoteCardRow({ myVote, onSelect, exiting }) {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
         {CARD_VALUES.map((value, i) => {
           const selected = value === myVote;
-          return (
+          // Matches the number-key handler in RoomScreen: '1' selects the 1st
+          // card, ..., '9' the 9th, '0' the 10th. Cards beyond the 10th (if
+          // the set ever grows) have no key shortcut, so no hint is shown.
+          const keyHint = i < 10 ? String((i + 1) % 10) : null;
+          const card = (
             <button
-              key={value}
               onClick={() => onSelect(value)}
               className={exiting ? 'sp-vote-card-exit' : 'sp-vote-card-enter'}
               style={{
@@ -97,6 +107,15 @@ function VoteCardRow({ myVote, onSelect, exiting }) {
                 animationDelay: `${(exiting ? CARD_VALUES.length - 1 - i : i) * 20}ms`,
               }}
             >{value}</button>
+          );
+          if (!keyHint) return <div key={value}>{card}</div>;
+          return (
+            <div key={value} className="sp-kbd-hint-wrap">
+              <div className="sp-kbd-hint" style={{ background: 'var(--sp-panel-3)', color: 'var(--sp-text-dim)', fontSize: 11, fontWeight: 600, borderRadius: 5, padding: '3px 7px', border: '1px solid var(--sp-border-strong)', boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+                {keyHint}
+              </div>
+              {card}
+            </div>
           );
         })}
       </div>
