@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CARD_VALUES } from '../lib/avatar.js';
 
 const MAX_BAR_HEIGHT = 64;
@@ -126,7 +126,7 @@ function VoteCardRow({ myVote, onSelect, exiting }) {
 export default function VotingBar({
   isObserver, myVote, isRevealed, onSelect, onJoinVoting,
   distribution, hasAverage, average, isWideSpread, onStartNextRound,
-  hoveredValue, onHoverValue,
+  hoveredValue, onHoverValue, onHeightChange,
 }) {
   // The vote-card row stays mounted briefly after reveal so it can animate
   // out instead of being swapped for the distribution bar instantly.
@@ -140,8 +140,20 @@ export default function VotingBar({
     setShowExitingCards(false);
   }, [isRevealed]);
 
+  // Reports this bar's real height so SeatTable can reserve exactly enough
+  // clearance above it — the bar grows a lot taller once the distribution
+  // panel replaces the vote-card row, and measuring beats guessing.
+  const barRef = useRef(null);
+  useEffect(() => {
+    const node = barRef.current;
+    if (!node || !onHeightChange) return;
+    const observer = new ResizeObserver(([entry]) => onHeightChange(entry.contentRect.height));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onHeightChange]);
+
   return (
-    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
+    <div ref={barRef} style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
       {isRevealed ? (
         showExitingCards && !isObserver ? (
           <VoteCardRow myVote={myVote} onSelect={onSelect} exiting />

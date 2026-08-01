@@ -87,10 +87,17 @@ function SeatRow({ seats, reverse, ...seatProps }) {
   );
 }
 
+// Fallback used only until the VotingBar has reported its real measured
+// height (e.g. the very first paint) — a reasonable guess for the
+// pre-reveal vote-card row's height, so there's no visible pop-in once
+// the real measurement arrives a frame later.
+const CLEARANCE_FALLBACK = 120;
+const CLEARANCE_BUFFER = 20;
+
 export default function SeatTable({
   participants, uid, isRevealed, anyVote, allVoted, onReveal,
   canTarget, onThrowAt, registerSeatNode, getSeatNode, stageRef, throws, onThrowDone,
-  highlightValues = [],
+  highlightValues = [], bottomClearance: measuredClearance,
 }) {
   const active = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
   const observers = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
@@ -127,16 +134,19 @@ export default function SeatTable({
   const { top, bottom, leftEnd, rightEnd } = distributeSeats(seats, wide);
   const widestRow = Math.max(top.length, bottom.length, 1);
   const stageMaxWidth = Math.min(STAGE_MAX_CAP, Math.max(360, widestRow * (sizes.seatW + SEAT_GAP) + 48));
-  // Clearance for the fixed VotingBar, which is much taller when the
-  // distribution panel renders after reveal.
-  const bottomClearance = isRevealed ? 300 : 120;
+  // Clearance for the fixed VotingBar is the bar's real measured height
+  // (plus a small buffer) rather than a guess, so it only ever changes by
+  // as much as the bar actually grows/shrinks — and that change transitions
+  // smoothly (see padding-bottom transition below) instead of snapping,
+  // so the table doesn't visibly jump when the distribution panel appears.
+  const bottomClearance = (measuredClearance || CLEARANCE_FALLBACK) + CLEARANCE_BUFFER;
   const seatProps = { canTarget, onThrowAt, registerSeatNode, sizes };
 
   return (
     // The stage contains every throwable avatar (seats and observers), so
     // ThrowOverlay's rect math is valid for all targets.
     <div ref={stageRef} style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0 }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: `20px 16px ${bottomClearance}px` }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: `20px 16px ${bottomClearance}px`, transition: 'padding-bottom 0.25s ease' }}>
         <div style={{ width: '100%', maxWidth: stageMaxWidth, display: 'flex', flexDirection: 'column', gap: 18 }}>
           <SeatRow seats={top} {...seatProps} />
 

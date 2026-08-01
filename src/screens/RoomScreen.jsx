@@ -42,6 +42,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   const [showWeaponTip, setShowWeaponTip] = useState(false);
   const weaponTipTimerRef = useRef(null);
   const [hoveredVoteValue, setHoveredVoteValue] = useState(null);
+  const [votingBarHeight, setVotingBarHeight] = useState(0);
   const participants = FAKE_PARTICIPANTS ? { ...FAKE_PARTICIPANTS, ...room.participants } : room.participants;
   const me = participants[uid] || {};
   const isCreator = room.creatorId === uid;
@@ -57,6 +58,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
     else seatNodesRef.current.delete(seatUid);
   }, []);
   const getSeatNode = useCallback((seatUid) => seatNodesRef.current.get(seatUid) ?? null, []);
+  const handleVotingBarHeightChange = useCallback((h) => setVotingBarHeight(h), []);
 
   // The story input is edited locally and written to Firestore debounced, so
   // we don't do one write per keystroke and the snapshot echo can't fight the
@@ -259,6 +261,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         throws={throws}
         onThrowDone={actions.dismissThrow}
         highlightValues={highlightValues}
+        bottomClearance={votingBarHeight}
       />
 
       {actionError && (
@@ -280,6 +283,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         onStartNextRound={handleStartNextRound}
         hoveredValue={hoveredVoteValue}
         onHoverValue={setHoveredVoteValue}
+        onHeightChange={handleVotingBarHeightChange}
       />
     </>
   );
