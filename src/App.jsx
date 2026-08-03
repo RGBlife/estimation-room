@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import JoinScreen from './screens/JoinScreen.jsx';
 import RoomScreen from './screens/RoomScreen.jsx';
 import { useRoom } from './lib/useRoom.js';
-import { loadProfile } from './lib/profile.js';
+import { loadProfile, loadLastRoomCode } from './lib/profile.js';
 import { loadTheme, saveTheme } from './lib/theme.js';
 
 function roomCodeFromUrl() {
@@ -27,8 +27,13 @@ export default function App() {
   const [joinError, setJoinError] = useState(null);
   // Captured once at page load. Reading the URL on later renders would pick up
   // the ?room= param we put there ourselves while in a room, which made
-  // leaving a room instantly auto-rejoin it.
-  const [initialRoomCode] = useState(roomCodeFromUrl);
+  // leaving a room instantly auto-rejoin it. Auto-join must key off this
+  // URL-only value, not the prefill fallback below, or a merely-prefilled
+  // code would silently auto-join too.
+  const [urlRoomCode] = useState(roomCodeFromUrl);
+  // What the join form's input starts filled with: the URL param if present,
+  // else the last room we were in (pure convenience — never triggers auto-join).
+  const [initialRoomCode] = useState(() => urlRoomCode ?? loadLastRoomCode());
   const autoJoinAttempted = useRef(false);
   // Decided synchronously on first render so the join form never flashes
   // underneath a pending auto-join (and can't take edits that the auto-join
@@ -83,15 +88,15 @@ export default function App() {
   // Arriving via a shared room link with a saved profile joins instantly,
   // skipping the join form entirely.
   useEffect(() => {
-    if (!uid || !initialRoomCode || room || autoJoinAttempted.current) return;
+    if (!uid || !urlRoomCode || room || autoJoinAttempted.current) return;
     const profile = usableProfile();
     if (!profile) return;
     autoJoinAttempted.current = true;
     setAutoJoining(true);
-    joinRoom(initialRoomCode, { name: profile.name, avatar: profile.avatar, isObserver: false })
+    joinRoom(urlRoomCode, { name: profile.name, avatar: profile.avatar, isObserver: false })
       .catch(e => setJoinError(e.message))
       .finally(() => setAutoJoining(false));
-  }, [uid, initialRoomCode, room, joinRoom]);
+  }, [uid, urlRoomCode, room, joinRoom]);
 
   // Keep the address bar in sync with the current room so the URL itself
   // is always a valid shareable/refreshable link, not just the copy-link button.

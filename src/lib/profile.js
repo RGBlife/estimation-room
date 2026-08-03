@@ -19,3 +19,21 @@ export function saveProfile({ name, avatar }) {
     // localStorage unavailable (private mode, quota, etc.) — profile just won't persist.
   }
 }
+
+const LAST_ROOM_KEY = 'sp_last_room';
+
+export function loadLastRoomCode() {
+  try {
+    return localStorage.getItem(LAST_ROOM_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLastRoomCode(code) {
+  try {
+    localStorage.setItem(LAST_ROOM_KEY, code);
+  } catch {
+    // localStorage unavailable (private mode, quota, etc.) — code just won't persist.
+  }
+}

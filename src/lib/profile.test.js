@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { loadProfile, saveProfile } from './profile.js';
+import { loadProfile, saveProfile, loadLastRoomCode, saveLastRoomCode } from './profile.js';
 
 function stubLocalStorage(store = {}) {
   vi.stubGlobal('localStorage', {
@@ -39,5 +39,29 @@ describe('profile persistence', () => {
     });
     expect(() => saveProfile({ name: 'x', avatar: {} })).not.toThrow();
     expect(loadProfile()).toBe(null);
+  });
+});
+
+describe('last room code persistence', () => {
+  beforeEach(() => vi.unstubAllGlobals());
+
+  it('round-trips a saved room code', () => {
+    stubLocalStorage();
+    saveLastRoomCode('ABC123');
+    expect(loadLastRoomCode()).toBe('ABC123');
+  });
+
+  it('returns null when nothing is stored', () => {
+    stubLocalStorage();
+    expect(loadLastRoomCode()).toBe(null);
+  });
+
+  it('survives localStorage being unavailable', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('denied'); },
+      setItem: () => { throw new Error('denied'); },
+    });
+    expect(() => saveLastRoomCode('ABC123')).not.toThrow();
+    expect(loadLastRoomCode()).toBe(null);
   });
 });

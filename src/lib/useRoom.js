@@ -9,6 +9,7 @@ import {
 } from 'firebase/database';
 import { db, auth, rtdb } from '../firebase.js';
 import { randomRoomCode } from './roomCode.js';
+import { saveLastRoomCode } from './profile.js';
 
 const MAX_CREATE_ATTEMPTS = 3;
 
@@ -155,6 +156,7 @@ export function useRoom() {
   const subscribeTo = useCallback((code) => {
     if (unsubscribeRef.current) unsubscribeRef.current();
     setRoomCode(code);
+    saveLastRoomCode(code);
     unsubscribeRef.current = onSnapshot(doc(db, 'rooms', code), snap => {
       const myUid = uidRef.current;
       if (!snap.exists()) {
