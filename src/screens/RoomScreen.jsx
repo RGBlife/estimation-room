@@ -10,6 +10,7 @@ import { randomAvatar, CARD_VALUES } from '../lib/avatar.js';
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;
 const WEAPON_TIP_MS = 10000;
+const WEAPON_TIP_FADE_MS = 600;
 const HAS_THROWN_KEY = 'sp_has_thrown_weapon';
 
 // Dev-only layout testing: ?fakes=N&fakeobs=M merges N fake voters and M fake
@@ -39,8 +40,10 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   const [actionError, setActionError] = useState(null);
   const [weaponTrayOpen, setWeaponTrayOpen] = useState(false);
   const [equippedWeaponId, setEquippedWeaponId] = useState(null);
-  const [showWeaponTip, setShowWeaponTip] = useState(false);
+  const [weaponTipRendered, setWeaponTipRendered] = useState(false);
+  const [weaponTipClosing, setWeaponTipClosing] = useState(false);
   const weaponTipTimerRef = useRef(null);
+  const weaponTipFadeTimerRef = useRef(null);
   const [hoveredVoteValue, setHoveredVoteValue] = useState(null);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
   const participants = FAKE_PARTICIPANTS ? { ...FAKE_PARTICIPANTS, ...room.participants } : room.participants;
@@ -134,23 +137,37 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   // the first time this browser ever equips a weapon, and auto-fades after
   // WEAPON_TIP_MS. Once the user has actually thrown once, it never shows
   // again (tracked in localStorage so it stays gone across sessions/rounds).
+  const dismissWeaponTip = () => {
+    clearTimeout(weaponTipTimerRef.current);
+    setWeaponTipClosing(true);
+    clearTimeout(weaponTipFadeTimerRef.current);
+    weaponTipFadeTimerRef.current = setTimeout(() => {
+      setWeaponTipRendered(false);
+      setWeaponTipClosing(false);
+    }, WEAPON_TIP_FADE_MS);
+  };
+
   const handleSelectWeapon = (weaponId) => {
     setEquippedWeaponId(weaponId);
     setWeaponTrayOpen(false);
     clearTimeout(weaponTipTimerRef.current);
     if (!localStorage.getItem(HAS_THROWN_KEY)) {
-      setShowWeaponTip(true);
-      weaponTipTimerRef.current = setTimeout(() => setShowWeaponTip(false), WEAPON_TIP_MS);
+      clearTimeout(weaponTipFadeTimerRef.current);
+      setWeaponTipRendered(true);
+      setWeaponTipClosing(false);
+      weaponTipTimerRef.current = setTimeout(dismissWeaponTip, WEAPON_TIP_MS);
     }
   };
 
   const handleCancelTargeting = () => {
     setEquippedWeaponId(null);
-    setShowWeaponTip(false);
-    clearTimeout(weaponTipTimerRef.current);
+    dismissWeaponTip();
   };
 
-  useEffect(() => () => clearTimeout(weaponTipTimerRef.current), []);
+  useEffect(() => () => {
+    clearTimeout(weaponTipTimerRef.current);
+    clearTimeout(weaponTipFadeTimerRef.current);
+  }, []);
 
   // Weapon stays equipped after a throw so people can keep hitting targets
   // without reopening the tray — only Cancel or picking a new weapon clears it.
@@ -167,8 +184,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
       offsetY = (event.clientY - rect.top) / rect.height - 0.5;
     }
     localStorage.setItem(HAS_THROWN_KEY, '1');
-    setShowWeaponTip(false);
-    clearTimeout(weaponTipTimerRef.current);
+    dismissWeaponTip();
     runAction(() => actions.throwWeapon(targetUid, equippedWeaponId, offsetX, offsetY), "Couldn't throw — check your connection.");
   };
 
@@ -222,7 +238,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
           {!isObserver && (
             equippedWeaponId ? (
               <button onClick={handleCancelTargeting} style={{ border: '1px solid var(--sp-accent-border)', background: 'var(--sp-accent-panel-2)', color: 'var(--sp-accent-text)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>
-                ✕ Cancel throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label}
+                Cancel throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label}
               </button>
             ) : (
               <button onClick={() => setWeaponTrayOpen(true)} style={{ border: 'none', background: 'var(--sp-accent)', color: 'var(--sp-bg)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
@@ -237,10 +253,19 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         </div>
       </div>
 
-      {equippedWeaponId && showWeaponTip && (
-        <div style={{ margin: '0 28px 10px', background: 'var(--sp-accent-panel-2)', border: '1px solid var(--sp-accent-border)', borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 700, color: 'var(--sp-accent-text)', flexWrap: 'wrap' }}>
+      {equippedWeaponId && weaponTipRendered && (
+        <div
+          style={{
+            position: 'fixed', top: 72, left: '50%', zIndex: 40,
+            background: 'var(--sp-accent-panel-2-transparent)', backdropFilter: 'blur(6px)',
+            border: '1px solid var(--sp-accent-border)', borderRadius: 10, padding: '8px 14px',
+            display: 'flex', alignItems: 'center', gap: 12,
+            fontWeight: 700, fontSize: 13, color: 'var(--sp-accent-text)', whiteSpace: 'nowrap',
+            animation: `${weaponTipClosing ? 'sp-tip-fade-out' : 'sp-tip-fade-in'} ${WEAPON_TIP_FADE_MS}ms ease both`,
+          }}
+        >
           <span>🎯 Throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label} — click someone to hit them</span>
-          <button onClick={() => { setShowWeaponTip(false); clearTimeout(weaponTipTimerRef.current); }} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--sp-accent-text)', cursor: 'pointer', fontSize: 15 }}>✕ Close</button>
+          <button onClick={dismissWeaponTip} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--sp-accent-text)', cursor: 'pointer', fontSize: 13 }}>Close</button>
         </div>
       )}
 

@@ -24,6 +24,7 @@
   --sp-accent-glow: oklch(0.62 0.19 265 / 0.18);
   --sp-accent-panel: oklch(0.24 0.03 265);
   --sp-accent-panel-2: oklch(0.26 0.03 265);
+  --sp-accent-panel-2-transparent: oklch(0.26 0.03 265 / 0.7);
   --sp-accent-panel-3: oklch(0.3 0.09 265);
   --sp-accent-border: oklch(0.62 0.19 265 / 0.5);
   --sp-warn-bg: oklch(0.62 0.11 60 / 0.14);
@@ -59,6 +60,7 @@
   --sp-accent-glow: oklch(0.52 0.2 265 / 0.2);
   --sp-accent-panel: oklch(0.89 0.045 265);
   --sp-accent-panel-2: oklch(0.86 0.055 265);
+  --sp-accent-panel-2-transparent: oklch(0.86 0.055 265 / 0.75);
   --sp-accent-panel-3: oklch(0.83 0.09 265);
   --sp-accent-border: oklch(0.52 0.2 265 / 0.55);
   --sp-warn-bg: oklch(0.62 0.11 60 / 0.18);
@@ -125,6 +127,16 @@ a:hover {
 @keyframes sp-scrim-fade-out {
   from { opacity: 1; }
   to { opacity: 0; }
+}
+
+@keyframes sp-tip-fade-in {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes sp-tip-fade-out {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to { opacity: 0; transform: translate(-50%, 0); }
 }
 
 @keyframes sp-vote-card-out {
