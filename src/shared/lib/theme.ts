@@ -1,6 +1,8 @@
+export type Theme = 'light' | 'dark';
+
 const THEME_KEY = 'sp_theme';
 
-export function loadTheme() {
+export function loadTheme(): Theme {
   try {
     const saved = localStorage.getItem(THEME_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
@@ -11,7 +13,7 @@ export function loadTheme() {
   return 'dark';
 }
 
-export function saveTheme(theme) {
+export function saveTheme(theme: Theme): void {
   try {
     localStorage.setItem(THEME_KEY, theme);
   } catch {

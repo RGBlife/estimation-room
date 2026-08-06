@@ -1,6 +1,13 @@
+import type { AvatarOptions } from '../../types/room.ts';
+
 const PROFILE_KEY = 'sp_profile';
 
-export function loadProfile() {
+export interface Profile {
+  name: string;
+  avatar: AvatarOptions;
+}
+
+export function loadProfile(): Profile | null {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (!raw) return null;
@@ -12,7 +19,7 @@ export function loadProfile() {
   }
 }
 
-export function saveProfile({ name, avatar }) {
+export function saveProfile({ name, avatar }: Profile): void {
   try {
     localStorage.setItem(PROFILE_KEY, JSON.stringify({ name, avatar }));
   } catch {
@@ -22,7 +29,7 @@ export function saveProfile({ name, avatar }) {
 
 const LAST_ROOM_KEY = 'sp_last_room';
 
-export function loadLastRoomCode() {
+export function loadLastRoomCode(): string | null {
   try {
     return localStorage.getItem(LAST_ROOM_KEY) || null;
   } catch {
@@ -30,7 +37,7 @@ export function loadLastRoomCode() {
   }
 }
 
-export function saveLastRoomCode(code) {
+export function saveLastRoomCode(code: string): void {
   try {
     localStorage.setItem(LAST_ROOM_KEY, code);
   } catch {

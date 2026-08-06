@@ -1,12 +1,13 @@
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
+import type { AvatarOptions, LegacyAvatarOptions, CardValue, Participant } from '../../types/room.ts';
 
 export const AVATAR_BG = [
   '5B6EE1', '8B6FD1', 'C97BB0', '5FAE8E',
   '4FA8B8', 'C99A4E', 'B5A66A', 'C97A56',
 ];
 
-export const CARD_VALUES = ['0', '1', '2', '3', '5', '8', '13', '21', '?', '☕'];
+export const CARD_VALUES: CardValue[] = ['0', '1', '2', '3', '5', '8', '13', '21', '?', '☕'];
 
 const HAIR = [
   'short01', 'short02', 'short03', 'short04', 'short05', 'short06', 'short07', 'short08',
@@ -32,10 +33,19 @@ const GLASSES = Array.from({ length: 5 }, (_, i) => `variant${String(i + 1).padS
 const EARRINGS = Array.from({ length: 6 }, (_, i) => `variant${String(i + 1).padStart(2, '0')}`);
 const FEATURES = ['mustache', 'blush', 'birthmark', 'freckles'];
 
+export interface AvatarCategory {
+  key: string;
+  label: string;
+  values: string[];
+  swatch?: boolean;
+  optional?: boolean;
+  pro?: boolean;
+}
+
 // Every customizable category, in left-rail display order. `values` holds the
 // option list the index picks into (color categories reuse the hex swatches).
 // `pro` marks the joke paywalled tab.
-export const AVATAR_CATEGORIES = [
+export const AVATAR_CATEGORIES: AvatarCategory[] = [
   { key: 'hairIdx', label: 'Hair', values: HAIR },
   { key: 'hairColorIdx', label: 'Hair Color', values: HAIR_COLOR, swatch: true },
   { key: 'skinColorIdx', label: 'Skin', values: SKIN_COLOR, swatch: true },
@@ -47,38 +57,43 @@ export const AVATAR_CATEGORIES = [
   { key: 'featureIdx', label: 'Extras', values: FEATURES, optional: true, pro: true },
 ];
 
-export function randomSeed() {
+export function randomSeed(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function randInt(max) {
+function randInt(max: number): number {
   return Math.floor(Math.random() * max);
 }
 
 // Produces a fresh set of category picks. Optional categories (glasses,
 // earrings, extras) start off since Dicebear's *Probability options control
 // whether they render at all, separate from which variant is selected.
-export function randomAvatar() {
-  const avatar = { seed: randomSeed(), bgIdx: randInt(AVATAR_BG.length) };
+export function randomAvatar(): AvatarOptions {
+  const avatar: Record<string, string | number | boolean> = {
+    seed: randomSeed(),
+    bgIdx: randInt(AVATAR_BG.length),
+  };
   for (const cat of AVATAR_CATEGORIES) {
     avatar[cat.key] = randInt(cat.values.length);
     if (cat.optional) avatar[`${cat.key}On`] = false;
   }
-  return avatar;
+  return avatar as unknown as AvatarOptions;
 }
 
 // Avatars are generated locally and participants store just the options
 // (seed/bgIdx/category indices), so rendering never depends on the dicebear
 // API being reachable. Cached because seat/preview renders repeat the same
 // avatar often.
-const uriCache = new Map();
+const uriCache = new Map<string, string>();
 
-function idx(avatar, key, len, fallback = 0) {
+type LooseAvatar = Partial<AvatarOptions> & Partial<LegacyAvatarOptions> & { [key: string]: unknown };
+
+function idx(avatar: LooseAvatar | null | undefined, key: string, len: number, fallback = 0): number {
   const v = avatar?.[key];
-  return Number.isInteger(v) && v >= 0 && v < len ? v : fallback;
+  return Number.isInteger(v) && (v as number) >= 0 && (v as number) < len ? (v as number) : fallback;
 }
 
-export function avatarDataUri(avatar) {
+export function avatarDataUri(avatar: LooseAvatar | null | undefined): string {
   const a = avatar || {};
   const seed = a.seed ?? '';
   const bgIdx = idx(a, 'bgIdx', AVATAR_BG.length);
@@ -107,6 +122,9 @@ export function avatarDataUri(avatar) {
   const hit = uriCache.get(key);
   if (hit) return hit;
 
+  // The HAIR/EYES/etc. option lists above are plain string[] built by mapping
+  // over ranges, not dicebear's own literal-union types -- every value in
+  // them is still one dicebear actually accepts, so this cast is safe.
   const uri = createAvatar(adventurer, {
     seed: String(seed),
     backgroundColor: [AVATAR_BG[bgIdx] ?? AVATAR_BG[0]],
@@ -124,7 +142,7 @@ export function avatarDataUri(avatar) {
     earringsProbability: earringsOn ? 100 : 0,
     features: [feature],
     featuresProbability: featureOn ? 100 : 0,
-  }).toDataUri();
+  } as Parameters<typeof createAvatar<typeof adventurer>>[1]).toDataUri();
 
   if (uriCache.size > 256) uriCache.clear();
   uriCache.set(key, uri);
@@ -133,15 +151,20 @@ export function avatarDataUri(avatar) {
 
 // Participants written by builds prior to local avatar generation stored a
 // dicebear API URL instead of options.
-export function participantAvatarSrc(participant) {
-  return participant.avatar ? avatarDataUri(participant.avatar) : participant.avatarUrl;
+export function participantAvatarSrc(participant: Pick<Participant, 'avatar' | 'avatarUrl'>): string | undefined {
+  return participant.avatar ? avatarDataUri(participant.avatar as LooseAvatar) : participant.avatarUrl;
 }
 
 // Renders `avatar` as if `categoryKey` were set to `valueIdx` (and, for
 // optional categories, switched on) — used by the customize panel to show a
 // true thumbnail per option without mutating the actual selection.
-export function avatarPreviewUri(avatar, categoryKey, valueIdx, optional) {
-  const overrides = { [categoryKey]: valueIdx };
+export function avatarPreviewUri(
+  avatar: LooseAvatar | null | undefined,
+  categoryKey: string,
+  valueIdx: number,
+  optional?: boolean,
+): string {
+  const overrides: Record<string, number | boolean> = { [categoryKey]: valueIdx };
   if (optional) overrides[`${categoryKey}On`] = true;
   return avatarDataUri({ ...avatar, ...overrides });
 }

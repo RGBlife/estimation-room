@@ -1,6 +1,17 @@
+export interface Weapon {
+  id: string;
+  label: string;
+  shape?: string;
+  hasEmoji?: boolean;
+  glyph?: string;
+  impact: string;
+  flight?: string;
+  afterEffect?: string;
+}
+
 // Keep the weaponId list here in sync with the regex in database.rules.json
 // ("throws" path validation) — rules can't import this module.
-export const WEAPONS = [
+export const WEAPONS: Weapon[] = [
   { id: 'paper-airplane', label: 'Paper Airplane', shape: 'paper-airplane', impact: 'sp-impact-stick', flight: 'sp-fly-glide' },
   { id: 'heart', label: 'Heart', hasEmoji: true, glyph: '❤️', impact: 'sp-impact-pop' },
   { id: 'microwave', label: 'Microwave', shape: 'microwave', impact: 'sp-impact-shake' },
