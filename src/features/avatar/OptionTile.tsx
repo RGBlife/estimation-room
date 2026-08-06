@@ -18,16 +18,10 @@ export default function OptionTile({ avatar, category, valueIdx, value, selected
     <button
       onClick={onSelect}
       title={value}
-      style={{
-        width: 72, height: 72, flex: 'none', borderRadius: 10, cursor: 'pointer', padding: swatchColor ? 0 : 3,
-        background: swatchColor ?? 'var(--sp-panel-2)',
-        border: selected ? '2px solid var(--sp-accent)' : '1px solid var(--sp-border)',
-        boxShadow: selected ? '0 0 0 2px var(--sp-accent-panel-3)' : 'none',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        overflow: 'hidden',
-      }}
+      className={`flex h-[72px] w-[72px] flex-none cursor-pointer items-center justify-center overflow-hidden rounded-[10px] ${swatchColor ? 'p-0' : 'p-[3px]'} ${swatchColor ? '' : 'bg-sp-panel-2'} ${selected ? 'border-2 border-sp-accent shadow-[0_0_0_2px_var(--sp-accent-panel-3)]' : 'border border-sp-border'}`}
+      style={swatchColor ? { background: swatchColor } : undefined}
     >
-      {previewUrl && <img src={previewUrl} alt={value} style={{ width: '100%', height: '100%', borderRadius: 6, display: 'block' }} />}
+      {previewUrl && <img src={previewUrl} alt={value} className="block h-full w-full rounded-md" />}
     </button>
   );
 }

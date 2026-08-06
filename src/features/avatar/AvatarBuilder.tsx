@@ -69,7 +69,7 @@ export default function AvatarBuilder({ avatar, onChange, onExpandedChange }: Av
   const isOn = !category.optional || !!avatarLoose[`${category.key}On`];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 24, width: '100%' }}>
+    <div className="mb-6 flex w-full flex-col items-center gap-3.5">
       {showProModal && (
         <ProUpsellModal onSubscribe={subscribeToPro} onClose={closeProModal} />
       )}
@@ -78,14 +78,13 @@ export default function AvatarBuilder({ avatar, onChange, onExpandedChange }: Av
 
       <button
         onClick={() => setExpanded(!expanded)}
-        style={{ border: 'none', background: 'none', padding: 0, fontSize: 12, color: 'var(--sp-accent-text)', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'var(--sp-font)' }}
+        className="cursor-pointer border-none bg-transparent p-0 font-sp-font text-xs text-sp-accent-text underline"
       >
         {expanded ? 'Collapse ▲' : 'Customise ▾'}
       </button>
 
       <div
-        className={`sp-collapse${expanded ? ' sp-collapse-open' : ''}`}
-        style={{ width: '100%', alignSelf: 'stretch' }}
+        className={`sp-collapse w-full self-stretch${expanded ? ' sp-collapse-open' : ''}`}
       >
         <div>
           <AvatarCategoryPicker
