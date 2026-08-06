@@ -62,6 +62,9 @@ service cloud.firestore {
         );
     }
 
+    // Keep this in sync with src/types/room.ts (Participant, AvatarOptions,
+    // LegacyAvatarOptions, CardValue) -- that file documents what this
+    // function accepts, it does not enforce it.
     function validParticipant(p) {
       return p is map
         && (
