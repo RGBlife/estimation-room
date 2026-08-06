@@ -12,19 +12,19 @@ export default function WeaponShape({ shape }: WeaponShapeProps) {
   }
   if (shape === 'microwave') {
     return (
-      <div style={{ width: 26, height: 19, borderRadius: 4, background: '#c7cdd6', border: '2px solid #4a5568', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 3, left: 3, width: 11, height: 11, borderRadius: '50%', background: '#2b3440' }} />
+      <div className="relative h-[19px] w-[26px] rounded border-2 border-[#4a5568] bg-[#c7cdd6]">
+        <div className="absolute top-[3px] left-[3px] h-[11px] w-[11px] rounded-full bg-[#2b3440]" />
       </div>
     );
   }
   if (shape === 'snowball') {
     return (
-      <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fdfeff', border: '2px solid #cfe3f7', boxShadow: 'inset -3px -3px 0 #e3eef9' }} />
+      <div className="h-[22px] w-[22px] rounded-full border-2 border-[#cfe3f7] bg-[#fdfeff] shadow-[inset_-3px_-3px_0_#e3eef9]" />
     );
   }
   if (shape === 'paper-airplane') {
     return (
-      <svg width="28" height="28" viewBox="0 0 28 28" style={{ display: 'block' }}>
+      <svg width="28" height="28" viewBox="0 0 28 28" className="block">
         <path d="M2 15 L26 3 L15 26 L12.5 16.5 Z" fill="#e8ecf1" stroke="#8b95a3" strokeWidth="1.2" strokeLinejoin="round" />
         <path d="M12.5 16.5 L26 3 L14.5 19.5 Z" fill="#c7cfd9" stroke="#8b95a3" strokeWidth="1" strokeLinejoin="round" />
       </svg>
@@ -32,7 +32,7 @@ export default function WeaponShape({ shape }: WeaponShapeProps) {
   }
   if (shape === 'fallback-portrait') {
     return (
-      <svg width="28" height="28" viewBox="0 0 28 28" style={{ display: 'block' }}>
+      <svg width="28" height="28" viewBox="0 0 28 28" className="block">
         {/* Generic placeholder portrait shown until a custom image is dropped
             into public/weapons/ — see CustomImageShape below. */}
         <circle cx="14" cy="11" r="10.5" fill="#8b95a3" />
@@ -67,7 +67,7 @@ function CustomImageShape() {
       alt=""
       width={28}
       height={28}
-      style={{ display: 'block', borderRadius: '50%', objectFit: 'cover' }}
+      className="block rounded-full object-cover"
       onError={() => setTriedIndex(i => i + 1)}
     />
   );

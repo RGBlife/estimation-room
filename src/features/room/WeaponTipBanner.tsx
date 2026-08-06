@@ -15,17 +15,11 @@ export default function WeaponTipBanner({ equippedWeaponId, rendered, closing, o
   if (!equippedWeaponId || !rendered) return null;
   return (
     <div
-      style={{
-        position: 'fixed', top: 72, left: '50%', zIndex: 40,
-        background: 'var(--sp-accent-panel-2-transparent)', backdropFilter: 'blur(6px)',
-        border: '1px solid var(--sp-accent-border)', borderRadius: 10, padding: '8px 14px',
-        display: 'flex', alignItems: 'center', gap: 12,
-        fontWeight: 700, fontSize: 13, color: 'var(--sp-accent-text)', whiteSpace: 'nowrap',
-        animation: `${closing ? 'sp-tip-fade-out' : 'sp-tip-fade-in'} ${WEAPON_TIP_FADE_MS}ms ease both`,
-      }}
+      className="fixed top-[72px] left-1/2 z-40 flex items-center gap-3 rounded-[10px] border border-sp-accent-border bg-sp-accent-panel-2-transparent px-3.5 py-2 text-[13px] font-bold whitespace-nowrap text-sp-accent-text backdrop-blur-[6px]"
+      style={{ animation: `${closing ? 'sp-tip-fade-out' : 'sp-tip-fade-in'} ${WEAPON_TIP_FADE_MS}ms ease both` }}
     >
       <span>🎯 Throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label} — click someone to hit them</span>
-      <button onClick={onDismiss} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--sp-accent-text)', cursor: 'pointer', fontSize: 13 }}>Close</button>
+      <button onClick={onDismiss} className="cursor-pointer border-none bg-transparent text-[13px] font-extrabold text-sp-accent-text">Close</button>
     </div>
   );
 }

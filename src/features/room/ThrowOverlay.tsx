@@ -94,7 +94,7 @@ function ThrowVisual({ t, geometry, onDone }: ThrowVisualProps) {
       {showBall && (
         <div style={wrapStyle} onAnimationEnd={handleAnimEnd}>
           {meta.shape ? <WeaponShape shape={meta.shape} /> : null}
-          {meta.hasEmoji && <span style={{ fontSize: 30, lineHeight: 1 }}>{meta.glyph}</span>}
+          {meta.hasEmoji && <span className="text-[30px] leading-none">{meta.glyph}</span>}
         </div>
       )}
       {showFragments && fragments.map((f, i) => (
@@ -165,7 +165,7 @@ export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDo
   }
 
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+    <div className="absolute inset-0 z-10 pointer-events-none">
       {throws.map(t => (
         <ThrowVisual key={t.id} t={t} geometry={getGeometry(t)} onDone={() => onThrowDone(t.id)} />
       ))}

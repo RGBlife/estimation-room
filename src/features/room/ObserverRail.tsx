@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
 import type { Participant } from '../../types/room.ts';
 
@@ -25,23 +24,17 @@ export default function ObserverRail({
 }: ObserverRailProps) {
   if (observers.length === 0) return null;
 
-  const containerStyle: CSSProperties = horizontal
-    ? {
-        width: '100%', background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)',
-        display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center', padding: '14px 10px', gap: 10,
-      }
-    : {
-        width: 150, flexShrink: 0, background: 'var(--sp-panel)', borderLeft: '1px solid var(--sp-border)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '18px 10px', gap: 10, overflowY: 'auto',
-      };
+  const containerClass = horizontal
+    ? 'flex w-full flex-row flex-wrap items-start justify-center gap-2.5 border-t border-sp-border bg-sp-panel px-2.5 py-3.5'
+    : 'flex w-[150px] shrink-0 flex-col items-center gap-2.5 overflow-y-auto border-l border-sp-border bg-sp-panel px-2.5 py-4.5';
 
   return (
-    <div style={containerStyle}>
-      <div style={{ width: horizontal ? '100%' : undefined, textAlign: 'center', fontWeight: 800, color: 'var(--sp-text-faint)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+    <div className={containerClass}>
+      <div className={`text-center text-[11px] font-extrabold tracking-[0.06em] text-sp-text-faint uppercase ${horizontal ? 'w-full' : ''}`}>
         Observers
       </div>
       {!horizontal && (
-        <div style={{ fontSize: 10, color: 'var(--sp-text-faintest)', textAlign: 'center', lineHeight: 1.4, marginBottom: 4 }}>
+        <div className="mb-1 text-center text-[10px] leading-[1.4] text-sp-text-faintest">
           Seated at the rail, watching the table
         </div>
       )}
@@ -51,21 +44,21 @@ export default function ObserverRail({
         return (
           <div
             key={id}
-            style={{ position: 'relative', width: 76, height: 104, flexShrink: 0 }}
+            className="relative h-[104px] w-[76px] shrink-0"
           >
-            <div style={{ position: 'absolute', top: 6, left: 20, width: 38, height: 50, borderRadius: '8px 8px 3px 3px', background: 'var(--sp-panel-3)', border: '1px solid var(--sp-border)', zIndex: 1 }} />
-            <div style={{ position: 'absolute', top: 64, left: 16, width: 5, height: 24, borderRadius: '0 0 2px 2px', background: 'var(--sp-panel-3)', zIndex: 1 }} />
-            <div style={{ position: 'absolute', top: 64, left: 55, width: 5, height: 24, borderRadius: '0 0 2px 2px', background: 'var(--sp-panel-3)', zIndex: 1 }} />
-            <div style={{ position: 'absolute', top: 52, left: 12, width: 52, height: 15, borderRadius: 5, background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border)', zIndex: 2 }} />
+            <div className="absolute top-1.5 left-5 z-[1] h-[50px] w-[38px] rounded-tl-lg rounded-tr-lg rounded-br-sm rounded-bl-sm border border-sp-border bg-sp-panel-3" />
+            <div className="absolute top-16 left-4 z-[1] h-6 w-[5px] rounded-br-sm rounded-bl-sm bg-sp-panel-3" />
+            <div className="absolute top-16 left-[55px] z-[1] h-6 w-[5px] rounded-br-sm rounded-bl-sm bg-sp-panel-3" />
+            <div className="absolute top-[52px] left-3 z-[2] h-[15px] w-[52px] rounded-md border border-sp-border bg-sp-panel-2" />
             <img
               ref={node => registerSeatNode(id, node)}
               src={participantAvatarSrc(p)}
               alt=""
               onClick={canClick ? (e) => onThrowAt(id, e) : undefined}
-              style={{ position: 'absolute', top: 10, left: 2, zIndex: 3, width: 44, height: 44, borderRadius: '50%', display: 'block', border: '2px solid var(--sp-panel)', boxShadow: '0 2px 6px rgba(0,0,0,0.35)', background: 'var(--sp-card-bg)', cursor: canClick ? 'crosshair' : 'default' }}
+              className={`absolute top-2.5 left-0.5 z-[3] block h-11 w-11 rounded-full border-2 border-sp-panel bg-sp-card-bg shadow-[0_2px_6px_rgba(0,0,0,0.35)] ${canClick ? 'cursor-crosshair' : 'cursor-default'}`}
             />
-            <div style={{ position: 'absolute', top: 30, left: -8, zIndex: 3, width: 0, height: 0, borderTop: '4px solid transparent', borderBottom: '4px solid transparent', borderRight: '7px solid var(--sp-text-faint)' }} />
-            <div style={{ position: 'absolute', top: 92, left: 0, width: 76, fontSize: 11, fontWeight: 700, color: 'var(--sp-text-dim)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="absolute top-[30px] left-[-8px] z-[3] h-0 w-0 border-t-4 border-b-4 border-r-[7px] border-t-transparent border-b-transparent border-r-sp-text-faint" />
+            <div className="absolute top-[92px] left-0 w-[76px] overflow-hidden text-center text-[11px] font-bold text-ellipsis whitespace-nowrap text-sp-text-dim">
               {id === uid ? p.name + ' (you)' : p.name}
             </div>
           </div>

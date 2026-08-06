@@ -21,70 +21,59 @@ interface DistributionBarProps {
 function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound, hoveredValue, onHoverValue }: DistributionBarProps) {
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '4px 0' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div className="flex flex-col items-center gap-3.5 py-1">
+      <div className="flex flex-wrap items-end justify-center gap-5.5">
         {distribution.map((d, i) => {
           const dimmed = hoveredValue != null && hoveredValue !== d.value;
           return (
             <div
               key={d.value}
-              className="sp-dist-column"
+              className="sp-dist-column flex cursor-default flex-col items-center gap-1.5 transition-opacity duration-150"
               onMouseEnter={() => onHoverValue(d.value)}
               onMouseLeave={() => onHoverValue(null)}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'default', opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.15s ease', animationDelay: `${i * STAGGER_MS}ms` }}
+              style={{ opacity: dimmed ? 0.35 : 1, animationDelay: `${i * STAGGER_MS}ms` }}
             >
               <div
-                className="sp-dist-bar"
+                className={`sp-dist-bar flex w-[38px] items-center justify-center rounded-tl-md rounded-tr-md ${d.isTop ? 'bg-sp-accent' : 'bg-sp-bar-track'}`}
                 style={{
-                  width: 38,
                   height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
-                  background: d.isTop ? 'var(--sp-accent)' : 'var(--sp-bar-track)',
-                  borderRadius: '5px 5px 0 0',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   animationDelay: `${i * STAGGER_MS}ms`,
                 }}
               >
-                <span style={{ fontFamily: 'var(--sp-mono)', fontSize: 11, fontWeight: 700, color: d.isTop ? 'var(--sp-bg)' : 'var(--sp-text-dim)' }}>{d.count}</span>
+                <span className={`font-sp-mono text-[11px] font-bold ${d.isTop ? 'text-sp-bg' : 'text-sp-text-dim'}`}>{d.count}</span>
               </div>
-              <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 14, fontWeight: 700, color: 'var(--sp-text)' }}>{d.value}</div>
+              <div className="font-sp-mono text-sm font-bold text-sp-text">{d.value}</div>
             </div>
           );
         })}
 
         {hasAverage && (
           <div
-            className="sp-dist-average"
-            style={{
-              textAlign: 'center', paddingLeft: 8, borderLeft: '1px solid var(--sp-border)', marginLeft: 4,
-              animationDelay: `${distribution.length * STAGGER_MS}ms`,
-            }}
+            className="sp-dist-average ml-1 border-l border-sp-border pl-2 text-center"
+            style={{ animationDelay: `${distribution.length * STAGGER_MS}ms` }}
           >
-            <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 24, fontWeight: 700, color: 'var(--sp-text)' }}>{average}</div>
-            <div style={{ fontSize: 11, color: 'var(--sp-text-faint)', marginTop: 2 }}>average</div>
+            <div className="font-sp-mono text-2xl font-bold text-sp-text">{average}</div>
+            <div className="mt-0.5 text-[11px] text-sp-text-faint">average</div>
           </div>
         )}
       </div>
 
       {isWideSpread && (
         <div
-          className="sp-dist-average"
-          style={{
-            background: 'var(--sp-warn-bg)', border: '1px solid var(--sp-warn-border)', color: 'var(--sp-warn-text)',
-            padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-            animationDelay: `${distribution.length * STAGGER_MS + 80}ms`,
-          }}
+          className="sp-dist-average rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3.5 py-1.5 text-sm font-semibold text-sp-warn-text"
+          style={{ animationDelay: `${distribution.length * STAGGER_MS + 80}ms` }}
         >⚠ Wide spread — discuss?</div>
       )}
 
-      <div style={{ width: 120, maxWidth: '60%', height: 1, background: 'var(--sp-border)' }} />
+      <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />
 
       <div className="sp-kbd-hint-wrap">
-        <div className="sp-kbd-hint" style={{ background: 'var(--sp-panel-3)', color: 'var(--sp-text-dim)', fontSize: 11, fontWeight: 600, borderRadius: 5, padding: '3px 7px', border: '1px solid var(--sp-border-strong)', boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+        <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
           Enter
         </div>
         <button
           onClick={onStartNextRound}
-          style={{ background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 18px', color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          className="cursor-pointer rounded-lg border-none bg-sp-accent px-4.5 py-2.5 font-sp-font text-sm font-bold text-sp-bg"
         >Start next round</button>
       </div>
     </div>
@@ -100,8 +89,8 @@ interface VoteCardRowProps {
 function VoteCardRow({ myVote, onSelect, exiting }: VoteCardRowProps) {
   return (
     <>
-      <span style={{ fontSize: 11, color: 'var(--sp-text-faintest)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, whiteSpace: 'nowrap' }}>Your vote</span>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <span className="text-[11px] font-bold tracking-[0.05em] whitespace-nowrap text-sp-text-faintest uppercase">Your vote</span>
+      <div className="flex flex-wrap justify-center gap-2">
         {CARD_VALUES.map((value, i) => {
           const selected = value === myVote;
           // Matches the number-key handler in RoomScreen: '1' selects the 1st
@@ -111,17 +100,13 @@ function VoteCardRow({ myVote, onSelect, exiting }: VoteCardRowProps) {
           const card = (
             <button
               onClick={() => onSelect(value)}
-              className={exiting ? 'sp-vote-card-exit' : 'sp-vote-card-enter'}
+              className={`h-[58px] w-[42px] cursor-pointer rounded-lg font-sp-mono text-base font-bold transition-[transform,border-color] duration-150 ${exiting ? 'sp-vote-card-exit' : 'sp-vote-card-enter'} ${
+                selected
+                  ? 'border-2 border-sp-accent bg-sp-accent-panel text-sp-accent-on-card shadow-[0_0_0_3px_var(--sp-accent-glow)]'
+                  : 'border-[1.5px] border-sp-border-strong bg-sp-card-bg text-sp-text-dim'
+              }`}
               style={{
-                ...(selected ? {
-                  width: 42, height: 58, borderRadius: 8, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)',
-                  boxShadow: '0 0 0 3px var(--sp-accent-glow)', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)',
-                  fontSize: 16, fontWeight: 700, cursor: 'pointer', transform: exiting ? undefined : 'translateY(-6px)', transition: 'transform 0.15s ease',
-                } : {
-                  width: 42, height: 58, borderRadius: 8, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)',
-                  color: 'var(--sp-text-dim)', fontFamily: 'var(--sp-mono)', fontSize: 16, fontWeight: 700, cursor: 'pointer',
-                  transition: 'transform 0.15s ease, border-color 0.15s ease',
-                }),
+                transform: selected && !exiting ? 'translateY(-6px)' : undefined,
                 animationDelay: `${(exiting ? CARD_VALUES.length - 1 - i : i) * 20}ms`,
               }}
             >{value}</button>
@@ -129,7 +114,7 @@ function VoteCardRow({ myVote, onSelect, exiting }: VoteCardRowProps) {
           if (!keyHint) return <div key={value}>{card}</div>;
           return (
             <div key={value} className="sp-kbd-hint-wrap">
-              <div className="sp-kbd-hint" style={{ background: 'var(--sp-panel-3)', color: 'var(--sp-text-dim)', fontSize: 11, fontWeight: 600, borderRadius: 5, padding: '3px 7px', border: '1px solid var(--sp-border-strong)', boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+              <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
                 {keyHint}
               </div>
               {card}
@@ -187,7 +172,7 @@ export default function VotingBar({
   }, [onHeightChange]);
 
   return (
-    <div ref={barRef} style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
+    <div ref={barRef} className="fixed right-0 bottom-0 left-0 flex flex-wrap items-center justify-center gap-5 border-t border-sp-border bg-sp-panel px-5 py-3">
       {isRevealed ? (
         showExitingCards && !isObserver ? (
           <VoteCardRow myVote={myVote} onSelect={onSelect} exiting />
@@ -206,8 +191,8 @@ export default function VotingBar({
         <VoteCardRow myVote={myVote} onSelect={onSelect} />
       ) : (
         <>
-          <span style={{ fontSize: 13, color: 'var(--sp-text-faintest)' }}>You're observing this round — no vote needed.</span>
-          <button onClick={onJoinVoting} style={{ background: 'none', border: '1px solid var(--sp-border-strong)', borderRadius: 7, padding: '7px 14px', color: 'var(--sp-text-dim)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Join voting</button>
+          <span className="text-sm text-sp-text-faintest">You're observing this round — no vote needed.</span>
+          <button onClick={onJoinVoting} className="cursor-pointer rounded-md border border-sp-border-strong bg-transparent px-3.5 py-1.5 font-sp-font text-sm text-sp-text-dim">Join voting</button>
         </>
       )}
     </div>

@@ -111,31 +111,47 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
   // are already accent-colored.
   const dimmed = seat.dimmed;
   return (
-    <div style={{ width: sizes.seatW, flexShrink: 0, display: 'flex', flexDirection: reverse ? 'column-reverse' : 'column', alignItems: 'center', gap: 8, opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.15s ease' }}>
+    <div
+      className={`flex shrink-0 flex-col items-center gap-2 transition-opacity duration-150 ${reverse ? 'flex-col-reverse' : ''}`}
+      style={{ width: sizes.seatW, opacity: dimmed ? 0.35 : 1 }}
+    >
       <img
         ref={node => registerSeatNode(seat.id, node)}
         src={seat.avatarUrl}
         alt=""
         onClick={canClick ? (e) => onThrowAt(seat.id, e) : undefined}
-        style={{ width: seat.size, height: seat.size, borderRadius: '50%', display: 'block', background: 'var(--sp-card-bg)', border: '1px solid var(--sp-border)', cursor: canClick ? 'crosshair' : 'default' }}
+        className={`block rounded-full border border-sp-border bg-sp-card-bg ${canClick ? 'cursor-crosshair' : 'cursor-default'}`}
+        style={{ width: seat.size, height: seat.size }}
       />
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sp-text-dim)', maxWidth: sizes.seatW - 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{seat.displayName}</div>
+      <div
+        className="overflow-hidden text-center text-xs font-semibold text-ellipsis whitespace-nowrap text-sp-text-dim"
+        style={{ maxWidth: sizes.seatW - 6 }}
+      >{seat.displayName}</div>
 
       {seat.showBlank && (
-        <div style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-card-bg)', border: '1.5px solid var(--sp-border-strong)' }} />
+        <div className="rounded-[5px] border-[1.5px] border-sp-border-strong bg-sp-card-bg" style={{ width: sizes.cardW, height: sizes.cardH }} />
       )}
       {(seat.showPlaced || seat.showValue) && (
         <div style={{ width: sizes.cardW, height: sizes.cardH, perspective: 300 }}>
           {seat.showValue ? (
             <div
-              className="sp-flip-card"
-              style={{ width: '100%', height: '100%', animationDelay: `${seat.flipDelay}ms` }}
+              className="sp-flip-card h-full w-full"
+              style={{ animationDelay: `${seat.flipDelay}ms` }}
             >
-              <div className="sp-flip-face" style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>?</div>
-              <div className="sp-flip-face sp-flip-face-back" style={{ width: sizes.cardW, height: sizes.cardH, borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', color: 'var(--sp-accent-on-card)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>{seat.voteValue}</div>
+              <div
+                className="sp-flip-face rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel font-sp-mono font-bold text-sp-accent-text"
+                style={{ width: sizes.cardW, height: sizes.cardH, fontSize: sizes.cardFont }}
+              >?</div>
+              <div
+                className="sp-flip-face sp-flip-face-back rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel font-sp-mono font-bold text-sp-accent-on-card"
+                style={{ width: sizes.cardW, height: sizes.cardH, fontSize: sizes.cardFont }}
+              >{seat.voteValue}</div>
             </div>
           ) : (
-            <div style={{ width: '100%', height: '100%', borderRadius: 5, background: 'var(--sp-accent-panel)', border: '2px solid var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sp-accent-text)', fontFamily: 'var(--sp-mono)', fontSize: sizes.cardFont, fontWeight: 700 }}>?</div>
+            <div
+              className="flex h-full w-full items-center justify-center rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel font-sp-mono font-bold text-sp-accent-text"
+              style={{ fontSize: sizes.cardFont }}
+            >?</div>
           )}
         </div>
       )}
@@ -150,7 +166,10 @@ interface SeatRowProps extends Omit<SeatProps, 'seat'> {
 function SeatRow({ seats, reverse, ...seatProps }: SeatRowProps) {
   if (seats.length === 0) return null;
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: reverse ? 'flex-start' : 'flex-end', gap: `14px ${SEAT_GAP}px` }}>
+    <div
+      className={`flex flex-wrap justify-center ${reverse ? 'items-start' : 'items-end'}`}
+      style={{ gap: `14px ${SEAT_GAP}px` }}
+    >
       {seats.map(seat => <Seat key={seat.id} seat={seat} reverse={reverse} {...seatProps} />)}
     </div>
   );
@@ -237,40 +256,38 @@ export default function SeatTable({
   return (
     // The stage contains every throwable avatar (seats and observers), so
     // ThrowOverlay's rect math is valid for all targets.
-    <div ref={stageRef} style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0 }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: `20px 16px ${bottomClearance}px`, transition: 'padding-bottom 0.25s ease' }}>
-        <div style={{ width: '100%', maxWidth: stageMaxWidth, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div ref={stageRef} className="relative flex min-w-0 flex-1 flex-row">
+      <div
+        className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 pt-5 transition-[padding-bottom] duration-250"
+        style={{ paddingBottom: bottomClearance }}
+      >
+        <div className="flex w-full flex-col gap-4.5" style={{ maxWidth: stageMaxWidth }}>
           <SeatRow seats={top} {...seatProps} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div className="flex items-center gap-4">
             {leftEnd && <Seat seat={leftEnd} {...seatProps} />}
             <div
-              style={{
-                flex: 1, minWidth: TABLE_MIN_WIDTH, height: tableHeight, borderRadius: 28, background: 'var(--sp-table-center)',
-                border: !isRevealed && allVoted ? '2px solid var(--sp-accent)' : '1px solid var(--sp-border)',
-                boxShadow: !isRevealed && allVoted ? '0 0 0 3px var(--sp-accent-glow)' : 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-              }}
+              className={`flex flex-1 items-center justify-center rounded-[28px] bg-sp-table-center transition-[border-color,box-shadow] duration-150 ${
+                !isRevealed && allVoted ? 'border-2 border-sp-accent shadow-[0_0_0_3px_var(--sp-accent-glow)]' : 'border border-sp-border'
+              }`}
+              style={{ minWidth: TABLE_MIN_WIDTH, height: tableHeight }}
             >
               {!isRevealed && (
                 allVoted ? (
                   <div className="sp-kbd-hint-wrap">
                     {anyVote && (
-                      <div className="sp-kbd-hint" style={{ background: 'var(--sp-panel-3)', color: 'var(--sp-text-dim)', fontSize: 11, fontWeight: 600, borderRadius: 5, padding: '3px 7px', border: '1px solid var(--sp-border-strong)', boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+                      <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
                         Enter
                       </div>
                     )}
                     <button
                       onClick={onReveal}
                       disabled={!anyVote}
-                      style={{
-                        background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: '10px 20px', color: 'var(--sp-bg)',
-                        fontFamily: 'var(--sp-font)', fontSize: 13, fontWeight: 700, cursor: anyVote ? 'pointer' : 'default', opacity: anyVote ? 1 : 0.45,
-                      }}
+                      className={`rounded-lg border-none bg-sp-accent px-5 py-2.5 font-sp-font text-sm font-bold text-sp-bg ${anyVote ? 'cursor-pointer opacity-100' : 'cursor-default opacity-45'}`}
                     >Reveal votes</button>
                   </div>
                 ) : (
-                  <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 15, fontWeight: 700, color: 'var(--sp-text-dim)' }}>
+                  <div className="font-sp-mono text-[15px] font-bold text-sp-text-dim">
                     {votedCount}/{n}
                   </div>
                 )

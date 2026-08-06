@@ -31,47 +31,47 @@ export default function RoomHeader({
   onSwitchRole, onLeave,
 }: RoomHeaderProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 28px', borderBottom: '1px solid var(--sp-border)', gap: 20, flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', flex: 1, minWidth: 280 }}>
-        <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sp-mono)', fontWeight: 700, fontSize: 10, color: 'var(--sp-bg)' }}>ER</div>
-        <button onClick={onCopy} title="Copy shareable invite link" style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: 'var(--sp-text-dim)' }}>
-          <span style={{ fontFamily: 'var(--sp-mono)', fontSize: 13, letterSpacing: '0.08em' }}>{roomCode}</span>
-          <span style={{ fontSize: 11, color: 'var(--sp-text-faint)' }}>{copied ? 'link copied' : 'copy link'}</span>
+    <div className="flex flex-wrap items-center justify-between gap-5 border-b border-sp-border px-7 py-4">
+      <div className="flex min-w-[280px] flex-1 flex-wrap items-center gap-5">
+        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-md bg-sp-accent font-sp-mono text-[10px] font-bold text-sp-bg">ER</div>
+        <button onClick={onCopy} title="Copy shareable invite link" className="flex cursor-pointer items-center gap-[7px] rounded-md border border-sp-border bg-sp-panel px-2.5 py-1.5 text-sp-text-dim">
+          <span className="font-sp-mono text-[13px] tracking-[0.08em]">{roomCode}</span>
+          <span className="text-[11px] text-sp-text-faint">{copied ? 'link copied' : 'copy link'}</span>
         </button>
 
         {isCreator ? (
-          <div style={{ position: 'relative', flex: 1, minWidth: 180, maxWidth: 420 }}>
+          <div className="relative min-w-[180px] max-w-[420px] flex-1">
             <input
               ref={storyInputRef}
               value={storyDraft}
               onChange={onStoryChange}
               maxLength={STORY_MAX_LENGTH}
               placeholder="Click to add a story title or ticket ref..."
-              style={{ width: '100%', background: 'transparent', border: '1px solid transparent', borderRadius: 7, padding: '6px 10px', color: 'var(--sp-text)', fontFamily: 'var(--sp-mono)', fontSize: 14, outline: 'none' }}
+              className="w-full rounded-md border border-transparent bg-transparent px-2.5 py-1.5 font-sp-mono text-sm text-sp-text outline-none"
             />
           </div>
         ) : (
-          <div style={{ fontFamily: 'var(--sp-mono)', fontSize: 14, color: 'var(--sp-text-dim)', padding: '6px 10px' }}>{story || 'Untitled story'}</div>
+          <div className="px-2.5 py-1.5 font-sp-mono text-sm text-sp-text-dim">{story || 'Untitled story'}</div>
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <ThemeToggle theme={theme} onToggle={onToggleTheme} size={34} />
         {!isObserver && (
           equippedWeaponId ? (
-            <button onClick={onCancelTargeting} style={{ border: '1px solid var(--sp-accent-border)', background: 'var(--sp-accent-panel-2)', color: 'var(--sp-accent-text)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>
+            <button onClick={onCancelTargeting} className="cursor-pointer whitespace-nowrap rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3.5 py-2.5 font-sp-font text-xs font-bold text-sp-accent-text">
               Cancel throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label}
             </button>
           ) : (
-            <button onClick={onOpenWeaponTray} style={{ border: 'none', background: 'var(--sp-accent)', color: 'var(--sp-bg)', fontWeight: 700, fontFamily: 'var(--sp-font)', padding: '9px 14px', borderRadius: 7, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>🎯 Choose Your Weapon</button>
+            <button onClick={onOpenWeaponTray} className="cursor-pointer whitespace-nowrap rounded-md border-none bg-sp-accent px-3.5 py-2.5 font-sp-font text-xs font-bold text-sp-bg">🎯 Choose Your Weapon</button>
           )
         )}
         {!isObserver ? (
-          <button onClick={() => onSwitchRole(true)} style={{ background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border-strong)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-text-dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to observing</button>
+          <button onClick={() => onSwitchRole(true)} className="cursor-pointer rounded-md border border-sp-border-strong bg-sp-panel-2 px-3 py-2 font-sp-font text-xs font-semibold text-sp-text-dim">Switch to observing</button>
         ) : (
-          <button onClick={() => onSwitchRole(false)} style={{ background: 'var(--sp-accent-panel-2)', border: '1px solid var(--sp-accent-border)', borderRadius: 7, padding: '8px 12px', color: 'var(--sp-accent-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sp-font)' }}>Switch to voting</button>
+          <button onClick={() => onSwitchRole(false)} className="cursor-pointer rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3 py-2 font-sp-font text-xs font-semibold text-sp-accent-text">Switch to voting</button>
         )}
-        <button onClick={onLeave} style={{ background: 'none', border: 'none', color: 'var(--sp-text-faintest)', fontSize: 12, cursor: 'pointer' }}>Leave room</button>
+        <button onClick={onLeave} className="cursor-pointer border-none bg-transparent text-xs text-sp-text-faintest">Leave room</button>
       </div>
     </div>
   );
