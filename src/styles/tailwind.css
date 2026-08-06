@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Maps the existing --sp-* custom properties (defined in theme.css's :root
+   and :root[data-theme='light'] blocks) into Tailwind's theme namespace, so
+   utilities like bg-sp-panel/text-sp-text-dim resolve through the same
+   runtime-toggled variables theme.css already defines -- the data-theme
+   light/dark flip in lib/theme.ts needs no changes. */
+@theme {
+  --color-sp-bg: var(--sp-bg);
+  --color-sp-panel: var(--sp-panel);
+  --color-sp-panel-2: var(--sp-panel-2);
+  --color-sp-panel-3: var(--sp-panel-3);
+  --color-sp-table-center: var(--sp-table-center);
+  --color-sp-border: var(--sp-border);
+  --color-sp-border-strong: var(--sp-border-strong);
+  --color-sp-border-stronger: var(--sp-border-stronger);
+  --color-sp-card-bg: var(--sp-card-bg);
+  --color-sp-card-idle-border: var(--sp-card-idle-border);
+  --color-sp-bar-track: var(--sp-bar-track);
+  --color-sp-text: var(--sp-text);
+  --color-sp-text-dim: var(--sp-text-dim);
+  --color-sp-text-dimmer: var(--sp-text-dimmer);
+  --color-sp-text-faint: var(--sp-text-faint);
+  --color-sp-text-faintest: var(--sp-text-faintest);
+  --color-sp-text-placeholder: var(--sp-text-placeholder);
+  --color-sp-accent: var(--sp-accent);
+  --color-sp-accent-hover: var(--sp-accent-hover);
+  --color-sp-accent-text: var(--sp-accent-text);
+  --color-sp-accent-text-strong: var(--sp-accent-text-strong);
+  --color-sp-accent-on-card: var(--sp-accent-on-card);
+  --color-sp-accent-glow: var(--sp-accent-glow);
+  --color-sp-accent-panel: var(--sp-accent-panel);
+  --color-sp-accent-panel-2: var(--sp-accent-panel-2);
+  --color-sp-accent-panel-2-transparent: var(--sp-accent-panel-2-transparent);
+  --color-sp-accent-panel-3: var(--sp-accent-panel-3);
+  --color-sp-accent-border: var(--sp-accent-border);
+  --color-sp-warn-bg: var(--sp-warn-bg);
+  --color-sp-warn-border: var(--sp-warn-border);
+  --color-sp-warn-text: var(--sp-warn-text);
+  --font-sp-font: var(--sp-font);
+  --font-sp-mono: var(--sp-mono);
+}
