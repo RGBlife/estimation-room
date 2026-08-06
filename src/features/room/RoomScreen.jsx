@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import SeatTable from '../components/SeatTable.jsx';
-import VotingBar from '../components/VotingBar.jsx';
-import ThemeToggle from '../components/ThemeToggle.jsx';
-import WeaponTray from '../components/WeaponTray.jsx';
-import { computeStats, computeDistribution } from '../lib/stats.js';
-import { WEAPONS } from '../lib/weapons.js';
-import { randomAvatar, CARD_VALUES } from '../lib/avatar.js';
+import SeatTable from './SeatTable.jsx';
+import VotingBar from './VotingBar.jsx';
+import ThemeToggle from '../../shared/ui/ThemeToggle.jsx';
+import WeaponTray from './WeaponTray.jsx';
+import { computeStats, computeDistribution } from './stats.js';
+import { WEAPONS } from './weapons.js';
+import { randomAvatar, CARD_VALUES } from '../avatar/index.js';
 
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;

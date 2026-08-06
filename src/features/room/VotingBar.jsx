@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CARD_VALUES } from '../lib/avatar.js';
+import { CARD_VALUES } from '../avatar/index.js';
 
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;

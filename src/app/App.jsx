@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import JoinScreen from './screens/JoinScreen.jsx';
-import RoomScreen from './screens/RoomScreen.jsx';
-import { useRoom } from './lib/useRoom.js';
-import { loadProfile, loadLastRoomCode } from './lib/profile.js';
-import { loadTheme, saveTheme } from './lib/theme.js';
+import { JoinScreen, loadProfile, loadLastRoomCode } from '../features/join/index.js';
+import { RoomScreen, useRoom } from '../features/room/index.js';
+import { loadTheme, saveTheme } from '../shared/lib/theme.js';
 
 function roomCodeFromUrl() {
   const code = new URLSearchParams(window.location.search).get('room');

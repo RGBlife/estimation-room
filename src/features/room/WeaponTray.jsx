@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { WEAPONS } from '../lib/weapons.js';
+import { WEAPONS } from './weapons.js';
 import WeaponShape from './WeaponShape.jsx';
 
 const CLOSE_MS = 220;

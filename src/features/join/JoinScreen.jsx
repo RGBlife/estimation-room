@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import AvatarBuilder, { useAvatarPanelWidth } from '../components/AvatarBuilder.jsx';
-import ThemeToggle from '../components/ThemeToggle.jsx';
-import { randomRoomCode } from '../lib/roomCode.js';
-import { loadProfile, saveProfile } from '../lib/profile.js';
-import { randomAvatar } from '../lib/avatar.js';
+import { AvatarBuilder, useAvatarPanelWidth } from '../avatar/index.js';
+import ThemeToggle from '../../shared/ui/ThemeToggle.jsx';
+import { randomRoomCode } from './roomCode.js';
+import { loadProfile, saveProfile } from './profile.js';
+import { randomAvatar } from '../avatar/avatar.js';
 
 export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme }) {
   const [storedProfile] = useState(loadProfile);

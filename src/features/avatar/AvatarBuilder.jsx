@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AVATAR_BG, AVATAR_CATEGORIES, avatarDataUri, avatarPreviewUri, randomAvatar } from '../lib/avatar.js';
+import { AVATAR_BG, AVATAR_CATEGORIES, avatarDataUri, avatarPreviewUri, randomAvatar } from './avatar.js';
 
 const PRO_KEY = 'sp_avatar_pro';
 

@@ -1,4 +1,4 @@
-import { participantAvatarSrc } from '../lib/avatar.js';
+import { participantAvatarSrc } from '../avatar/index.js';
 
 // Each observer sits on a small CSS-drawn chair: back, two legs, seat, avatar
 // on top, and a "gaze" triangle pointing toward the table. Vertical rail on the

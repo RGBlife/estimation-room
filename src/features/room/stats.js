@@ -1,4 +1,4 @@
-import { CARD_VALUES } from './avatar.js';
+import { CARD_VALUES } from '../avatar/avatar.js';
 
 export function computeStats(participants) {
   const active = Object.values(participants).filter(p => !p.isObserver);

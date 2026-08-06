@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { WEAPONS, FRAG_ANGLES } from '../lib/weapons.js';
+import { WEAPONS, FRAG_ANGLES } from './weapons.js';
 import WeaponShape from './WeaponShape.jsx';
 import TreeShape from './TreeShape.jsx';
 

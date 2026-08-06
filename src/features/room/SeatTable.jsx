@@ -1,5 +1,6 @@
-import { participantAvatarSrc } from '../lib/avatar.js';
-import useMediaQuery from '../lib/useMediaQuery.js';
+import { useEffect, useState } from 'react';
+import { participantAvatarSrc } from '../avatar/index.js';
+import useMediaQuery from '../../shared/hooks/useMediaQuery.js';
 import ObserverRail from './ObserverRail.jsx';
 import ThrowOverlay from './ThrowOverlay.jsx';
 
@@ -16,9 +17,37 @@ const DEFAULT_SIZES = { seatW: 96, avatar: 52, meAvatar: 60, cardW: 34, cardH: 4
 const COMPACT_SIZES = { seatW: 78, avatar: 40, meAvatar: 46, cardW: 26, cardH: 36, cardFont: 12 };
 const COMPACT_AT = 17;
 const STAGE_MAX_CAP = 1180;
-const TABLE_HEIGHT = 170;
 const TABLE_MIN_WIDTH = 200;
+const TABLE_MIN_HEIGHT = 170;
 const END_SEAT_BREAKPOINT = '(min-width: 640px)';
+
+// A small room (few seats) would otherwise size the table to just fit those
+// seats regardless of screen size, leaving it stranded tiny in the middle of
+// a big monitor. These floors scale the table up with the viewport so it
+// still reads as a table on wide screens, independent of headcount — width
+// and height climb together so it stays table-shaped instead of a thin bar.
+const WIDTH_FLOOR_BREAKPOINTS = [
+  { minWidth: 1600, floor: 620 },
+  { minWidth: 1200, floor: 520 },
+  { minWidth: 900, floor: 420 },
+  { minWidth: 0, floor: 0 },
+];
+const HEIGHT_BREAKPOINTS = [
+  { minWidth: 1600, height: 260 },
+  { minWidth: 1200, height: 220 },
+  { minWidth: 900, height: 190 },
+  { minWidth: 0, height: TABLE_MIN_HEIGHT },
+];
+
+function useViewportWidth() {
+  const [width, setWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return width;
+}
 
 // Index-based so nobody reshuffles when someone joins (new joiners sort last
 // by joinedAt). Ends are pinned to indices 2 and 3; everyone else alternates
@@ -107,6 +136,7 @@ export default function SeatTable({
   // short sides, and the vertical observer rail (which drops below the table
   // on narrow viewports so seats keep the full width).
   const wide = useMediaQuery(END_SEAT_BREAKPOINT);
+  const viewportWidth = useViewportWidth();
   const sizes = n >= COMPACT_AT ? COMPACT_SIZES : DEFAULT_SIZES;
 
   const seats = active.map(([id, p], seatIdx) => {
@@ -133,7 +163,9 @@ export default function SeatTable({
 
   const { top, bottom, leftEnd, rightEnd } = distributeSeats(seats, wide);
   const widestRow = Math.max(top.length, bottom.length, 1);
-  const stageMaxWidth = Math.min(STAGE_MAX_CAP, Math.max(360, widestRow * (sizes.seatW + SEAT_GAP) + 48));
+  const widthFloor = WIDTH_FLOOR_BREAKPOINTS.find(b => viewportWidth >= b.minWidth).floor;
+  const stageMaxWidth = Math.min(STAGE_MAX_CAP, Math.max(360, widthFloor, widestRow * (sizes.seatW + SEAT_GAP) + 48));
+  const tableHeight = HEIGHT_BREAKPOINTS.find(b => viewportWidth >= b.minWidth).height;
   // Clearance for the fixed VotingBar is the bar's real measured height
   // (plus a small buffer) rather than a guess, so it only ever changes by
   // as much as the bar actually grows/shrinks — and that change transitions
@@ -154,7 +186,7 @@ export default function SeatTable({
             {leftEnd && <Seat seat={leftEnd} {...seatProps} />}
             <div
               style={{
-                flex: 1, minWidth: TABLE_MIN_WIDTH, height: TABLE_HEIGHT, borderRadius: 28, background: 'var(--sp-table-center)',
+                flex: 1, minWidth: TABLE_MIN_WIDTH, height: tableHeight, borderRadius: 28, background: 'var(--sp-table-center)',
                 border: !isRevealed && allVoted ? '2px solid var(--sp-accent)' : '1px solid var(--sp-border)',
                 boxShadow: !isRevealed && allVoted ? '0 0 0 3px var(--sp-accent-glow)' : 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.15s ease, box-shadow 0.15s ease',

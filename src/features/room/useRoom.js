@@ -7,9 +7,9 @@ import {
   ref as rtdbRef, onValue, onDisconnect, set as rtdbSet, remove as rtdbRemove,
   query, orderByChild, startAt, onChildAdded, push,
 } from 'firebase/database';
-import { db, auth, rtdb } from '../firebase.js';
-import { randomRoomCode } from './roomCode.js';
-import { saveLastRoomCode } from './profile.js';
+import { db, auth, rtdb } from '../../shared/lib/firebase.js';
+import { randomRoomCode } from '../join/roomCode.js';
+import { saveLastRoomCode } from '../join/profile.js';
 
 const MAX_CREATE_ATTEMPTS = 3;
 
