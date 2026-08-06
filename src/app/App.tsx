@@ -130,8 +130,8 @@ export default function App() {
 
   if (autoJoining && !error && !joinError) {
     return (
-      <div className="sp-app" style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: 'var(--sp-text-faint)', fontSize: 14 }}>Joining room…</span>
+      <div className="sp-app items-center justify-center">
+        <span className="text-sm text-sp-text-faint">Joining room…</span>
       </div>
     );
   }

@@ -161,8 +161,8 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
       />
 
       {actionError && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 92, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ background: 'var(--sp-warn-bg)', border: '1px solid var(--sp-warn-border)', color: 'var(--sp-warn-text)', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{actionError}</div>
+        <div className="pointer-events-none fixed right-0 bottom-[92px] left-0 flex justify-center">
+          <div className="rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3.5 py-1.5 text-sm font-semibold text-sp-warn-text">{actionError}</div>
         </div>
       )}
 
