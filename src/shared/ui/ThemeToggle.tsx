@@ -12,7 +12,8 @@ export default function ThemeToggle({ theme, onToggle, size = 34 }: ThemeToggleP
     <button
       onClick={onToggle}
       title="Toggle theme"
-      style={{ width: size, height: size, borderRadius: 8, background: 'var(--sp-panel-2)', border: '1px solid var(--sp-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sp-text-dim)', flex: 'none' }}
+      className="flex flex-none items-center justify-center rounded-lg border border-sp-border bg-sp-panel-2 text-sp-text-dim cursor-pointer"
+      style={{ width: size, height: size }}
     >
       {isDark ? (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -75,71 +75,70 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   };
 
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-      <div style={{ width: '100%', maxWidth: cardMaxWidth, animation: 'sp-fade-in 0.4s ease', transition: 'max-width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
+    <div className="flex flex-1 items-center justify-center p-8">
+      <div
+        className="w-full transition-[max-width] duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+        style={{ maxWidth: cardMaxWidth, animation: 'sp-fade-in 0.4s ease' }}
+      >
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+        <div className="mb-1.5 flex justify-end">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 28 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--sp-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--sp-mono)', fontWeight: 700, fontSize: 13, color: 'var(--sp-bg)' }}>ER</div>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Estimation Room</span>
+        <div className="mb-7 flex items-center justify-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sp-accent font-sp-mono text-[13px] font-bold text-sp-bg">ER</div>
+          <span className="text-lg font-bold tracking-[-0.02em]">Estimation Room</span>
         </div>
 
-        <div onKeyDown={handleKeyDown} style={{ background: 'var(--sp-panel)', border: '1px solid var(--sp-border)', borderRadius: 14, padding: 28 }}>
+        <div onKeyDown={handleKeyDown} className="rounded-2xl border border-sp-border bg-sp-panel p-7">
 
           <AvatarBuilder avatar={avatar} onChange={setAvatar} onExpandedChange={setAvatarExpanded} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="flex flex-col gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--sp-text-faint)', marginBottom: 6, fontWeight: 600 }}>Your name</label>
+              <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Your name</label>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Sam Rivera"
                 maxLength={40}
-                style={{ width: '100%', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: '11px 12px', color: 'var(--sp-text)', fontFamily: 'var(--sp-font)', fontSize: 14, outline: 'none' }}
+                className="w-full rounded-lg border border-sp-border bg-sp-bg px-3 py-2.5 font-sp-font text-sm text-sp-text outline-none"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--sp-text-faint)', marginBottom: 6, fontWeight: 600 }}>Your role this round</label>
-              <div style={{ position: 'relative', display: 'flex', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: 3 }}>
+              <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Your role this round</label>
+              <div className="relative flex rounded-lg border border-sp-border bg-sp-bg p-[3px]">
                 <div
-                  style={{
-                    position: 'absolute', top: 3, bottom: 3, left: 3,
-                    width: 'calc(50% - 3px)', borderRadius: 6, background: 'var(--sp-accent)',
-                    transform: role === 'observer' ? 'translateX(100%)' : 'translateX(0)',
-                    transition: 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                  }}
+                  className="absolute top-[3px] bottom-[3px] left-[3px] w-[calc(50%-3px)] rounded-md bg-sp-accent transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                  style={{ transform: role === 'observer' ? 'translateX(100%)' : 'translateX(0)' }}
                 />
                 <button
                   onClick={() => setRole('participant')}
-                  style={{ position: 'relative', flex: 1, background: 'none', border: 'none', borderRadius: 6, padding: 8, color: role === 'participant' ? 'var(--sp-bg)' : 'var(--sp-text-dimmer)', fontSize: 13, fontWeight: role === 'participant' ? 700 : 600, cursor: 'pointer', fontFamily: 'var(--sp-font)', transition: 'color 0.15s ease' }}
+                  className={`relative flex-1 rounded-md border-none bg-transparent p-2 font-sp-font text-[13px] cursor-pointer transition-colors duration-150 ${role === 'participant' ? 'font-bold text-sp-bg' : 'font-semibold text-sp-text-dimmer'}`}
                 >Participant</button>
                 <button
                   onClick={() => setRole('observer')}
-                  style={{ position: 'relative', flex: 1, background: 'none', border: 'none', borderRadius: 6, padding: 8, color: role === 'observer' ? 'var(--sp-bg)' : 'var(--sp-text-dimmer)', fontSize: 13, fontWeight: role === 'observer' ? 700 : 600, cursor: 'pointer', fontFamily: 'var(--sp-font)', transition: 'color 0.15s ease' }}
+                  className={`relative flex-1 rounded-md border-none bg-transparent p-2 font-sp-font text-[13px] cursor-pointer transition-colors duration-150 ${role === 'observer' ? 'font-bold text-sp-bg' : 'font-semibold text-sp-text-dimmer'}`}
                 >Observer</button>
               </div>
             </div>
 
             {mode === 'create' ? (
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--sp-text-faint)', marginBottom: 6, fontWeight: 600 }}>Room code</label>
-                <div style={{ width: '100%', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: '11px 12px', fontFamily: 'var(--sp-mono)', fontSize: 14, letterSpacing: '0.1em', color: 'var(--sp-accent-text)' }}>
-                  {roomCodeInput} <span style={{ color: 'var(--sp-text-placeholder)', fontFamily: 'var(--sp-font)', letterSpacing: 0, fontSize: 12 }}>— new room</span>
+                <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Room code</label>
+                <div className="w-full rounded-lg border border-sp-border bg-sp-bg px-3 py-2.5 font-sp-mono text-sm tracking-[0.1em] text-sp-accent-text">
+                  {roomCodeInput} <span className="font-sp-font text-xs tracking-normal text-sp-text-placeholder">— new room</span>
                 </div>
               </div>
             ) : (
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--sp-text-faint)', marginBottom: 6, fontWeight: 600 }}>Room code</label>
+                <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Room code</label>
                 <input
                   value={roomCodeInput}
                   onChange={handleRoomCodeChange}
                   placeholder="Enter your room code"
                   maxLength={6}
-                  style={{ width: '100%', background: 'var(--sp-bg)', border: '1px solid var(--sp-border)', borderRadius: 8, padding: '11px 12px', color: 'var(--sp-text)', fontFamily: roomCodeInput ? 'var(--sp-mono)' : 'var(--sp-font)', fontSize: 14, letterSpacing: roomCodeInput ? '0.1em' : 'normal', outline: 'none', textTransform: roomCodeInput ? 'uppercase' : 'none' }}
+                  className={`w-full rounded-lg border border-sp-border bg-sp-bg px-3 py-2.5 text-sm text-sp-text outline-none ${roomCodeInput ? 'font-sp-mono tracking-[0.1em] uppercase' : 'font-sp-font'}`}
                 />
               </div>
             )}
@@ -147,26 +146,26 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
             <button
               onClick={handleSubmit}
               disabled={joinDisabled}
-              style={{ width: '100%', background: 'var(--sp-accent)', border: 'none', borderRadius: 8, padding: 12, color: 'var(--sp-bg)', fontFamily: 'var(--sp-font)', fontSize: 14, fontWeight: 700, cursor: joinDisabled ? 'default' : 'pointer', marginTop: 6, opacity: joinDisabled ? 0.6 : 1 }}
+              className={`mt-1.5 w-full rounded-lg border-none bg-sp-accent p-3 font-sp-font text-sm font-bold text-sp-bg ${joinDisabled ? 'cursor-default opacity-60' : 'cursor-pointer opacity-100'}`}
             >{busy ? 'Please wait…' : !ready ? 'Connecting…' : (mode === 'create' ? 'Create room' : 'Join room')}</button>
 
             {mode === 'join' ? (
-              <button onClick={switchToCreate} style={{ background: 'none', border: 'none', color: 'var(--sp-text-faint)', fontSize: 13, cursor: 'pointer', textAlign: 'center', padding: 2 }}>or create a new room</button>
+              <button onClick={switchToCreate} className="cursor-pointer border-none bg-transparent p-0.5 text-center text-[13px] text-sp-text-faint">or create a new room</button>
             ) : (
-              <button onClick={switchToJoin} style={{ background: 'none', border: 'none', color: 'var(--sp-text-faint)', fontSize: 13, cursor: 'pointer', textAlign: 'center', padding: 2 }}>or join an existing room</button>
+              <button onClick={switchToJoin} className="cursor-pointer border-none bg-transparent p-0.5 text-center text-[13px] text-sp-text-faint">or join an existing room</button>
             )}
 
             {joinError && (
-              <div style={{ color: 'var(--sp-warn-text)', fontSize: 13, textAlign: 'center' }}>{joinError}</div>
+              <div className="text-center text-[13px] text-sp-warn-text">{joinError}</div>
             )}
 
             {!joinError && notice && (
-              <div style={{ color: 'var(--sp-text-faint)', fontSize: 13, textAlign: 'center' }}>{notice}</div>
+              <div className="text-center text-[13px] text-sp-text-faint">{notice}</div>
             )}
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: 18, fontSize: 12, color: 'var(--sp-text-placeholder)' }}>No account needed — just enter a name</div>
+        <div className="mt-[18px] text-center text-xs text-sp-text-placeholder">No account needed — just enter a name</div>
       </div>
     </div>
   );
