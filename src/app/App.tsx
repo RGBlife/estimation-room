@@ -1,33 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { JoinScreen, loadProfile, loadLastRoomCode } from '../features/join/index.js';
 import type { JoinPayload } from '../features/join/JoinScreen.tsx';
-import { RoomScreen, useRoom } from '../features/room/index.js';
+import { RoomScreen } from '../features/room/index.js';
+import { useRoomStore } from '../features/room/roomStore.ts';
 import { loadTheme, saveTheme, type Theme } from '../shared/lib/theme.ts';
-import type { RoomDoc } from '../types/room.ts';
-import type { ThrowEvent } from '../types/throws.ts';
-
-// useRoom.js is not yet converted to TypeScript -- it becomes the Zustand
-// store in the next restructure stage, so typing it now would be thrown
-// away almost immediately. This interface describes its return shape as a
-// stopgap until then.
-interface UseRoomResult {
-  uid: string | null;
-  room: RoomDoc | null;
-  roomCode: string | null;
-  error: string | null;
-  notice: string | null;
-  throws: ThrowEvent[];
-  createRoom: (payload: JoinPayload) => Promise<string>;
-  joinRoom: (code: string, payload: JoinPayload) => Promise<void>;
-  setRole: (isObserver: boolean) => Promise<void>;
-  castVote: (value: string) => Promise<void>;
-  setStory: (story: string) => Promise<void>;
-  reveal: () => Promise<void>;
-  startNextRound: () => Promise<void>;
-  leave: () => Promise<void>;
-  throwWeapon: (targetUid: string, weaponId: string, offsetX?: number, offsetY?: number) => Promise<void>;
-  dismissThrow: (throwId: string) => void;
-}
 
 function roomCodeFromUrl(): string | null {
   const code = new URLSearchParams(window.location.search).get('room');
@@ -43,11 +19,25 @@ function usableProfile() {
 }
 
 export default function App() {
-  const {
-    uid, room, roomCode, error, notice, throws,
-    createRoom, joinRoom, setRole, castVote, setStory, reveal, startNextRound, leave,
-    throwWeapon, dismissThrow,
-  } = useRoom() as UseRoomResult;
+  const uid = useRoomStore(s => s.uid);
+  const room = useRoomStore(s => s.room);
+  const roomCode = useRoomStore(s => s.roomCode);
+  const error = useRoomStore(s => s.error);
+  const notice = useRoomStore(s => s.notice);
+  const throws = useRoomStore(s => s.throws);
+  const createRoom = useRoomStore(s => s.createRoom);
+  const joinRoom = useRoomStore(s => s.joinRoom);
+  const setRole = useRoomStore(s => s.setRole);
+  const castVote = useRoomStore(s => s.castVote);
+  const setStory = useRoomStore(s => s.setStory);
+  const reveal = useRoomStore(s => s.reveal);
+  const startNextRound = useRoomStore(s => s.startNextRound);
+  const leave = useRoomStore(s => s.leave);
+  const throwWeapon = useRoomStore(s => s.throwWeapon);
+  const dismissThrow = useRoomStore(s => s.dismissThrow);
+
+  useEffect(() => useRoomStore.getState().initAuth(), []);
+
   const [joinError, setJoinError] = useState<string | null>(null);
   // Captured once at page load. Reading the URL on later renders would pick up
   // the ?room= param we put there ourselves while in a room, which made
