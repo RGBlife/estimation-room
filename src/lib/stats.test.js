@@ -30,7 +30,7 @@ describe('computeStats', () => {
   it('flags a wide spread only for a gap of 8 or more across two or more numeric votes', () => {
     expect(computeStats({ a: p('1'), b: p('13') }).isWideSpread).toBe(true);
     expect(computeStats({ a: p('5'), b: p('8') }).isWideSpread).toBe(false);
-    expect(computeStats({ a: p('20') }).isWideSpread).toBe(false);
+    expect(computeStats({ a: p('21') }).isWideSpread).toBe(false);
   });
 
   it('flags allVoted only when every active participant has voted', () => {

@@ -81,7 +81,7 @@ service cloud.firestore {
         && p.name is string && p.name.size() >= 1 && p.name.size() <= 40
         && p.isObserver is bool
         && p.joinedAt is number
-        && (p.vote == null || p.vote in ['0', '1', '2', '3', '5', '8', '13', '20', '?', '☕']);
+        && (p.vote == null || p.vote in ['0', '1', '2', '3', '5', '8', '13', '21', '?', '☕']);
     }
 
     function myIncomingParticipant() {
