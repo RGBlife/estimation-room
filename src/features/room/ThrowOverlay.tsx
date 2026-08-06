@@ -1,12 +1,26 @@
-import { useMemo, useRef, useState } from 'react';
-import { WEAPONS, FRAG_ANGLES } from './weapons.js';
-import WeaponShape from './WeaponShape.jsx';
-import TreeShape from './TreeShape.jsx';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { WEAPONS, FRAG_ANGLES } from './weapons.ts';
+import WeaponShape from './WeaponShape.tsx';
+import TreeShape from './TreeShape.tsx';
+import type { ThrowEvent } from '../../types/throws.ts';
 
 const FLY_MS = 550;
 const GLIDE_MS = 950;
 const IMPACT_MS = 850;
 const TREE_MS = 1800;
+
+// CSSProperties doesn't allow arbitrary custom-property keys (--sx, --tx,
+// etc.) by default -- these are read by the @keyframes in theme.css via
+// var(), not by React/CSS itself, so a plain string-keyed style object is
+// the correct escape hatch here.
+type StyleWithVars = CSSProperties & Record<string, string | number>;
+
+interface Geometry {
+  sx: number;
+  sy: number;
+  tx: number;
+  ty: number;
+}
 
 function randomRotation() {
   return Math.round(Math.random() * 40 - 20) + 'deg';
@@ -20,8 +34,14 @@ function fragmentOffsets() {
   });
 }
 
-function ThrowVisual({ t, geometry, onDone }) {
-  const [phase, setPhase] = useState('fly');
+interface ThrowVisualProps {
+  t: ThrowEvent;
+  geometry: Geometry | null;
+  onDone: () => void;
+}
+
+function ThrowVisual({ t, geometry, onDone }: ThrowVisualProps) {
+  const [phase, setPhase] = useState<'fly' | 'impact' | 'tree'>('fly');
   const rot = useMemo(randomRotation, []);
   const fragments = useMemo(fragmentOffsets, []);
   const meta = WEAPONS.find(w => w.id === t.weaponId);
@@ -33,7 +53,7 @@ function ThrowVisual({ t, geometry, onDone }) {
   const showFragments = phase === 'impact' && isSnowball;
   const showTree = phase === 'tree';
 
-  const vars = { '--sx': `${geometry.sx}px`, '--sy': `${geometry.sy}px`, '--tx': `${geometry.tx}px`, '--ty': `${geometry.ty}px`, '--rot': rot };
+  const vars: StyleWithVars = { '--sx': `${geometry.sx}px`, '--sy': `${geometry.sy}px`, '--tx': `${geometry.tx}px`, '--ty': `${geometry.ty}px`, '--rot': rot };
   if (isGlide) {
     // A gentle S-curve bank: swing wide past the midpoint, then curl back in
     // to the target, so the plane reads as gliding rather than flying dead-straight.
@@ -52,7 +72,7 @@ function ThrowVisual({ t, geometry, onDone }) {
     vars['--glide-my2'] = `${my2}px`;
   }
   const flyMs = isGlide ? GLIDE_MS : FLY_MS;
-  const wrapStyle = phase === 'fly'
+  const wrapStyle: StyleWithVars = phase === 'fly'
     ? { position: 'absolute', left: 0, top: 0, ...vars, animation: `${isGlide ? 'sp-fly-glide' : 'sp-fly-to'} ${flyMs / 1000}s cubic-bezier(.3,.6,.3,1) forwards` }
     : { position: 'absolute', left: 0, top: 0, ...vars, animation: `${meta.impact} ${IMPACT_MS / 1000}s ease-out forwards` };
 
@@ -86,7 +106,7 @@ function ThrowVisual({ t, geometry, onDone }) {
             background: '#fdfeff', border: '1px solid #cfe3f7',
             '--tx': `${geometry.tx}px`, '--ty': `${geometry.ty}px`, '--fx': `${f.fx}px`, '--fy': `${f.fy}px`,
             animation: 'sp-frag-burst 0.7s ease-out forwards',
-          }}
+          } as StyleWithVars}
         />
       ))}
       {showTree && (
@@ -94,7 +114,7 @@ function ThrowVisual({ t, geometry, onDone }) {
           style={{
             position: 'absolute', left: -17, top: -34, ...vars,
             animation: `sp-tree-grow ${TREE_MS / 1000}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards`,
-          }}
+          } as StyleWithVars}
         >
           <TreeShape />
         </div>
@@ -107,12 +127,19 @@ function ThrowVisual({ t, geometry, onDone }) {
 // shared table "stage" container. Geometry (start/end coordinates) is
 // computed once per throw, from live DOM rects, and frozen — seats can move
 // as the table resizes, but a throw already in flight shouldn't retarget.
-export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDone }) {
-  const geometryCacheRef = useRef(new Map());
+interface ThrowOverlayProps {
+  throws: ThrowEvent[];
+  getSeatNode: (id: string) => HTMLElement | null;
+  stageNode: HTMLElement | null;
+  onThrowDone: (id: string) => void;
+}
 
-  const getGeometry = (t) => {
+export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDone }: ThrowOverlayProps) {
+  const geometryCacheRef = useRef(new Map<string, Geometry>());
+
+  const getGeometry = (t: ThrowEvent): Geometry | null => {
     const cache = geometryCacheRef.current;
-    if (cache.has(t.id)) return cache.get(t.id);
+    if (cache.has(t.id)) return cache.get(t.id) ?? null;
     if (!stageNode) return null;
     const fromNode = getSeatNode(t.fromUid);
     const toNode = getSeatNode(t.toUid);

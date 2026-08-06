@@ -1,13 +1,31 @@
+import type { CSSProperties } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
+import type { Participant } from '../../types/room.ts';
+
+interface ObserverRailProps {
+  observers: [string, Participant][];
+  uid: string | null;
+  canTarget?: boolean;
+  onThrowAt: (id: string, e: React.MouseEvent) => void;
+  registerSeatNode?: (id: string, node: HTMLElement | null) => void;
+  horizontal?: boolean;
+}
 
 // Each observer sits on a small CSS-drawn chair: back, two legs, seat, avatar
 // on top, and a "gaze" triangle pointing toward the table. Vertical rail on the
 // right of the table by default; `horizontal` renders it as a wrapping strip
 // instead, for narrow viewports where a side rail would starve the seats.
-export default function ObserverRail({ observers, uid, canTarget = false, onThrowAt, registerSeatNode = () => {}, horizontal = false }) {
+export default function ObserverRail({
+  observers,
+  uid,
+  canTarget = false,
+  onThrowAt,
+  registerSeatNode = () => {},
+  horizontal = false,
+}: ObserverRailProps) {
   if (observers.length === 0) return null;
 
-  const containerStyle = horizontal
+  const containerStyle: CSSProperties = horizontal
     ? {
         width: '100%', background: 'var(--sp-panel)', borderTop: '1px solid var(--sp-border)',
         display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center', padding: '14px 10px', gap: 10,

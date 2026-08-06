@@ -1,12 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { CARD_VALUES } from '../avatar/index.js';
+import type { CardValue } from '../../types/room.ts';
+import type { DistributionGroup } from './stats.ts';
 
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
 const STAGGER_MS = 45;
 const VOTE_ROW_EXIT_MS = 260;
 
-function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound, hoveredValue, onHoverValue }) {
+interface DistributionBarProps {
+  distribution: DistributionGroup[];
+  hasAverage: boolean;
+  average: string | null;
+  isWideSpread: boolean;
+  onStartNextRound: () => void;
+  hoveredValue: CardValue | null;
+  onHoverValue: (value: CardValue | null) => void;
+}
+
+function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound, hoveredValue, onHoverValue }: DistributionBarProps) {
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '4px 0' }}>
@@ -79,7 +91,13 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
   );
 }
 
-function VoteCardRow({ myVote, onSelect, exiting }) {
+interface VoteCardRowProps {
+  myVote: CardValue | null;
+  onSelect: (value: CardValue) => void;
+  exiting?: boolean;
+}
+
+function VoteCardRow({ myVote, onSelect, exiting }: VoteCardRowProps) {
   return (
     <>
       <span style={{ fontSize: 11, color: 'var(--sp-text-faintest)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, whiteSpace: 'nowrap' }}>Your vote</span>
@@ -123,11 +141,27 @@ function VoteCardRow({ myVote, onSelect, exiting }) {
   );
 }
 
+interface VotingBarProps {
+  isObserver: boolean;
+  myVote: CardValue | null;
+  isRevealed: boolean;
+  onSelect: (value: CardValue) => void;
+  onJoinVoting: () => void;
+  distribution: DistributionGroup[];
+  hasAverage: boolean;
+  average: string | null;
+  isWideSpread: boolean;
+  onStartNextRound: () => void;
+  hoveredValue: CardValue | null;
+  onHoverValue: (value: CardValue | null) => void;
+  onHeightChange?: (height: number) => void;
+}
+
 export default function VotingBar({
   isObserver, myVote, isRevealed, onSelect, onJoinVoting,
   distribution, hasAverage, average, isWideSpread, onStartNextRound,
   hoveredValue, onHoverValue, onHeightChange,
-}) {
+}: VotingBarProps) {
   // The vote-card row stays mounted briefly after reveal so it can animate
   // out instead of being swapped for the distribution bar instantly.
   const [showExitingCards, setShowExitingCards] = useState(false);
@@ -143,7 +177,7 @@ export default function VotingBar({
   // Reports this bar's real height so SeatTable can reserve exactly enough
   // clearance above it — the bar grows a lot taller once the distribution
   // panel replaces the vote-card row, and measuring beats guessing.
-  const barRef = useRef(null);
+  const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = barRef.current;
     if (!node || !onHeightChange) return;

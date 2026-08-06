@@ -1,4 +1,12 @@
-export default function ThemeToggle({ theme, onToggle, size = 34 }) {
+import type { Theme } from '../lib/theme.ts';
+
+interface ThemeToggleProps {
+  theme: Theme;
+  onToggle: () => void;
+  size?: number;
+}
+
+export default function ThemeToggle({ theme, onToggle, size = 34 }: ThemeToggleProps) {
   const isDark = theme !== 'light';
   return (
     <button

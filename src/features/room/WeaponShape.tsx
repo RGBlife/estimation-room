@@ -1,8 +1,12 @@
 import { useState } from 'react';
 
+interface WeaponShapeProps {
+  shape?: string;
+}
+
 // Small hand-drawn (non-emoji) weapon glyphs, shared by the weapon tray
 // preview and the in-flight throw overlay so both stay visually identical.
-export default function WeaponShape({ shape }) {
+export default function WeaponShape({ shape }: WeaponShapeProps) {
   if (shape === 'custom-image') {
     return <CustomImageShape />;
   }

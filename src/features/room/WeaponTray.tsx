@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
-import { WEAPONS } from './weapons.js';
-import WeaponShape from './WeaponShape.jsx';
+import { WEAPONS } from './weapons.ts';
+import WeaponShape from './WeaponShape.tsx';
 
 const CLOSE_MS = 220;
+
+interface WeaponTrayProps {
+  open: boolean;
+  selectedWeaponId?: string | null;
+  onSelect: (weaponId: string) => void;
+  onClose: () => void;
+}
 
 // Stays mounted for CLOSE_MS after `open` goes false so the sheet can slide
 // down instead of vanishing instantly — picking a weapon or clicking the
 // scrim both go through this same closing animation.
-export default function WeaponTray({ open, selectedWeaponId, onSelect, onClose }) {
+export default function WeaponTray({ open, selectedWeaponId, onSelect, onClose }: WeaponTrayProps) {
   const [rendered, setRendered] = useState(open);
   const [closing, setClosing] = useState(false);
 

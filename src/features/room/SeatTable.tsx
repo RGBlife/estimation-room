@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
-import useMediaQuery from '../../shared/hooks/useMediaQuery.js';
-import ObserverRail from './ObserverRail.jsx';
-import ThrowOverlay from './ThrowOverlay.jsx';
+import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
+import ObserverRail from './ObserverRail.tsx';
+import ThrowOverlay from './ThrowOverlay.tsx';
+import type { Participant, CardValue } from '../../types/room.ts';
+import type { ThrowEvent } from '../../types/throws.ts';
 
-function byJoinOrder([, a], [, b]) {
+type ParticipantEntry = [string, Participant];
+
+function byJoinOrder([, a]: ParticipantEntry, [, b]: ParticipantEntry) {
   return (a.joinedAt ?? 0) - (b.joinedAt ?? 0);
 }
 
@@ -39,7 +43,7 @@ const HEIGHT_BREAKPOINTS = [
   { minWidth: 0, height: TABLE_MIN_HEIGHT },
 ];
 
-function useViewportWidth() {
+function useViewportWidth(): number {
   const [width, setWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
@@ -49,14 +53,37 @@ function useViewportWidth() {
   return width;
 }
 
+interface SeatSizes {
+  seatW: number;
+  avatar: number;
+  meAvatar: number;
+  cardW: number;
+  cardH: number;
+  cardFont: number;
+}
+
+interface SeatData {
+  id: string;
+  isMe: boolean;
+  avatarUrl: string | undefined;
+  size: number;
+  displayName: string;
+  showBlank: boolean;
+  showPlaced: boolean;
+  showValue: boolean;
+  voteValue: CardValue | null;
+  flipDelay: number;
+  dimmed: boolean;
+}
+
 // Index-based so nobody reshuffles when someone joins (new joiners sort last
 // by joinedAt). Ends are pinned to indices 2 and 3; everyone else alternates
 // bottom/top, keeping the rows balanced within one seat.
-function distributeSeats(seats, useEnds) {
-  const top = [];
-  const bottom = [];
-  let leftEnd = null;
-  let rightEnd = null;
+function distributeSeats(seats: SeatData[], useEnds: boolean) {
+  const top: SeatData[] = [];
+  const bottom: SeatData[] = [];
+  let leftEnd: SeatData | null = null;
+  let rightEnd: SeatData | null = null;
   seats.forEach((seat, idx) => {
     if (useEnds && idx === 2) { leftEnd = seat; return; }
     if (useEnds && idx === 3) { rightEnd = seat; return; }
@@ -65,9 +92,18 @@ function distributeSeats(seats, useEnds) {
   return { top, bottom, leftEnd, rightEnd };
 }
 
+interface SeatProps {
+  seat: SeatData;
+  reverse?: boolean;
+  canTarget: boolean;
+  onThrowAt: (id: string, e: React.MouseEvent) => void;
+  registerSeatNode: (id: string, node: HTMLElement | null) => void;
+  sizes: SeatSizes;
+}
+
 // reverse flips the column so the vote card sits adjacent to the table on the
 // bottom row.
-function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }) {
+function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: SeatProps) {
   const canClick = canTarget && !seat.isMe;
   // Dimmed, not the highlighted ones themselves, is what carries the contrast:
   // fading every other seat makes the highlighted group unmissable regardless
@@ -107,7 +143,11 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }) 
   );
 }
 
-function SeatRow({ seats, reverse, ...seatProps }) {
+interface SeatRowProps extends Omit<SeatProps, 'seat'> {
+  seats: SeatData[];
+}
+
+function SeatRow({ seats, reverse, ...seatProps }: SeatRowProps) {
   if (seats.length === 0) return null;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: reverse ? 'flex-start' : 'flex-end', gap: `14px ${SEAT_GAP}px` }}>
@@ -123,13 +163,31 @@ function SeatRow({ seats, reverse, ...seatProps }) {
 const CLEARANCE_FALLBACK = 120;
 const CLEARANCE_BUFFER = 20;
 
+interface SeatTableProps {
+  participants: Record<string, Participant>;
+  uid: string | null;
+  isRevealed: boolean;
+  anyVote: boolean;
+  allVoted: boolean;
+  onReveal: () => void;
+  canTarget: boolean;
+  onThrowAt: (id: string, e: React.MouseEvent) => void;
+  registerSeatNode: (id: string, node: HTMLElement | null) => void;
+  getSeatNode: (id: string) => HTMLElement | null;
+  stageRef: RefObject<HTMLDivElement | null>;
+  throws: ThrowEvent[];
+  onThrowDone: (id: string) => void;
+  highlightValues?: (CardValue | null)[];
+  bottomClearance?: number;
+}
+
 export default function SeatTable({
   participants, uid, isRevealed, anyVote, allVoted, onReveal,
   canTarget, onThrowAt, registerSeatNode, getSeatNode, stageRef, throws, onThrowDone,
   highlightValues = [], bottomClearance: measuredClearance,
-}) {
-  const active = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
-  const observers = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
+}: SeatTableProps) {
+  const active: ParticipantEntry[] = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
+  const observers: ParticipantEntry[] = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
   const n = active.length;
   const votedCount = active.filter(([, p]) => p.vote != null).length;
   // One breakpoint governs both wide-only behaviors: end seats on the table's
@@ -163,9 +221,11 @@ export default function SeatTable({
 
   const { top, bottom, leftEnd, rightEnd } = distributeSeats(seats, wide);
   const widestRow = Math.max(top.length, bottom.length, 1);
-  const widthFloor = WIDTH_FLOOR_BREAKPOINTS.find(b => viewportWidth >= b.minWidth).floor;
+  // Both breakpoint tables always end with a `minWidth: 0` entry, so `find`
+  // is guaranteed to match.
+  const widthFloor = WIDTH_FLOOR_BREAKPOINTS.find(b => viewportWidth >= b.minWidth)!.floor;
   const stageMaxWidth = Math.min(STAGE_MAX_CAP, Math.max(360, widthFloor, widestRow * (sizes.seatW + SEAT_GAP) + 48));
-  const tableHeight = HEIGHT_BREAKPOINTS.find(b => viewportWidth >= b.minWidth).height;
+  const tableHeight = HEIGHT_BREAKPOINTS.find(b => viewportWidth >= b.minWidth)!.height;
   // Clearance for the fixed VotingBar is the bar's real measured height
   // (plus a small buffer) rather than a guess, so it only ever changes by
   // as much as the bar actually grows/shrinks — and that change transitions
