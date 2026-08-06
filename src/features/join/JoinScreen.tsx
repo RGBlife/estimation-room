@@ -1,16 +1,35 @@
 import { useEffect, useState } from 'react';
 import { AvatarBuilder, useAvatarPanelWidth } from '../avatar/index.js';
-import ThemeToggle from '../../shared/ui/ThemeToggle.jsx';
-import { randomRoomCode } from './roomCode.js';
-import { loadProfile, saveProfile } from './profile.js';
-import { randomAvatar } from '../avatar/avatar.js';
+import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
+import { randomRoomCode } from './roomCode.ts';
+import { loadProfile, saveProfile } from './profile.ts';
+import { randomAvatar } from '../avatar/avatar.ts';
+import type { AvatarOptions } from '../../types/room.ts';
+import type { Theme } from '../../shared/lib/theme.ts';
 
-export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme }) {
+export interface JoinPayload {
+  name: string;
+  avatar: AvatarOptions;
+  isObserver: boolean;
+}
+
+interface JoinScreenProps {
+  onJoin: (code: string, payload: JoinPayload) => Promise<boolean>;
+  onCreate: (payload: JoinPayload) => Promise<boolean>;
+  joinError: string | null;
+  notice: string | null;
+  prefillRoomCode: string | null;
+  ready: boolean;
+  theme: Theme;
+  onToggleTheme: () => void;
+}
+
+export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme }: JoinScreenProps) {
   const [storedProfile] = useState(loadProfile);
   const [avatar, setAvatar] = useState(() => storedProfile?.avatar ?? randomAvatar());
   const [name, setName] = useState(() => storedProfile?.name ?? '');
-  const [mode, setMode] = useState('join');
-  const [role, setRole] = useState('participant');
+  const [mode, setMode] = useState<'join' | 'create'>('join');
+  const [role, setRole] = useState<'participant' | 'observer'>('participant');
   const [roomCodeInput, setRoomCodeInput] = useState(prefillRoomCode ?? '');
   const [busy, setBusy] = useState(false);
   const [avatarExpanded, setAvatarExpanded] = useState(false);
@@ -26,7 +45,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   const switchToCreate = () => { setMode('create'); setRoomCodeInput(randomRoomCode()); };
   const switchToJoin = () => { setMode('join'); setRoomCodeInput(''); };
 
-  const handleRoomCodeChange = (e) => {
+  const handleRoomCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
     setRoomCodeInput(v);
   };
@@ -48,8 +67,8 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   // Enter submits whichever mode is active (join or create), from either text
   // field. Not a <form> — the avatar customizer's own buttons live in this
   // same card and would otherwise trigger a submit on click.
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && (e.target.tagName === 'INPUT')) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
       e.preventDefault();
       handleSubmit();
     }

@@ -1,9 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { JoinScreen, loadProfile, loadLastRoomCode } from '../features/join/index.js';
+import type { JoinPayload } from '../features/join/JoinScreen.tsx';
 import { RoomScreen, useRoom } from '../features/room/index.js';
-import { loadTheme, saveTheme } from '../shared/lib/theme.js';
+import { loadTheme, saveTheme, type Theme } from '../shared/lib/theme.ts';
+import type { RoomDoc } from '../types/room.ts';
+import type { ThrowEvent } from '../types/throws.ts';
 
-function roomCodeFromUrl() {
+// useRoom.js is not yet converted to TypeScript -- it becomes the Zustand
+// store in the next restructure stage, so typing it now would be thrown
+// away almost immediately. This interface describes its return shape as a
+// stopgap until then.
+interface UseRoomResult {
+  uid: string | null;
+  room: RoomDoc | null;
+  roomCode: string | null;
+  error: string | null;
+  notice: string | null;
+  throws: ThrowEvent[];
+  createRoom: (payload: JoinPayload) => Promise<string>;
+  joinRoom: (code: string, payload: JoinPayload) => Promise<void>;
+  setRole: (isObserver: boolean) => Promise<void>;
+  castVote: (value: string) => Promise<void>;
+  setStory: (story: string) => Promise<void>;
+  reveal: () => Promise<void>;
+  startNextRound: () => Promise<void>;
+  leave: () => Promise<void>;
+  throwWeapon: (targetUid: string, weaponId: string, offsetX?: number, offsetY?: number) => Promise<void>;
+  dismissThrow: (throwId: string) => void;
+}
+
+function roomCodeFromUrl(): string | null {
   const code = new URLSearchParams(window.location.search).get('room');
   return code ? code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) : null;
 }
@@ -21,8 +47,8 @@ export default function App() {
     uid, room, roomCode, error, notice, throws,
     createRoom, joinRoom, setRole, castVote, setStory, reveal, startNextRound, leave,
     throwWeapon, dismissThrow,
-  } = useRoom();
-  const [joinError, setJoinError] = useState(null);
+  } = useRoom() as UseRoomResult;
+  const [joinError, setJoinError] = useState<string | null>(null);
   // Captured once at page load. Reading the URL on later renders would pick up
   // the ?room= param we put there ourselves while in a room, which made
   // leaving a room instantly auto-rejoin it. Auto-join must key off this
@@ -40,7 +66,9 @@ export default function App() {
   // The inline script in index.html already set data-theme on <html> before
   // paint (avoiding a flash); read that back instead of recomputing it, so
   // this state and the DOM start in agreement.
-  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || loadTheme());
+  const [theme, setTheme] = useState<Theme>(
+    () => (document.documentElement.getAttribute('data-theme') as Theme) || loadTheme(),
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -48,30 +76,30 @@ export default function App() {
 
   const toggleTheme = () => {
     setTheme(t => {
-      const next = t === 'dark' ? 'light' : 'dark';
+      const next: Theme = t === 'dark' ? 'light' : 'dark';
       saveTheme(next);
       return next;
     });
   };
 
-  const handleCreate = async (payload) => {
+  const handleCreate = async (payload: JoinPayload) => {
     setJoinError(null);
     try {
       await createRoom(payload);
       return true;
     } catch (e) {
-      setJoinError(e.message);
+      setJoinError((e as Error).message);
       return false;
     }
   };
 
-  const handleJoin = async (code, payload) => {
+  const handleJoin = async (code: string, payload: JoinPayload) => {
     setJoinError(null);
     try {
       await joinRoom(code, payload);
       return true;
     } catch (e) {
-      setJoinError(e.message);
+      setJoinError((e as Error).message);
       return false;
     }
   };
@@ -92,7 +120,7 @@ export default function App() {
     autoJoinAttempted.current = true;
     setAutoJoining(true);
     joinRoom(urlRoomCode, { name: profile.name, avatar: profile.avatar, isObserver: false })
-      .catch(e => setJoinError(e.message))
+      .catch((e: Error) => setJoinError(e.message))
       .finally(() => setAutoJoining(false));
   }, [uid, urlRoomCode, room, joinRoom]);
 
@@ -134,7 +162,7 @@ export default function App() {
       ) : (
         <RoomScreen
           room={room}
-          roomCode={roomCode}
+          roomCode={roomCode!}
           uid={uid}
           throws={throws}
           actions={{ setRole, castVote, setStory, reveal, startNextRound, leave, throwWeapon, dismissThrow }}

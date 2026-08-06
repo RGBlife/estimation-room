@@ -1,20 +1,38 @@
-import { useEffect, useState } from 'react';
-import { AVATAR_BG, AVATAR_CATEGORIES, avatarDataUri, avatarPreviewUri, randomAvatar } from './avatar.js';
+import { useEffect, useState, type CSSProperties } from 'react';
+import {
+  AVATAR_BG,
+  AVATAR_CATEGORIES,
+  avatarDataUri,
+  avatarPreviewUri,
+  randomAvatar,
+  type AvatarCategory,
+  type LooseAvatar,
+} from './avatar.ts';
+import type { AvatarOptions } from '../../types/room.ts';
 
 const PRO_KEY = 'sp_avatar_pro';
 
+interface Breakpoint {
+  minWidth: number;
+  panelWidth: number | null;
+  columns: number;
+  rows: number;
+  stacked: boolean;
+}
+
 // Grid widens on bigger screens (more room either side of the join card), so
 // more thumbnails fit per row/page without any horizontal scrolling.
-const BREAKPOINTS = [
+const BREAKPOINTS: Breakpoint[] = [
   { minWidth: 1100, panelWidth: 780, columns: 6, rows: 2, stacked: false },
   { minWidth: 760, panelWidth: 620, columns: 4, rows: 2, stacked: false },
   { minWidth: 0, panelWidth: null, columns: 3, rows: 2, stacked: true },
 ];
 
-function useViewportBreakpoint() {
-  const getBreakpoint = () => {
+function useViewportBreakpoint(): Breakpoint {
+  const getBreakpoint = (): Breakpoint => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 0;
-    return BREAKPOINTS.find((b) => w >= b.minWidth);
+    // BREAKPOINTS always ends with a minWidth: 0 entry, so find always matches.
+    return BREAKPOINTS.find((b) => w >= b.minWidth)!;
   };
   const [breakpoint, setBreakpoint] = useState(getBreakpoint);
   useEffect(() => {
@@ -25,12 +43,12 @@ function useViewportBreakpoint() {
   return breakpoint;
 }
 
-export function useAvatarPanelWidth(expanded) {
+export function useAvatarPanelWidth(expanded: boolean): number | null {
   const breakpoint = useViewportBreakpoint();
   return expanded ? breakpoint.panelWidth : null;
 }
 
-function hasProAccess() {
+function hasProAccess(): boolean {
   try {
     return localStorage.getItem(PRO_KEY) === '1';
   } catch {
@@ -38,7 +56,7 @@ function hasProAccess() {
   }
 }
 
-function grantProAccess() {
+function grantProAccess(): void {
   try {
     localStorage.setItem(PRO_KEY, '1');
   } catch {
@@ -46,7 +64,7 @@ function grantProAccess() {
   }
 }
 
-function railBtnStyle(active) {
+function railBtnStyle(active: boolean): CSSProperties {
   return {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -57,7 +75,7 @@ function railBtnStyle(active) {
   };
 }
 
-function arrowBtnStyle() {
+function arrowBtnStyle(): CSSProperties {
   return {
     width: 24, height: 24, borderRadius: '50%', flex: 'none',
     border: '1px solid var(--sp-border)', background: 'var(--sp-panel-2)',
@@ -66,7 +84,12 @@ function arrowBtnStyle() {
   };
 }
 
-function ProModal({ onSubscribe, onClose }) {
+interface ProModalProps {
+  onSubscribe: () => void;
+  onClose: () => void;
+}
+
+function ProModal({ onSubscribe, onClose }: ProModalProps) {
   return (
     <div
       onClick={onClose}
@@ -122,9 +145,20 @@ function ProModal({ onSubscribe, onClose }) {
   );
 }
 
-function OptionTile({ avatar, category, valueIdx, value, selected, onSelect }) {
+interface OptionTileProps {
+  avatar: AvatarOptions;
+  category: AvatarCategory;
+  valueIdx: number;
+  value: string;
+  selected: boolean;
+  onSelect: () => void;
+}
+
+function OptionTile({ avatar, category, valueIdx, value, selected, onSelect }: OptionTileProps) {
   const swatchColor = category.swatch ? '#' + value : null;
-  const previewUrl = category.swatch ? null : avatarPreviewUri(avatar, category.key, valueIdx, category.optional);
+  const previewUrl = category.swatch
+    ? null
+    : avatarPreviewUri(avatar as LooseAvatar, category.key, valueIdx, category.optional);
   return (
     <button
       onClick={onSelect}
@@ -143,7 +177,13 @@ function OptionTile({ avatar, category, valueIdx, value, selected, onSelect }) {
   );
 }
 
-export default function AvatarBuilder({ avatar, onChange, onExpandedChange }) {
+interface AvatarBuilderProps {
+  avatar: AvatarOptions;
+  onChange: (avatar: AvatarOptions) => void;
+  onExpandedChange?: (expanded: boolean) => void;
+}
+
+export default function AvatarBuilder({ avatar, onChange, onExpandedChange }: AvatarBuilderProps) {
   const [expanded, setExpandedState] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [page, setPage] = useState(0);
@@ -151,20 +191,25 @@ export default function AvatarBuilder({ avatar, onChange, onExpandedChange }) {
   const [showProModal, setShowProModal] = useState(false);
   const breakpoint = useViewportBreakpoint();
 
-  const setExpanded = (value) => {
+  const setExpanded = (value: boolean) => {
     setExpandedState(value);
     onExpandedChange?.(value);
   };
 
-  const avatarUrl = avatarDataUri(avatar);
+  // Category keys are computed at runtime (category.key / `${key}On`), so
+  // AvatarOptions' explicit interface can't index them -- loosely typed here
+  // on purpose via avatar.ts's LooseAvatar.
+  const avatarLoose = avatar as LooseAvatar;
+
+  const avatarUrl = avatarDataUri(avatar as LooseAvatar);
   const category = AVATAR_CATEGORIES[activeIdx];
   const pageSize = breakpoint.columns * breakpoint.rows;
 
   const shuffle = () => onChange(randomAvatar());
 
-  const selectBg = (i) => onChange({ ...avatar, bgIdx: i });
+  const selectBg = (i: number) => onChange({ ...avatar, bgIdx: i });
 
-  const selectCategory = (i) => {
+  const selectCategory = (i: number) => {
     if (AVATAR_CATEGORIES[i].pro && !pro) {
       setShowProModal(true);
       return;
@@ -173,14 +218,15 @@ export default function AvatarBuilder({ avatar, onChange, onExpandedChange }) {
     setPage(0);
   };
 
-  const selectValue = (valueIdx) => {
-    const next = { ...avatar, [category.key]: valueIdx };
+  const selectValue = (valueIdx: number) => {
+    const next: LooseAvatar = { ...avatarLoose, [category.key]: valueIdx };
     if (category.optional) next[`${category.key}On`] = true;
-    onChange(next);
+    onChange(next as unknown as AvatarOptions);
   };
 
   const toggleOptional = () => {
-    onChange({ ...avatar, [`${category.key}On`]: !avatar[`${category.key}On`] });
+    const next: LooseAvatar = { ...avatarLoose, [`${category.key}On`]: !avatarLoose[`${category.key}On`] };
+    onChange(next as unknown as AvatarOptions);
   };
 
   const subscribe = () => {
@@ -194,8 +240,8 @@ export default function AvatarBuilder({ avatar, onChange, onExpandedChange }) {
   const pageCount = Math.ceil(category.values.length / pageSize);
   const pageStart = page * pageSize;
   const pageValues = category.values.slice(pageStart, pageStart + pageSize);
-  const selectedValueIdx = avatar[category.key] ?? 0;
-  const isOn = !category.optional || avatar[`${category.key}On`];
+  const selectedValueIdx = (avatarLoose[category.key] as number) ?? 0;
+  const isOn = !category.optional || avatarLoose[`${category.key}On`];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 24, width: '100%' }}>

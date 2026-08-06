@@ -86,7 +86,7 @@ export function randomAvatar(): AvatarOptions {
 // avatar often.
 const uriCache = new Map<string, string>();
 
-type LooseAvatar = Partial<AvatarOptions> & Partial<LegacyAvatarOptions> & { [key: string]: unknown };
+export type LooseAvatar = Partial<AvatarOptions> & Partial<LegacyAvatarOptions> & { [key: string]: unknown };
 
 function idx(avatar: LooseAvatar | null | undefined, key: string, len: number, fallback = 0): number {
   const v = avatar?.[key];

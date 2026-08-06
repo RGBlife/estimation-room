@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import SeatTable from './SeatTable.jsx';
-import VotingBar from './VotingBar.jsx';
-import ThemeToggle from '../../shared/ui/ThemeToggle.jsx';
-import WeaponTray from './WeaponTray.jsx';
-import { computeStats, computeDistribution } from './stats.js';
-import { WEAPONS } from './weapons.js';
+import SeatTable from './SeatTable.tsx';
+import VotingBar from './VotingBar.tsx';
+import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
+import WeaponTray from './WeaponTray.tsx';
+import { computeStats, computeDistribution } from './stats.ts';
+import { WEAPONS } from './weapons.ts';
 import { randomAvatar, CARD_VALUES } from '../avatar/index.js';
+import type { RoomDoc, Participant, CardValue } from '../../types/room.ts';
+import type { ThrowEvent } from '../../types/throws.ts';
+import type { Theme } from '../../shared/lib/theme.ts';
 
 const STORY_MAX_LENGTH = 200;
 const STORY_DEBOUNCE_MS = 300;
@@ -16,13 +19,13 @@ const HAS_THROWN_KEY = 'sp_has_thrown_weapon';
 // Dev-only layout testing: ?fakes=N&fakeobs=M merges N fake voters and M fake
 // observers into the room client-side. Never written to Firestore, stripped
 // from production builds.
-const FAKE_PARTICIPANTS = (() => {
+const FAKE_PARTICIPANTS: Record<string, Participant> | null = (() => {
   if (!import.meta.env.DEV) return null;
   const params = new URLSearchParams(window.location.search);
   const fakes = Number(params.get('fakes') || 0);
   const fakeObs = Number(params.get('fakeobs') || 0);
   if (!fakes && !fakeObs) return null;
-  const out = {};
+  const out: Record<string, Participant> = {};
   for (let i = 0; i < fakes + fakeObs; i++) {
     out[`fake-${i}`] = {
       name: `Player ${i + 1}`,
@@ -35,44 +38,67 @@ const FAKE_PARTICIPANTS = (() => {
   return out;
 })();
 
-export default function RoomScreen({ room, roomCode, uid, throws, actions, theme, onToggleTheme }) {
+interface RoomActions {
+  setRole: (isObserver: boolean) => Promise<void>;
+  castVote: (value: CardValue) => Promise<void>;
+  setStory: (story: string) => Promise<void>;
+  reveal: () => Promise<void>;
+  startNextRound: () => Promise<void>;
+  leave: () => Promise<void>;
+  throwWeapon: (targetUid: string, weaponId: string, offsetX?: number, offsetY?: number) => Promise<void>;
+  dismissThrow: (throwId: string) => void;
+}
+
+interface RoomScreenProps {
+  room: RoomDoc;
+  roomCode: string;
+  uid: string | null;
+  throws: ThrowEvent[];
+  actions: RoomActions;
+  theme: Theme;
+  onToggleTheme: () => void;
+}
+
+export default function RoomScreen({ room, roomCode, uid, throws, actions, theme, onToggleTheme }: RoomScreenProps) {
   const [copied, setCopied] = useState(false);
-  const [actionError, setActionError] = useState(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [weaponTrayOpen, setWeaponTrayOpen] = useState(false);
-  const [equippedWeaponId, setEquippedWeaponId] = useState(null);
+  const [equippedWeaponId, setEquippedWeaponId] = useState<string | null>(null);
   const [weaponTipRendered, setWeaponTipRendered] = useState(false);
   const [weaponTipClosing, setWeaponTipClosing] = useState(false);
-  const weaponTipTimerRef = useRef(null);
-  const weaponTipFadeTimerRef = useRef(null);
-  const [hoveredVoteValue, setHoveredVoteValue] = useState(null);
+  const weaponTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const weaponTipFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoveredVoteValue, setHoveredVoteValue] = useState<CardValue | null>(null);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
-  const participants = FAKE_PARTICIPANTS ? { ...FAKE_PARTICIPANTS, ...room.participants } : room.participants;
-  const me = participants[uid] || {};
+  const participants: Record<string, Participant> = FAKE_PARTICIPANTS
+    ? { ...FAKE_PARTICIPANTS, ...room.participants }
+    : room.participants;
+  const me = participants[uid ?? ''] || ({} as Partial<Participant>);
   const isCreator = room.creatorId === uid;
   const isObserver = !!me.isObserver;
   const isRevealed = room.isRevealed;
 
   // uid -> DOM node, covers both active seats and the observer rail — a
   // single lookup used by ThrowOverlay to compute fly-to animation geometry.
-  const seatNodesRef = useRef(new Map());
-  const stageNodeRef = useRef(null);
-  const registerSeatNode = useCallback((seatUid, node) => {
+  const seatNodesRef = useRef(new Map<string, HTMLElement>());
+  const stageNodeRef = useRef<HTMLDivElement>(null);
+  const registerSeatNode = useCallback((seatUid: string, node: HTMLElement | null) => {
     if (node) seatNodesRef.current.set(seatUid, node);
     else seatNodesRef.current.delete(seatUid);
   }, []);
-  const getSeatNode = useCallback((seatUid) => seatNodesRef.current.get(seatUid) ?? null, []);
-  const handleVotingBarHeightChange = useCallback((h) => setVotingBarHeight(h), []);
+  const getSeatNode = useCallback((seatUid: string) => seatNodesRef.current.get(seatUid) ?? null, []);
+  const handleVotingBarHeightChange = useCallback((h: number) => setVotingBarHeight(h), []);
 
   // The story input is edited locally and written to Firestore debounced, so
   // we don't do one write per keystroke and the snapshot echo can't fight the
   // creator's in-progress typing.
   const [storyDraft, setStoryDraft] = useState(room.story);
-  const storyInputRef = useRef(null);
-  const storyTimerRef = useRef(null);
+  const storyInputRef = useRef<HTMLInputElement>(null);
+  const storyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (document.activeElement !== storyInputRef.current) setStoryDraft(room.story);
   }, [room.story]);
-  useEffect(() => () => clearTimeout(storyTimerRef.current), []);
+  useEffect(() => () => clearTimeout(storyTimerRef.current ?? undefined), []);
 
   const { anyVote, allVoted, hasAverage, average, isWideSpread } = computeStats(participants);
   const distribution = isRevealed ? computeDistribution(participants) : [];
@@ -84,12 +110,12 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
     if (!isRevealed) setHoveredVoteValue(null);
   }, [isRevealed]);
 
-  const runAction = (fn, failureMessage) => {
+  const runAction = (fn: () => Promise<void>, failureMessage: string) => {
     setActionError(null);
     fn().catch(() => setActionError(failureMessage));
   };
 
-  const handleCastVote = (value) => {
+  const handleCastVote = (value: CardValue) => {
     runAction(() => actions.castVote(value), "Your vote didn't save — check your connection and try again.");
   };
 
@@ -108,8 +134,9 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   // customizable and stop being plain 0/1/2/3/5/8/13/20/?/☕. Both ignored
   // while typing (story title input) so they don't hijack normal text entry.
   useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
       if (e.key === 'Enter') {
         if (!isRevealed && allVoted && anyVote) {
           e.preventDefault();
@@ -138,21 +165,21 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   // WEAPON_TIP_MS. Once the user has actually thrown once, it never shows
   // again (tracked in localStorage so it stays gone across sessions/rounds).
   const dismissWeaponTip = () => {
-    clearTimeout(weaponTipTimerRef.current);
+    clearTimeout(weaponTipTimerRef.current ?? undefined);
     setWeaponTipClosing(true);
-    clearTimeout(weaponTipFadeTimerRef.current);
+    clearTimeout(weaponTipFadeTimerRef.current ?? undefined);
     weaponTipFadeTimerRef.current = setTimeout(() => {
       setWeaponTipRendered(false);
       setWeaponTipClosing(false);
     }, WEAPON_TIP_FADE_MS);
   };
 
-  const handleSelectWeapon = (weaponId) => {
+  const handleSelectWeapon = (weaponId: string) => {
     setEquippedWeaponId(weaponId);
     setWeaponTrayOpen(false);
-    clearTimeout(weaponTipTimerRef.current);
+    clearTimeout(weaponTipTimerRef.current ?? undefined);
     if (!localStorage.getItem(HAS_THROWN_KEY)) {
-      clearTimeout(weaponTipFadeTimerRef.current);
+      clearTimeout(weaponTipFadeTimerRef.current ?? undefined);
       setWeaponTipRendered(true);
       setWeaponTipClosing(false);
       weaponTipTimerRef.current = setTimeout(dismissWeaponTip, WEAPON_TIP_MS);
@@ -165,8 +192,8 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   };
 
   useEffect(() => () => {
-    clearTimeout(weaponTipTimerRef.current);
-    clearTimeout(weaponTipFadeTimerRef.current);
+    clearTimeout(weaponTipTimerRef.current ?? undefined);
+    clearTimeout(weaponTipFadeTimerRef.current ?? undefined);
   }, []);
 
   // Weapon stays equipped after a throw so people can keep hitting targets
@@ -174,7 +201,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   // The click position within the target's avatar (roughly -0.5..0.5 of its
   // width/height, from center) travels with the throw so the impact lands
   // where they actually clicked instead of always snapping to the center.
-  const handleThrowAt = (targetUid, event) => {
+  const handleThrowAt = (targetUid: string, event?: React.MouseEvent) => {
     if (!equippedWeaponId) return;
     let offsetX = 0;
     let offsetY = 0;
@@ -188,10 +215,10 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
     runAction(() => actions.throwWeapon(targetUid, equippedWeaponId, offsetX, offsetY), "Couldn't throw — check your connection.");
   };
 
-  const handleStoryChange = (e) => {
+  const handleStoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.slice(0, STORY_MAX_LENGTH);
     setStoryDraft(value);
-    clearTimeout(storyTimerRef.current);
+    clearTimeout(storyTimerRef.current ?? undefined);
     storyTimerRef.current = setTimeout(() => {
       runAction(() => actions.setStory(value), "The story title didn't save — check your connection.");
     }, STORY_DEBOUNCE_MS);
