@@ -29,7 +29,7 @@ export default function CustomVoteInput({ myVote, onSubmit }: CustomVoteInputPro
           onKeyDown={(e) => {
             if (e.key === 'Enter') submit();
           }}
-          placeholder="Type your estimate…"
+          placeholder="Enter…"
           className="flex-1 rounded-lg border-[1.5px] border-sp-border-strong bg-sp-card-bg px-3.5 py-3 font-sp-mono text-sm text-sp-text outline-none"
         />
         <button

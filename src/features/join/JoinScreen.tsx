@@ -129,7 +129,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
             {mode === 'create' && (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Estimation deck</label>
-                <div className="flex flex-wrap gap-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
+                <div className="grid grid-cols-3 gap-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
                   {DECK_ORDER.map((id) => (
                     <button
                       key={id}

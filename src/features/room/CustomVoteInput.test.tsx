@@ -6,14 +6,14 @@ import CustomVoteInput from './CustomVoteInput.tsx';
 describe('CustomVoteInput', () => {
   it('seeds the input from myVote', () => {
     render(<CustomVoteInput myVote="2 weeks" onSubmit={vi.fn()} />);
-    expect(screen.getByPlaceholderText(/type your estimate/i)).toHaveValue('2 weeks');
+    expect(screen.getByPlaceholderText(/^enter/i)).toHaveValue('2 weeks');
   });
 
   it('submits the trimmed value on Enter', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<CustomVoteInput myVote={null} onSubmit={onSubmit} />);
-    await user.type(screen.getByPlaceholderText(/type your estimate/i), '  a sprint  {Enter}');
+    await user.type(screen.getByPlaceholderText(/^enter/i), '  a sprint  {Enter}');
     expect(onSubmit).toHaveBeenCalledWith('a sprint');
   });
 
@@ -21,7 +21,7 @@ describe('CustomVoteInput', () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<CustomVoteInput myVote={null} onSubmit={onSubmit} />);
-    await user.type(screen.getByPlaceholderText(/type your estimate/i), 'depends on API');
+    await user.type(screen.getByPlaceholderText(/^enter/i), 'depends on API');
     await user.click(screen.getByText('Submit'));
     expect(onSubmit).toHaveBeenCalledWith('depends on API');
   });
@@ -30,7 +30,7 @@ describe('CustomVoteInput', () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<CustomVoteInput myVote={null} onSubmit={onSubmit} />);
-    await user.type(screen.getByPlaceholderText(/type your estimate/i), '   {Enter}');
+    await user.type(screen.getByPlaceholderText(/^enter/i), '   {Enter}');
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

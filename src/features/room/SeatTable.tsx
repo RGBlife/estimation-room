@@ -143,8 +143,14 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
                 style={{ width: sizes.cardW, height: sizes.cardH, fontSize: sizes.cardFont }}
               >?</div>
               <div
-                className="sp-flip-face sp-flip-face-back rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel font-sp-mono font-bold text-sp-accent-on-card"
-                style={{ width: sizes.cardW, height: sizes.cardH, fontSize: sizes.cardFont }}
+                className="sp-flip-face sp-flip-face-back overflow-hidden rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel px-0.5 text-center leading-[1.05] font-sp-mono font-bold text-sp-accent-on-card"
+                style={{
+                  width: sizes.cardW,
+                  height: sizes.cardH,
+                  fontSize: seat.voteValue && seat.voteValue.length > 3 ? Math.min(sizes.cardFont, 9) : sizes.cardFont,
+                  whiteSpace: seat.voteValue && seat.voteValue.length > 3 ? 'normal' : 'nowrap',
+                  wordBreak: 'break-word',
+                }}
               >{seat.voteValue}</div>
             </div>
           ) : (

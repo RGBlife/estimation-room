@@ -131,14 +131,14 @@ describe('VotingBar', () => {
 
   it('renders a free-text input instead of a card grid for the Custom deck', () => {
     renderVotingBar({ deck: DECKS.custom });
-    expect(screen.getByPlaceholderText(/type your estimate/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/^enter/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '5' })).not.toBeInTheDocument();
   });
 
   it('submitting the Custom input calls onSelect with the typed value', async () => {
     const user = userEvent.setup();
     const { props } = renderVotingBar({ deck: DECKS.custom });
-    await user.type(screen.getByPlaceholderText(/type your estimate/i), 'a sprint{Enter}');
+    await user.type(screen.getByPlaceholderText(/^enter/i), 'a sprint{Enter}');
     expect(props.onSelect).toHaveBeenCalledWith('a sprint');
   });
 

@@ -112,9 +112,14 @@ interface VoteCardRowProps {
   myVote: CardValue | null;
   onSelect: (value: CardValue) => void;
   exiting?: boolean;
+  // Only the very first mount plays the entrance stagger — switching decks
+  // mid-round re-renders this row with new card values, and replaying the
+  // full staggered entrance on every switch reads as a jarring flicker
+  // rather than a deliberate transition.
+  animate?: boolean;
 }
 
-function VoteCardRow({ deck, myVote, onSelect, exiting }: VoteCardRowProps) {
+function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowProps) {
   const values = deck.values ?? [];
   return (
     <>
@@ -123,11 +128,7 @@ function VoteCardRow({ deck, myVote, onSelect, exiting }: VoteCardRowProps) {
         {values.map((spec, i) => {
           const { value, wide, warn } = spec;
           const selected = value === myVote;
-          // Matches the number-key handler in useKeyboardShortcuts: '1' selects
-          // the 1st card, ..., '9' the 9th, '0' the 10th. Cards beyond the 10th
-          // have no key shortcut, so no hint is shown.
-          const keyHint = i < 10 ? String((i + 1) % 10) : null;
-          const shapeClass = wide ? 'h-[58px] w-auto px-4' : 'h-[58px] w-[42px]';
+          const shapeClass = wide ? 'h-[58px] w-[42px] px-1 text-[11px] leading-[1.15] whitespace-normal' : 'h-[58px] w-[42px] text-base whitespace-nowrap';
           const colorClass = selected
             ? warn
               ? 'border-2 border-sp-accent bg-sp-warn-bg text-sp-warn-text shadow-[0_0_0_3px_var(--sp-accent-glow)]'
@@ -135,24 +136,17 @@ function VoteCardRow({ deck, myVote, onSelect, exiting }: VoteCardRowProps) {
             : warn
               ? 'border-[1.5px] border-dashed border-sp-warn-border bg-sp-warn-bg text-sp-warn-text'
               : 'border-[1.5px] border-sp-border-strong bg-sp-card-bg text-sp-text-dim';
-          const card = (
+          const animClass = exiting ? 'sp-vote-card-exit' : animate ? 'sp-vote-card-enter' : '';
+          return (
             <button
+              key={value}
               onClick={() => onSelect(value)}
-              className={`cursor-pointer rounded-lg font-sp-mono text-base font-bold whitespace-nowrap transition-[transform,border-color] duration-150 ${shapeClass} ${colorClass} ${exiting ? 'sp-vote-card-exit' : 'sp-vote-card-enter'}`}
+              className={`cursor-pointer rounded-lg font-sp-mono font-bold transition-[transform,border-color] duration-150 ${shapeClass} ${colorClass} ${animClass}`}
               style={{
                 transform: selected && !exiting ? 'translateY(-6px)' : undefined,
-                animationDelay: `${(exiting ? values.length - 1 - i : i) * 20}ms`,
+                animationDelay: animate ? `${(exiting ? values.length - 1 - i : i) * 20}ms` : undefined,
               }}
             >{value}</button>
-          );
-          if (!keyHint) return <div key={value}>{card}</div>;
-          return (
-            <div key={value} className="sp-kbd-hint-wrap">
-              <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
-                {keyHint}
-              </div>
-              {card}
-            </div>
           );
         })}
       </div>
@@ -188,6 +182,19 @@ export default function VotingBar({
 }: VotingBarProps) {
   const isCustom = deck.values === null;
 
+  // The card row's entrance stagger should only play once per voting round
+  // (initial mount / after a reveal cycle resets it) -- not every time the
+  // host switches decks, which would otherwise replay the full staggered
+  // animation and read as a flicker rather than a deliberate transition.
+  const hasAnimatedRef = useRef(false);
+  const playEntrance = !hasAnimatedRef.current;
+  useEffect(() => {
+    hasAnimatedRef.current = true;
+  }, []);
+  useEffect(() => {
+    if (!isRevealed) hasAnimatedRef.current = false;
+  }, [isRevealed]);
+
   // The vote-card row stays mounted briefly after reveal so it can animate
   // out instead of being swapped for the distribution bar instantly. Not
   // applicable to Custom's text input, which has no card grid to animate.
@@ -219,7 +226,7 @@ export default function VotingBar({
         showExitingCards && !isObserver ? (
           <VoteCardRow deck={deck} myVote={myVote} onSelect={onSelect} exiting />
         ) : deck.resultKind === 'freeText' ? (
-          <CustomResultsList groups={customGroups} />
+          <CustomResultsList groups={customGroups} onStartNextRound={onStartNextRound} />
         ) : (
           <DistributionBar
             deck={deck}
@@ -239,7 +246,7 @@ export default function VotingBar({
         isCustom ? (
           <CustomVoteInput myVote={myVote} onSubmit={onSelect} />
         ) : (
-          <VoteCardRow deck={deck} myVote={myVote} onSelect={onSelect} />
+          <VoteCardRow deck={deck} myVote={myVote} onSelect={onSelect} animate={playEntrance} />
         )
       ) : (
         <>

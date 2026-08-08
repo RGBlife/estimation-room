@@ -28,7 +28,10 @@ export default function DeckSwitcher({ currentDeckId, onSwitch }: DeckSwitcherPr
     <div ref={rootRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex cursor-pointer items-center gap-1.5 rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-2.5 py-2 font-sp-font text-xs font-bold whitespace-nowrap text-sp-accent-text"
+        // Fixed min-width (sized for the longest deck name, "Powers of 2") so
+        // the pill -- and everything after it in the header's flex row --
+        // doesn't shift horizontally each time the active deck's label changes.
+        className="flex min-w-[168px] cursor-pointer items-center gap-1.5 rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-2.5 py-2 font-sp-font text-xs font-bold whitespace-nowrap text-sp-accent-text"
       >
         <span className="uppercase tracking-[0.04em] text-sp-accent-text">Deck</span>
         <span className="text-sp-text">{DECKS[currentDeckId].name}</span>
