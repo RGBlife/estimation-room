@@ -50,8 +50,12 @@ export default function WeaponShape({ shape }: WeaponShapeProps) {
 // The 'bob-ross' weapon slot renders whatever image is dropped in at
 // public/weapons/bob-ross.<ext>. Falls back to a generic placeholder glyph
 // if no file has been added yet, so the tray never breaks out of the box.
+// Paths must go through BASE_URL rather than a hardcoded leading slash --
+// GitHub Pages serves this app from /estimation-room/, so a literal
+// "/weapons/..." 404s there even though it resolves fine in local dev
+// (where the base path is just "/").
 const CUSTOM_IMAGE_CANDIDATES = ['jpg', 'jpeg', 'png', 'webp', 'gif'].map(
-  ext => `/weapons/bob-ross.${ext}`
+  ext => `${import.meta.env.BASE_URL}weapons/bob-ross.${ext}`
 );
 
 function CustomImageShape() {
