@@ -9,5 +9,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.js'],
     globals: false,
+    // tests/visual is a separate Playwright suite (npm run test:visual), not
+    // a Vitest suite -- its own `test`/`expect` globals clash with Vitest's.
+    exclude: ['node_modules/**', 'tests/**'],
   },
 });

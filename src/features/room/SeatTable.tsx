@@ -103,6 +103,13 @@ interface SeatProps {
 
 // reverse flips the column so the vote card sits adjacent to the table on the
 // bottom row.
+// Short tokens (numbers, "XS".."XXL", "?", "☕") fit the standard card as-is.
+// Longer labels (ROM's "Needs breaking down"/"8+ sprints", any Custom free
+// text) get a wider card instead of shrinking the font to fit -- only that
+// seat's card widens, everyone else's stays the standard size.
+const LONG_LABEL_THRESHOLD = 3;
+const WIDE_CARD_MULTIPLIER = 3;
+
 function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: SeatProps) {
   const canClick = canTarget && !seat.isMe;
   // Dimmed, not the highlighted ones themselves, is what carries the contrast:
@@ -110,6 +117,8 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
   // of vote-card color, instead of relying on a subtle ring around cards that
   // are already accent-colored.
   const dimmed = seat.dimmed;
+  const isLongLabel = !!seat.voteValue && seat.voteValue.length > LONG_LABEL_THRESHOLD;
+  const cardW = isLongLabel ? sizes.cardW * WIDE_CARD_MULTIPLIER : sizes.cardW;
   return (
     <div
       className={`flex shrink-0 flex-col items-center gap-2 transition-opacity duration-150 ${reverse ? 'flex-col-reverse' : ''}`}
@@ -132,7 +141,7 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
         <div className="rounded-[5px] border-[1.5px] border-sp-border-strong bg-sp-card-bg" style={{ width: sizes.cardW, height: sizes.cardH }} />
       )}
       {(seat.showPlaced || seat.showValue) && (
-        <div style={{ width: sizes.cardW, height: sizes.cardH, perspective: 300 }}>
+        <div style={{ width: cardW, height: sizes.cardH, perspective: 300 }}>
           {seat.showValue ? (
             <div
               className="sp-flip-card h-full w-full"
@@ -140,15 +149,15 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
             >
               <div
                 className="sp-flip-face rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel font-sp-mono font-bold text-sp-accent-text"
-                style={{ width: sizes.cardW, height: sizes.cardH, fontSize: sizes.cardFont }}
+                style={{ width: cardW, height: sizes.cardH, fontSize: sizes.cardFont }}
               >?</div>
               <div
-                className="sp-flip-face sp-flip-face-back overflow-hidden rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel px-0.5 text-center leading-[1.05] font-sp-mono font-bold text-sp-accent-on-card"
+                className="sp-flip-face sp-flip-face-back overflow-hidden rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel px-1.5 text-center leading-[1.15] font-sp-mono font-bold text-sp-accent-on-card"
                 style={{
-                  width: sizes.cardW,
+                  width: cardW,
                   height: sizes.cardH,
-                  fontSize: seat.voteValue && seat.voteValue.length > 3 ? Math.min(sizes.cardFont, 9) : sizes.cardFont,
-                  whiteSpace: seat.voteValue && seat.voteValue.length > 3 ? 'normal' : 'nowrap',
+                  fontSize: isLongLabel ? Math.round(sizes.cardFont * 0.55) : sizes.cardFont,
+                  whiteSpace: isLongLabel ? 'normal' : 'nowrap',
                   wordBreak: 'break-word',
                 }}
               >{seat.voteValue}</div>

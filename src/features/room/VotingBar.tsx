@@ -128,7 +128,9 @@ function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowPr
         {values.map((spec, i) => {
           const { value, wide, warn } = spec;
           const selected = value === myVote;
-          const shapeClass = wide ? 'h-[58px] w-[42px] px-1 text-[11px] leading-[1.15] whitespace-normal' : 'h-[58px] w-[42px] text-base whitespace-nowrap';
+          const shapeClass = wide
+            ? 'h-[58px] w-[42px] flex items-center justify-center px-1 text-[9px] leading-[1.15] whitespace-normal'
+            : 'h-[58px] w-[42px] text-base whitespace-nowrap';
           const colorClass = selected
             ? warn
               ? 'border-2 border-sp-accent bg-sp-warn-bg text-sp-warn-text shadow-[0_0_0_3px_var(--sp-accent-glow)]'

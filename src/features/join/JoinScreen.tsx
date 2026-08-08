@@ -129,16 +129,23 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
             {mode === 'create' && (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Estimation deck</label>
-                <div className="grid grid-cols-3 gap-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
-                  {DECK_ORDER.map((id) => (
-                    <button
-                      key={id}
-                      onClick={() => setDeck(id)}
-                      className={`cursor-pointer rounded-md border-none p-2 font-sp-font text-[13px] transition-colors duration-150 ${
-                        deck === id ? 'bg-sp-accent font-bold text-sp-bg' : 'bg-transparent font-semibold text-sp-text-dimmer'
-                      }`}
-                    >{DECKS[id].name}</button>
-                  ))}
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
+                  {DECK_ORDER.map((id, i) => {
+                    // Odd-length list: the last item would otherwise land alone
+                    // in a 2-column grid, leaving one empty cell beside it --
+                    // span it across both columns instead so the row still
+                    // fills edge to edge with no gap.
+                    const isLastOdd = DECK_ORDER.length % 2 === 1 && i === DECK_ORDER.length - 1;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => setDeck(id)}
+                        className={`cursor-pointer rounded-md border-none p-2 font-sp-font text-[13px] transition-colors duration-150 ${isLastOdd ? 'col-span-2' : ''} ${
+                          deck === id ? 'bg-sp-accent font-bold text-sp-bg' : 'bg-transparent font-semibold text-sp-text-dimmer'
+                        }`}
+                      >{DECKS[id].name}</button>
+                    );
+                  })}
                 </div>
               </div>
             )}

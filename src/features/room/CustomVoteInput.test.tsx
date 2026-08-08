@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event';
 import CustomVoteInput from './CustomVoteInput.tsx';
 
 describe('CustomVoteInput', () => {
-  it('seeds the input from myVote', () => {
-    render(<CustomVoteInput myVote="2 weeks" onSubmit={vi.fn()} />);
-    expect(screen.getByPlaceholderText(/^enter/i)).toHaveValue('2 weeks');
+  it('shows an editable input when no vote has been cast yet', () => {
+    render(<CustomVoteInput myVote={null} onSubmit={vi.fn()} />);
+    expect(screen.getByPlaceholderText(/^enter/i)).toBeInTheDocument();
   });
 
   it('submits the trimmed value on Enter', async () => {
@@ -32,5 +32,30 @@ describe('CustomVoteInput', () => {
     render(<CustomVoteInput myVote={null} onSubmit={onSubmit} />);
     await user.type(screen.getByPlaceholderText(/^enter/i), '   {Enter}');
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('locks the field (read-only display, no editable input) once a vote is set', () => {
+    render(<CustomVoteInput myVote="2 weeks" onSubmit={vi.fn()} />);
+    expect(screen.getByText('2 weeks')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/^enter/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Change')).toBeInTheDocument();
+  });
+
+  it('clicking Change reopens an editable input seeded with the current vote', async () => {
+    const user = userEvent.setup();
+    render(<CustomVoteInput myVote="2 weeks" onSubmit={vi.fn()} />);
+    await user.click(screen.getByText('Change'));
+    expect(screen.getByPlaceholderText(/^enter/i)).toHaveValue('2 weeks');
+  });
+
+  it('submitting a changed value re-locks with the new value', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<CustomVoteInput myVote="2 weeks" onSubmit={onSubmit} />);
+    await user.click(screen.getByText('Change'));
+    const input = screen.getByPlaceholderText(/^enter/i);
+    await user.clear(input);
+    await user.type(input, 'a month{Enter}');
+    expect(onSubmit).toHaveBeenCalledWith('a month');
   });
 });
