@@ -129,20 +129,32 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
             {mode === 'create' && (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Estimation deck</label>
-                <div className="grid grid-cols-2 gap-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
+                <div className="grid grid-cols-2 gap-x-[1px] gap-y-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
                   {DECK_ORDER.map((id, i) => {
                     // Odd-length list: the last item would otherwise land alone
                     // in a 2-column grid, leaving one empty cell beside it --
                     // span it across both columns instead so the row still
                     // fills edge to edge with no gap.
                     const isLastOdd = DECK_ORDER.length % 2 === 1 && i === DECK_ORDER.length - 1;
+                    const isSelected = deck === id;
+                    // A thin divider on the left of every option except the
+                    // first in each row (and never on the full-width odd
+                    // item) makes the 5 choices read as a single row of
+                    // options rather than two loose pairs, the way the role
+                    // toggle's shared pill boundary already does for its 2
+                    // options -- but a static border would visually cut
+                    // through the selected pill's own rounded background, so
+                    // it's suppressed on the selected option and its
+                    // right-hand neighbor (whose left edge would otherwise
+                    // sit flush against the selected pill).
+                    const showDivider = !isLastOdd && i % 2 === 1 && !isSelected && deck !== DECK_ORDER[i - 1];
                     return (
                       <button
                         key={id}
                         onClick={() => setDeck(id)}
-                        className={`cursor-pointer rounded-md border-none p-2 font-sp-font text-[13px] transition-colors duration-150 ${isLastOdd ? 'col-span-2' : ''} ${
-                          deck === id ? 'bg-sp-accent font-bold text-sp-bg' : 'bg-transparent font-semibold text-sp-text-dimmer'
-                        }`}
+                        className={`relative cursor-pointer rounded-md border-none p-2 font-sp-font text-[13px] transition-[background-color,color,transform] duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isLastOdd ? 'col-span-2' : ''} ${
+                          isSelected ? 'scale-[1.03] bg-sp-accent font-bold text-sp-bg' : 'scale-100 bg-transparent font-semibold text-sp-text-dimmer'
+                        } ${showDivider ? 'before:absolute before:top-1/2 before:left-0 before:h-[60%] before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:bg-sp-border' : ''}`}
                       >{DECKS[id].name}</button>
                     );
                   })}
