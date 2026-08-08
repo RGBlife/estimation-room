@@ -4,12 +4,15 @@ import VotingBar from './VotingBar.tsx';
 import WeaponTray from './WeaponTray.tsx';
 import RoomHeader from './RoomHeader.tsx';
 import WeaponTipBanner from './WeaponTipBanner.tsx';
+import Toast from './Toast.tsx';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts.ts';
 import { useStoryDraft } from './useStoryDraft.ts';
 import { useWeaponTargeting } from './useWeaponTargeting.ts';
+import { useDeckSwitchToast } from './useDeckSwitchToast.ts';
 import { FAKE_PARTICIPANTS } from './useDevFakeParticipants.ts';
-import { computeStats, computeDistribution } from './stats.ts';
-import type { RoomDoc, Participant, CardValue } from '../../types/room.ts';
+import { computeStats, computeDistribution, computeCustomGroups } from './stats.ts';
+import { DECKS, DEFAULT_DECK } from './decks.ts';
+import type { RoomDoc, Participant, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 
@@ -17,6 +20,7 @@ interface RoomActions {
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
   setStory: (story: string) => Promise<void>;
+  setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
   startNextRound: () => Promise<void>;
   leave: () => Promise<void>;
@@ -46,6 +50,7 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
   const isCreator = room.creatorId === uid;
   const isObserver = !!me.isObserver;
   const isRevealed = room.isRevealed;
+  const deck = DECKS[room.deck ?? DEFAULT_DECK];
 
   // uid -> DOM node, covers both active seats and the observer rail — a
   // single lookup used by ThrowOverlay to compute fly-to animation geometry.
@@ -84,8 +89,11 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
     openTray, closeTray, selectWeapon, cancelTargeting, dismissWeaponTip, throwAt,
   } = useWeaponTargeting();
 
-  const { anyVote, allVoted, hasAverage, average, isWideSpread } = computeStats(participants);
-  const distribution = isRevealed ? computeDistribution(participants) : [];
+  const { message: deckToastMessage, rendered: deckToastRendered, closing: deckToastClosing, show: showDeckToast } = useDeckSwitchToast();
+
+  const { anyVote, allVoted, hasAverage, average, isWideSpread, mode, modeIsTie, flaggedCount } = computeStats(participants, deck);
+  const distribution = isRevealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];
+  const customGroups = isRevealed && deck.resultKind === 'freeText' ? computeCustomGroups(participants) : [];
   // Seats only dim while actively hovering a bar in the distribution panel —
   // no highlight is shown by default, so the table stays at full brightness
   // until the user is inspecting a specific vote group.
@@ -93,8 +101,16 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
 
   useKeyboardShortcuts({
     isRevealed, allVoted, anyVote, isObserver,
+    deckValues: deck.values?.map((v) => v.value) ?? null,
     onReveal: handleReveal, onStartNextRound: handleStartNextRound, onCastVote: handleCastVote,
   });
+
+  const handleSwitchDeck = useCallback((deckId: DeckId) => {
+    setActionError(null);
+    actions.setDeck(deckId)
+      .then(() => showDeckToast(`Deck switched to ${DECKS[deckId].name} — everyone's vote was reset`))
+      .catch(() => setActionError("Couldn't switch deck — try again."));
+  }, [actions, showDeckToast]);
 
   const handleThrowAt = (targetUid: string, event?: React.MouseEvent) => {
     throwAt(targetUid, event, (target, weaponId, offsetX, offsetY) => {
@@ -126,12 +142,16 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         theme={theme}
         onToggleTheme={onToggleTheme}
         isObserver={isObserver}
+        deck={deck}
+        onSwitchDeck={handleSwitchDeck}
         equippedWeaponId={equippedWeaponId}
         onCancelTargeting={cancelTargeting}
         onOpenWeaponTray={openTray}
         onSwitchRole={(nextIsObserver) => runAction(() => actions.setRole(nextIsObserver), "Couldn't switch role — check your connection.")}
         onLeave={actions.leave}
       />
+
+      <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} />
 
       <WeaponTipBanner
         equippedWeaponId={equippedWeaponId}
@@ -167,15 +187,20 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
       )}
 
       <VotingBar
+        deck={deck}
         isObserver={isObserver}
         myVote={me.vote ?? null}
         isRevealed={isRevealed}
         onSelect={handleCastVote}
         onJoinVoting={() => runAction(() => actions.setRole(false), "Couldn't switch role — check your connection.")}
         distribution={distribution}
+        customGroups={customGroups}
         hasAverage={hasAverage}
         average={average}
         isWideSpread={isWideSpread}
+        mode={mode}
+        modeIsTie={modeIsTie}
+        flaggedCount={flaggedCount}
         onStartNextRound={handleStartNextRound}
         hoveredValue={hoveredVoteValue}
         onHoverValue={setHoveredVoteValue}

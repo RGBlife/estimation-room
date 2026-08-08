@@ -3,7 +3,12 @@
 // which are the actual runtime enforcement -- this file describes what those
 // rules accept, it does not replace them.
 
-export type CardValue = '0' | '1' | '2' | '3' | '5' | '8' | '13' | '21' | '?' | '☕';
+// Widened from a closed literal union: the real constraint on which values
+// are legal now lives in decks.ts (per-deck value sets, including Custom's
+// arbitrary free text) and firestore.rules (shape/length cap).
+export type CardValue = string;
+
+export type DeckId = 'fibonacci' | 'tshirt' | 'powersOf2' | 'rom' | 'custom';
 
 // Current avatar format (avatar.js AVATAR_CATEGORIES). Index bounds below are
 // enforced by firestore.rules' validAvatar() and are not expressible in TS.
@@ -52,6 +57,7 @@ export interface RoomDoc {
   story: string; // <= 200 chars
   isRevealed: boolean;
   creatorId: string;
+  deck: DeckId;
   // serverTimestamp() sentinel on write / Timestamp on read. Not consumed
   // anywhere today; typed loosely on purpose rather than pulling in Firestore's
   // FieldValue unions for a field nothing reads.
@@ -64,4 +70,5 @@ export interface JoinPayload {
   name: string;
   avatar: AvatarOptions;
   isObserver: boolean;
+  deck: DeckId;
 }

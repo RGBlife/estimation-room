@@ -1,13 +1,11 @@
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
-import type { AvatarOptions, LegacyAvatarOptions, CardValue, Participant } from '../../types/room.ts';
+import type { AvatarOptions, LegacyAvatarOptions, Participant } from '../../types/room.ts';
 
 export const AVATAR_BG = [
   '5B6EE1', '8B6FD1', 'C97BB0', '5FAE8E',
   '4FA8B8', 'C99A4E', 'B5A66A', 'C97A56',
 ];
-
-export const CARD_VALUES: CardValue[] = ['0', '1', '2', '3', '5', '8', '13', '21', '?', '☕'];
 
 const HAIR = [
   'short01', 'short02', 'short03', 'short04', 'short05', 'short06', 'short07', 'short08',

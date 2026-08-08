@@ -42,6 +42,7 @@ const joinRoomAction = vi.fn();
 const setRoleAction = vi.fn();
 const castVoteAction = vi.fn();
 const setStoryAction = vi.fn();
+const setDeckAction = vi.fn();
 const revealAction = vi.fn();
 const startNextRoundAction = vi.fn();
 const throwWeaponAction = vi.fn();
@@ -53,6 +54,7 @@ vi.mock('./roomStore.actions.ts', () => ({
   setRoleAction: (...args: unknown[]) => setRoleAction(...args),
   castVoteAction: (...args: unknown[]) => castVoteAction(...args),
   setStoryAction: (...args: unknown[]) => setStoryAction(...args),
+  setDeckAction: (...args: unknown[]) => setDeckAction(...args),
   revealAction: (...args: unknown[]) => revealAction(...args),
   startNextRoundAction: (...args: unknown[]) => startNextRoundAction(...args),
   throwWeaponAction: (...args: unknown[]) => throwWeaponAction(...args),
@@ -91,7 +93,7 @@ describe('useRoomStore', () => {
 
   it('createRoom throws and does not call the action when not signed in', async () => {
     resetStore(); // uid: null
-    await expect(useRoomStore.getState().createRoom({ name: 'Ada', avatar: {} as never, isObserver: false }))
+    await expect(useRoomStore.getState().createRoom({ name: 'Ada', avatar: {} as never, isObserver: false, deck: 'fibonacci' }))
       .rejects.toThrow('Not signed in yet');
     expect(createRoomAction).not.toHaveBeenCalled();
   });
@@ -99,7 +101,7 @@ describe('useRoomStore', () => {
   it('createRoom calls createRoomAction with the signed-in uid and returns its code', async () => {
     useRoomStore.setState({ uid: 'u1' });
     createRoomAction.mockResolvedValue('ABCD');
-    const payload = { name: 'Ada', avatar: {} as never, isObserver: false };
+    const payload = { name: 'Ada', avatar: {} as never, isObserver: false, deck: 'fibonacci' as const };
 
     const code = await useRoomStore.getState().createRoom(payload);
 
@@ -127,6 +129,23 @@ describe('useRoomStore', () => {
     useRoomStore.setState({ uid: 'u1', roomCode: 'ABCD', room: null });
     await useRoomStore.getState().castVote('8');
     expect(castVoteAction).toHaveBeenCalledWith('u1', 'ABCD', null, '8');
+  });
+
+  it('setDeck is a no-op without a roomCode or room', async () => {
+    useRoomStore.setState({ uid: 'u1', roomCode: null, room: null });
+    await useRoomStore.getState().setDeck('tshirt');
+    expect(setDeckAction).not.toHaveBeenCalled();
+
+    useRoomStore.setState({ uid: 'u1', roomCode: 'ABCD', room: null });
+    await useRoomStore.getState().setDeck('tshirt');
+    expect(setDeckAction).not.toHaveBeenCalled();
+  });
+
+  it('setDeck forwards to setDeckAction with roomCode, room, and the new deck id', async () => {
+    const room = { code: 'ABCD', participants: {} } as never;
+    useRoomStore.setState({ uid: 'u1', roomCode: 'ABCD', room });
+    await useRoomStore.getState().setDeck('tshirt');
+    expect(setDeckAction).toHaveBeenCalledWith('ABCD', room, 'tshirt');
   });
 
   it('leave is a no-op without uid/roomCode, and calls leaveAction + resets state when joined', async () => {

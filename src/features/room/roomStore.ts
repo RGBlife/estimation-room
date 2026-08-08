@@ -10,10 +10,10 @@ import { db, rtdb, auth } from '../../shared/lib/firebase.ts';
 import { saveLastRoomCode } from '../join/profile.ts';
 import { clearMyPresence, trackPresence, teardownPresence } from './roomStore.presence.ts';
 import {
-  createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setStoryAction,
+  createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setStoryAction, setDeckAction,
   revealAction, startNextRoundAction, throwWeaponAction, leaveAction,
 } from './roomStore.actions.ts';
-import type { RoomDoc, JoinPayload, CardValue } from '../../types/room.ts';
+import type { RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 
 interface RoomState {
@@ -30,6 +30,7 @@ interface RoomState {
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
   setStory: (story: string) => Promise<void>;
+  setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
   startNextRound: () => Promise<void>;
   leave: () => Promise<void>;
@@ -160,6 +161,12 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     const { roomCode } = get();
     if (!roomCode) return;
     await setStoryAction(roomCode, story);
+  },
+
+  setDeck: async (deckId) => {
+    const { roomCode, room } = get();
+    if (!roomCode || !room) return;
+    await setDeckAction(roomCode, room, deckId);
   },
 
   reveal: async () => {

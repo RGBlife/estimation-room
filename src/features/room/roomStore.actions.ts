@@ -6,7 +6,7 @@ import {
 } from 'firebase/database';
 import { db, rtdb } from '../../shared/lib/firebase.ts';
 import { randomRoomCode } from '../join/roomCode.ts';
-import type { JoinPayload, CardValue, RoomDoc } from '../../types/room.ts';
+import type { JoinPayload, CardValue, RoomDoc, DeckId } from '../../types/room.ts';
 
 const MAX_CREATE_ATTEMPTS = 3;
 
@@ -14,7 +14,7 @@ const MAX_CREATE_ATTEMPTS = 3;
 // margin, before the thrower cleans up their own throw node.
 const THROW_CLEANUP_MS = 2200;
 
-export async function createRoomAction(uid: string, { name, avatar, isObserver }: JoinPayload): Promise<string> {
+export async function createRoomAction(uid: string, { name, avatar, isObserver, deck }: JoinPayload): Promise<string> {
   for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
     const code = randomRoomCode();
     const ref = doc(db, 'rooms', code);
@@ -25,6 +25,7 @@ export async function createRoomAction(uid: string, { name, avatar, isObserver }
       story: '',
       isRevealed: false,
       creatorId: uid,
+      deck,
       createdAt: serverTimestamp(),
       participants: {
         [uid]: { name, avatar, isObserver, vote: null, joinedAt: Date.now() },
@@ -66,6 +67,17 @@ export async function castVoteAction(uid: string, roomCode: string, room: RoomDo
 
 export async function setStoryAction(roomCode: string, story: string): Promise<void> {
   await updateDoc(doc(db, 'rooms', roomCode), { story });
+}
+
+export async function setDeckAction(roomCode: string, room: RoomDoc, deckId: DeckId): Promise<void> {
+  const clearedVotes: Record<string, null> = {};
+  for (const pid of Object.keys(room.participants)) {
+    clearedVotes[`participants.${pid}.vote`] = null;
+  }
+  await updateDoc(doc(db, 'rooms', roomCode), {
+    deck: deckId,
+    ...clearedVotes,
+  });
 }
 
 export async function revealAction(roomCode: string): Promise<void> {

@@ -84,7 +84,7 @@ service cloud.firestore {
         && p.name is string && p.name.size() >= 1 && p.name.size() <= 40
         && p.isObserver is bool
         && p.joinedAt is number
-        && (p.vote == null || p.vote in ['0', '1', '2', '3', '5', '8', '13', '21', '?', '☕']);
+        && (p.vote == null || (p.vote is string && p.vote.size() <= 40));
     }
 
     function myIncomingParticipant() {
@@ -101,6 +101,7 @@ service cloud.firestore {
         && incomingData().isRevealed == false
         && incomingData().story == ''
         && incomingData().creatorId == request.auth.uid
+        && incomingData().deck in ['fibonacci', 'tshirt', 'powersOf2', 'rom', 'custom']
         && incomingData().participants.size() == 1
         && incomingData().participants.keys()[0] == request.auth.uid
         && validParticipant(myIncomingParticipant());
@@ -116,6 +117,7 @@ service cloud.firestore {
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
           && incomingData().story == existingData().story
+          && incomingData().deck == existingData().deck
         )
         ||
         // A participant updating only their own participant entry (role/vote).
@@ -128,6 +130,7 @@ service cloud.firestore {
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
           && incomingData().story == existingData().story
+          && incomingData().deck == existingData().deck
         )
         ||
         // A participant leaving: removes exactly their own key, nothing else changes.
@@ -139,6 +142,7 @@ service cloud.firestore {
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
           && incomingData().story == existingData().story
+          && incomingData().deck == existingData().deck
         )
         ||
         // Any current participant removing exactly one OTHER participant's key
@@ -155,6 +159,7 @@ service cloud.firestore {
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
           && incomingData().story == existingData().story
+          && incomingData().deck == existingData().deck
         )
         ||
         // The creator editing the story text; nothing else changes.
@@ -181,6 +186,25 @@ service cloud.firestore {
           && existingData().isRevealed == true
           && incomingData().isRevealed == false
           && incomingData().story == ''
+          && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
+          && incomingData().deck == existingData().deck
+        )
+        ||
+        // The creator switching the estimation deck: changes `deck` and clears
+        // every participant's vote in the same write. Rules can't itemize a
+        // diff across a map's per-key subfields, so -- mirroring how the
+        // start-next-round branch above already handles "every participant's
+        // vote field changes in one write" -- this constrains the
+        // participants map only by key-set equality (nobody joined/left),
+        // trusting the write shape the same way that branch already does.
+        (
+          request.auth.uid == existingData().creatorId
+          && incomingData().deck != existingData().deck
+          && incomingData().deck in ['fibonacci', 'tshirt', 'powersOf2', 'rom', 'custom']
+          && incomingData().code == existingData().code
+          && incomingData().creatorId == existingData().creatorId
+          && incomingData().isRevealed == existingData().isRevealed
+          && incomingData().story == existingData().story
           && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
         )
       );

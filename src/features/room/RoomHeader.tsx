@@ -1,6 +1,9 @@
 import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
 import { WEAPONS } from './weapons.ts';
+import DeckSwitcher from './DeckSwitcher.tsx';
 import type { Theme } from '../../shared/lib/theme.ts';
+import type { DeckDefinition } from './decks.ts';
+import type { DeckId } from '../../types/room.ts';
 
 const STORY_MAX_LENGTH = 200;
 
@@ -16,6 +19,8 @@ interface RoomHeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
   isObserver: boolean;
+  deck: DeckDefinition;
+  onSwitchDeck: (deckId: DeckId) => void;
   equippedWeaponId: string | null;
   onCancelTargeting: () => void;
   onOpenWeaponTray: () => void;
@@ -23,11 +28,11 @@ interface RoomHeaderProps {
   onLeave: () => void;
 }
 
-// Top bar: room code / copy-link, story title, theme toggle, weapon-equip
-// button, role switch, and leave button.
+// Top bar: room code / copy-link, story title, theme toggle, deck switcher
+// (host-only), weapon-equip button, role switch, and leave button.
 export default function RoomHeader({
   roomCode, copied, onCopy, isCreator, storyDraft, storyInputRef, onStoryChange, story,
-  theme, onToggleTheme, isObserver, equippedWeaponId, onCancelTargeting, onOpenWeaponTray,
+  theme, onToggleTheme, isObserver, deck, onSwitchDeck, equippedWeaponId, onCancelTargeting, onOpenWeaponTray,
   onSwitchRole, onLeave,
 }: RoomHeaderProps) {
   return (
@@ -57,6 +62,7 @@ export default function RoomHeader({
 
       <div className="flex flex-wrap items-center justify-end gap-4">
         <ThemeToggle theme={theme} onToggle={onToggleTheme} size={34} />
+        {isCreator && <DeckSwitcher currentDeckId={deck.id} onSwitch={onSwitchDeck} />}
         {!isObserver && (
           equippedWeaponId ? (
             <button onClick={onCancelTargeting} className="cursor-pointer whitespace-nowrap rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3.5 py-2.5 font-sp-font text-xs font-bold text-sp-accent-text">

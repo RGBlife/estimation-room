@@ -3,6 +3,7 @@ import { JoinScreen, loadProfile, loadLastRoomCode } from '../features/join/inde
 import type { JoinPayload } from '../features/join/JoinScreen.tsx';
 import { RoomScreen } from '../features/room/index.js';
 import { useRoomStore } from '../features/room/roomStore.ts';
+import { DEFAULT_DECK } from '../features/room/decks.ts';
 import { loadTheme, saveTheme, type Theme } from '../shared/lib/theme.ts';
 
 function roomCodeFromUrl(): string | null {
@@ -30,6 +31,7 @@ export default function App() {
   const setRole = useRoomStore(s => s.setRole);
   const castVote = useRoomStore(s => s.castVote);
   const setStory = useRoomStore(s => s.setStory);
+  const setDeck = useRoomStore(s => s.setDeck);
   const reveal = useRoomStore(s => s.reveal);
   const startNextRound = useRoomStore(s => s.startNextRound);
   const leave = useRoomStore(s => s.leave);
@@ -109,7 +111,7 @@ export default function App() {
     if (!profile) return;
     autoJoinAttempted.current = true;
     setAutoJoining(true);
-    joinRoom(urlRoomCode, { name: profile.name, avatar: profile.avatar, isObserver: false })
+    joinRoom(urlRoomCode, { name: profile.name, avatar: profile.avatar, isObserver: false, deck: DEFAULT_DECK })
       .catch((e: Error) => setJoinError(e.message))
       .finally(() => setAutoJoining(false));
   }, [uid, urlRoomCode, room, joinRoom]);
@@ -155,7 +157,7 @@ export default function App() {
           roomCode={roomCode!}
           uid={uid}
           throws={throws}
-          actions={{ setRole, castVote, setStory, reveal, startNextRound, leave, throwWeapon, dismissThrow }}
+          actions={{ setRole, castVote, setStory, setDeck, reveal, startNextRound, leave, throwWeapon, dismissThrow }}
           theme={theme}
           onToggleTheme={toggleTheme}
         />

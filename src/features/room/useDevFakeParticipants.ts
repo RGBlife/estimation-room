@@ -1,5 +1,8 @@
-import { randomAvatar, CARD_VALUES } from '../avatar/index.js';
+import { randomAvatar } from '../avatar/index.js';
+import { DECKS } from './decks.ts';
 import type { Participant } from '../../types/room.ts';
+
+const FAKE_VOTE_VALUES = DECKS.fibonacci.values!.map((v) => v.value);
 
 // Dev-only layout testing: ?fakes=N&fakeobs=M merges N fake voters and M fake
 // observers into the room client-side. Never written to Firestore, stripped
@@ -17,7 +20,7 @@ export const FAKE_PARTICIPANTS: Record<string, Participant> | null = (() => {
       avatar: randomAvatar(),
       joinedAt: 1e12 + i,
       isObserver: i >= fakes,
-      vote: i < fakes ? CARD_VALUES[i % 8] : null,
+      vote: i < fakes ? FAKE_VOTE_VALUES[i % 8] : null,
     };
   }
   return out;

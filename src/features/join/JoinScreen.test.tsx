@@ -65,6 +65,29 @@ describe('JoinScreen', () => {
     expect(payload.name).toBe('Ada');
   });
 
+  it('shows the deck picker only in create mode, defaulting to Fibonacci', async () => {
+    const user = userEvent.setup();
+    renderJoinScreen();
+    expect(screen.queryByText('Estimation deck')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('or create a new room'));
+    expect(screen.getByText('Estimation deck')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fibonacci' })).toHaveClass('bg-sp-accent');
+  });
+
+  it('includes the picked deck in the create payload', async () => {
+    const user = userEvent.setup();
+    const { props } = renderJoinScreen();
+
+    await user.click(screen.getByText('or create a new room'));
+    await user.click(screen.getByRole('button', { name: 'T-shirt' }));
+    await user.type(screen.getByPlaceholderText('e.g. Sam Rivera'), 'Ada');
+    await user.click(screen.getByText('Create room'));
+
+    const [payload] = props.onCreate.mock.calls[0];
+    expect(payload.deck).toBe('tshirt');
+  });
+
   it('sets isObserver true on the submitted payload when Observer role is selected', async () => {
     const user = userEvent.setup();
     const { props } = renderJoinScreen();

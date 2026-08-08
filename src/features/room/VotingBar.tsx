@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { CARD_VALUES } from '../avatar/index.js';
 import type { CardValue } from '../../types/room.ts';
-import type { DistributionGroup } from './stats.ts';
+import type { DeckDefinition } from './decks.ts';
+import type { DistributionGroup, CustomVoteGroup } from './stats.ts';
+import CustomVoteInput from './CustomVoteInput.tsx';
+import CustomResultsList from './CustomResultsList.tsx';
 
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
@@ -9,17 +11,26 @@ const STAGGER_MS = 45;
 const VOTE_ROW_EXIT_MS = 260;
 
 interface DistributionBarProps {
+  deck: DeckDefinition;
   distribution: DistributionGroup[];
   hasAverage: boolean;
   average: string | null;
   isWideSpread: boolean;
+  mode: string | null;
+  modeIsTie: boolean;
+  flaggedCount: number;
   onStartNextRound: () => void;
   hoveredValue: CardValue | null;
   onHoverValue: (value: CardValue | null) => void;
 }
 
-function DistributionBar({ distribution, hasAverage, average, isWideSpread, onStartNextRound, hoveredValue, onHoverValue }: DistributionBarProps) {
+function DistributionBar({
+  deck, distribution, hasAverage, average, isWideSpread, mode, modeIsTie, flaggedCount,
+  onStartNextRound, hoveredValue, onHoverValue,
+}: DistributionBarProps) {
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
+  const totalVotes = distribution.reduce((sum, d) => sum + d.count, 0);
+  const showSummary = deck.resultKind === 'average' ? hasAverage : distribution.length > 0;
   return (
     <div className="flex flex-col items-center gap-3.5 py-1">
       <div className="flex flex-wrap items-end justify-center gap-5.5">
@@ -47,13 +58,22 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
           );
         })}
 
-        {hasAverage && (
+        {showSummary && (
           <div
             className="sp-dist-average ml-1 border-l border-sp-border pl-2 text-center"
             style={{ animationDelay: `${distribution.length * STAGGER_MS}ms` }}
           >
-            <div className="font-sp-mono text-2xl font-bold text-sp-text">{average}</div>
-            <div className="mt-0.5 text-[11px] text-sp-text-faint">average</div>
+            {deck.resultKind === 'average' ? (
+              <>
+                <div className="font-sp-mono text-2xl font-bold text-sp-text">{average}</div>
+                <div className="mt-0.5 text-[11px] text-sp-text-faint">average</div>
+              </>
+            ) : (
+              <>
+                <div className="font-sp-mono text-2xl font-bold text-sp-text">{modeIsTie ? 'tie' : mode}</div>
+                <div className="mt-0.5 text-[11px] text-sp-text-faint">most picked</div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -63,6 +83,13 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
           className="sp-dist-average rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3.5 py-1.5 text-sm font-semibold text-sp-warn-text"
           style={{ animationDelay: `${distribution.length * STAGGER_MS + 80}ms` }}
         >⚠ Wide spread — discuss?</div>
+      )}
+
+      {flaggedCount > 0 && (
+        <div
+          className="sp-dist-average rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3.5 py-1.5 text-sm font-semibold text-sp-warn-text"
+          style={{ animationDelay: `${distribution.length * STAGGER_MS + 80}ms` }}
+        >⚠ {flaggedCount} of {totalVotes} flagged &ldquo;needs breaking down&rdquo;</div>
       )}
 
       <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />
@@ -81,33 +108,40 @@ function DistributionBar({ distribution, hasAverage, average, isWideSpread, onSt
 }
 
 interface VoteCardRowProps {
+  deck: DeckDefinition;
   myVote: CardValue | null;
   onSelect: (value: CardValue) => void;
   exiting?: boolean;
 }
 
-function VoteCardRow({ myVote, onSelect, exiting }: VoteCardRowProps) {
+function VoteCardRow({ deck, myVote, onSelect, exiting }: VoteCardRowProps) {
+  const values = deck.values ?? [];
   return (
     <>
       <span className="text-[11px] font-bold tracking-[0.05em] whitespace-nowrap text-sp-text-faintest uppercase">Your vote</span>
       <div className="flex flex-wrap justify-center gap-2">
-        {CARD_VALUES.map((value, i) => {
+        {values.map((spec, i) => {
+          const { value, wide, warn } = spec;
           const selected = value === myVote;
-          // Matches the number-key handler in RoomScreen: '1' selects the 1st
-          // card, ..., '9' the 9th, '0' the 10th. Cards beyond the 10th (if
-          // the set ever grows) have no key shortcut, so no hint is shown.
+          // Matches the number-key handler in useKeyboardShortcuts: '1' selects
+          // the 1st card, ..., '9' the 9th, '0' the 10th. Cards beyond the 10th
+          // have no key shortcut, so no hint is shown.
           const keyHint = i < 10 ? String((i + 1) % 10) : null;
+          const shapeClass = wide ? 'h-[58px] w-auto px-4' : 'h-[58px] w-[42px]';
+          const colorClass = selected
+            ? warn
+              ? 'border-2 border-sp-accent bg-sp-warn-bg text-sp-warn-text shadow-[0_0_0_3px_var(--sp-accent-glow)]'
+              : 'border-2 border-sp-accent bg-sp-accent-panel text-sp-accent-on-card shadow-[0_0_0_3px_var(--sp-accent-glow)]'
+            : warn
+              ? 'border-[1.5px] border-dashed border-sp-warn-border bg-sp-warn-bg text-sp-warn-text'
+              : 'border-[1.5px] border-sp-border-strong bg-sp-card-bg text-sp-text-dim';
           const card = (
             <button
               onClick={() => onSelect(value)}
-              className={`h-[58px] w-[42px] cursor-pointer rounded-lg font-sp-mono text-base font-bold transition-[transform,border-color] duration-150 ${exiting ? 'sp-vote-card-exit' : 'sp-vote-card-enter'} ${
-                selected
-                  ? 'border-2 border-sp-accent bg-sp-accent-panel text-sp-accent-on-card shadow-[0_0_0_3px_var(--sp-accent-glow)]'
-                  : 'border-[1.5px] border-sp-border-strong bg-sp-card-bg text-sp-text-dim'
-              }`}
+              className={`cursor-pointer rounded-lg font-sp-mono text-base font-bold whitespace-nowrap transition-[transform,border-color] duration-150 ${shapeClass} ${colorClass} ${exiting ? 'sp-vote-card-exit' : 'sp-vote-card-enter'}`}
               style={{
                 transform: selected && !exiting ? 'translateY(-6px)' : undefined,
-                animationDelay: `${(exiting ? CARD_VALUES.length - 1 - i : i) * 20}ms`,
+                animationDelay: `${(exiting ? values.length - 1 - i : i) * 20}ms`,
               }}
             >{value}</button>
           );
@@ -127,15 +161,20 @@ function VoteCardRow({ myVote, onSelect, exiting }: VoteCardRowProps) {
 }
 
 interface VotingBarProps {
+  deck: DeckDefinition;
   isObserver: boolean;
   myVote: CardValue | null;
   isRevealed: boolean;
   onSelect: (value: CardValue) => void;
   onJoinVoting: () => void;
   distribution: DistributionGroup[];
+  customGroups: CustomVoteGroup[];
   hasAverage: boolean;
   average: string | null;
   isWideSpread: boolean;
+  mode: string | null;
+  modeIsTie: boolean;
+  flaggedCount: number;
   onStartNextRound: () => void;
   hoveredValue: CardValue | null;
   onHoverValue: (value: CardValue | null) => void;
@@ -143,21 +182,24 @@ interface VotingBarProps {
 }
 
 export default function VotingBar({
-  isObserver, myVote, isRevealed, onSelect, onJoinVoting,
-  distribution, hasAverage, average, isWideSpread, onStartNextRound,
-  hoveredValue, onHoverValue, onHeightChange,
+  deck, isObserver, myVote, isRevealed, onSelect, onJoinVoting,
+  distribution, customGroups, hasAverage, average, isWideSpread, mode, modeIsTie, flaggedCount,
+  onStartNextRound, hoveredValue, onHoverValue, onHeightChange,
 }: VotingBarProps) {
+  const isCustom = deck.values === null;
+
   // The vote-card row stays mounted briefly after reveal so it can animate
-  // out instead of being swapped for the distribution bar instantly.
+  // out instead of being swapped for the distribution bar instantly. Not
+  // applicable to Custom's text input, which has no card grid to animate.
   const [showExitingCards, setShowExitingCards] = useState(false);
   useEffect(() => {
-    if (isRevealed) {
+    if (isRevealed && !isCustom) {
       setShowExitingCards(true);
       const t = setTimeout(() => setShowExitingCards(false), VOTE_ROW_EXIT_MS);
       return () => clearTimeout(t);
     }
     setShowExitingCards(false);
-  }, [isRevealed]);
+  }, [isRevealed, isCustom]);
 
   // Reports this bar's real height so SeatTable can reserve exactly enough
   // clearance above it — the bar grows a lot taller once the distribution
@@ -175,20 +217,30 @@ export default function VotingBar({
     <div ref={barRef} className="fixed right-0 bottom-0 left-0 flex flex-wrap items-center justify-center gap-5 border-t border-sp-border bg-sp-panel px-5 py-3">
       {isRevealed ? (
         showExitingCards && !isObserver ? (
-          <VoteCardRow myVote={myVote} onSelect={onSelect} exiting />
+          <VoteCardRow deck={deck} myVote={myVote} onSelect={onSelect} exiting />
+        ) : deck.resultKind === 'freeText' ? (
+          <CustomResultsList groups={customGroups} />
         ) : (
           <DistributionBar
+            deck={deck}
             distribution={distribution}
             hasAverage={hasAverage}
             average={average}
             isWideSpread={isWideSpread}
+            mode={mode}
+            modeIsTie={modeIsTie}
+            flaggedCount={flaggedCount}
             onStartNextRound={onStartNextRound}
             hoveredValue={hoveredValue}
             onHoverValue={onHoverValue}
           />
         )
       ) : !isObserver ? (
-        <VoteCardRow myVote={myVote} onSelect={onSelect} />
+        isCustom ? (
+          <CustomVoteInput myVote={myVote} onSubmit={onSelect} />
+        ) : (
+          <VoteCardRow deck={deck} myVote={myVote} onSelect={onSelect} />
+        )
       ) : (
         <>
           <span className="text-sm text-sp-text-faintest">You're observing this round — no vote needed.</span>

@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import RoomHeader from './RoomHeader.tsx';
+import { DECKS } from './decks.ts';
 
 function renderHeader(overrides: Partial<React.ComponentProps<typeof RoomHeader>> = {}) {
   const props: React.ComponentProps<typeof RoomHeader> = {
@@ -17,6 +18,8 @@ function renderHeader(overrides: Partial<React.ComponentProps<typeof RoomHeader>
     theme: 'dark',
     onToggleTheme: vi.fn(),
     isObserver: false,
+    deck: DECKS.fibonacci,
+    onSwitchDeck: vi.fn(),
     equippedWeaponId: null,
     onCancelTargeting: vi.fn(),
     onOpenWeaponTray: vi.fn(),
@@ -87,5 +90,23 @@ describe('RoomHeader', () => {
     const { props } = renderHeader();
     await user.click(screen.getByText('Leave room'));
     expect(props.onLeave).toHaveBeenCalledOnce();
+  });
+
+  it('shows the deck switcher for the creator', () => {
+    renderHeader({ isCreator: true, deck: DECKS.tshirt });
+    expect(screen.getByText('T-shirt')).toBeInTheDocument();
+  });
+
+  it('hides the deck switcher for non-creators', () => {
+    renderHeader({ isCreator: false });
+    expect(screen.queryByText('Fibonacci')).not.toBeInTheDocument();
+  });
+
+  it('calls onSwitchDeck with the picked deck id', async () => {
+    const user = userEvent.setup();
+    const { props } = renderHeader({ isCreator: true, deck: DECKS.fibonacci });
+    await user.click(screen.getByText('Fibonacci'));
+    await user.click(screen.getByText('T-shirt'));
+    expect(props.onSwitchDeck).toHaveBeenCalledWith('tshirt');
   });
 });

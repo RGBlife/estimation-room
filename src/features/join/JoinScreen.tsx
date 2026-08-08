@@ -4,13 +4,15 @@ import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
 import { randomRoomCode } from './roomCode.ts';
 import { loadProfile, saveProfile } from './profile.ts';
 import { randomAvatar } from '../avatar/avatar.ts';
-import type { AvatarOptions } from '../../types/room.ts';
+import { DECKS, DECK_ORDER, DEFAULT_DECK } from '../room/decks.ts';
+import type { AvatarOptions, DeckId } from '../../types/room.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 
 export interface JoinPayload {
   name: string;
   avatar: AvatarOptions;
   isObserver: boolean;
+  deck: DeckId;
 }
 
 interface JoinScreenProps {
@@ -30,6 +32,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   const [name, setName] = useState(() => storedProfile?.name ?? '');
   const [mode, setMode] = useState<'join' | 'create'>('join');
   const [role, setRole] = useState<'participant' | 'observer'>('participant');
+  const [deck, setDeck] = useState<DeckId>(DEFAULT_DECK);
   const [roomCodeInput, setRoomCodeInput] = useState(prefillRoomCode ?? '');
   const [busy, setBusy] = useState(false);
   const [avatarExpanded, setAvatarExpanded] = useState(false);
@@ -56,7 +59,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
     if (joinDisabled) return;
     setBusy(true);
     const trimmedName = name.trim().slice(0, 40);
-    const payload = { name: trimmedName, avatar, isObserver: role === 'observer' };
+    const payload = { name: trimmedName, avatar, isObserver: role === 'observer', deck };
     try {
       await (mode === 'create' ? onCreate(payload) : onJoin(roomCodeInput, payload));
     } finally {
@@ -122,6 +125,23 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
                 >Observer</button>
               </div>
             </div>
+
+            {mode === 'create' && (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Estimation deck</label>
+                <div className="flex flex-wrap gap-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
+                  {DECK_ORDER.map((id) => (
+                    <button
+                      key={id}
+                      onClick={() => setDeck(id)}
+                      className={`cursor-pointer rounded-md border-none p-2 font-sp-font text-[13px] transition-colors duration-150 ${
+                        deck === id ? 'bg-sp-accent font-bold text-sp-bg' : 'bg-transparent font-semibold text-sp-text-dimmer'
+                      }`}
+                    >{DECKS[id].name}</button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {mode === 'create' ? (
               <div>
