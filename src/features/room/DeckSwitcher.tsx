@@ -28,14 +28,26 @@ export default function DeckSwitcher({ currentDeckId, onSwitch }: DeckSwitcherPr
     <div ref={rootRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        // Fixed min-width (sized for the longest deck name, "Powers of 2") so
-        // the pill -- and everything after it in the header's flex row --
-        // doesn't shift horizontally each time the active deck's label changes.
-        className="flex min-w-[168px] cursor-pointer items-center gap-1.5 rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-2.5 py-2 font-sp-font text-xs font-bold whitespace-nowrap text-sp-accent-text"
+        // Sizes to content rather than a fixed min-width: a fixed width sized
+        // for the longest deck name ("Powers of 2") left visibly uneven
+        // padding after the chevron for short names like "ROM"/"Custom",
+        // since equal padding on both sides of a variable-width label still
+        // reads as more trailing whitespace once you account for the
+        // chevron glyph's own visual weight sitting toward the top of its
+        // box. The header row reflowing slightly when the host deliberately
+        // switches decks (not on every render) is an acceptable trade-off
+        // for correct spacing at every label length.
+        className="flex cursor-pointer items-center gap-1.5 rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-2.5 py-2 font-sp-font text-xs font-bold whitespace-nowrap text-sp-accent-text"
       >
         <span className="uppercase tracking-[0.04em] text-sp-accent-text">Deck</span>
         <span className="text-sp-text">{DECKS[currentDeckId].name}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+        {/* Tighter viewBox cropped to the chevron's actual ink (y 7-17 of the
+            original 24-tall box, with a touch of margin) plus a small
+            negative right margin -- the glyph's visible stroke sits in the
+            upper-middle of its nominal box, so a viewBox with the same
+            padding as the label text still reads as extra trailing
+            whitespace next to it. */}
+        <svg width="12" height="12" viewBox="2 7 20 10" fill="none" stroke="currentColor" strokeWidth={2.5} className="-mr-0.5">
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>

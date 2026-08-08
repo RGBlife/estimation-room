@@ -52,6 +52,7 @@ export const DECKS: Record<DeckId, DeckDefinition> = {
       { value: '3' },
       { value: '5' },
       { value: '8+ sprints', wide: true, warn: true },
+      { value: '?' },
     ],
     resultKind: 'mode',
     flagValue: 'Needs breaking down',

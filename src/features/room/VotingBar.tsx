@@ -89,7 +89,9 @@ function DistributionBar({
         <div
           className="sp-dist-average rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3.5 py-1.5 text-sm font-semibold text-sp-warn-text"
           style={{ animationDelay: `${distribution.length * STAGGER_MS + 80}ms` }}
-        >⚠ {flaggedCount} of {totalVotes} flagged &ldquo;needs breaking down&rdquo;</div>
+        >⚠ {flaggedCount === totalVotes
+          ? 'Everyone flagged this as needing to be broken down'
+          : `${flaggedCount} of ${totalVotes} flagged this as needing to be broken down`}</div>
       )}
 
       <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />
@@ -129,7 +131,7 @@ function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowPr
           const { value, wide, warn } = spec;
           const selected = value === myVote;
           const shapeClass = wide
-            ? 'h-[58px] w-[42px] flex items-center justify-center px-1 text-[9px] leading-[1.15] whitespace-normal'
+            ? 'h-[58px] w-[42px] flex items-center justify-center px-1 py-1 text-[7px] leading-[1.4] whitespace-normal break-words'
             : 'h-[58px] w-[42px] text-base whitespace-nowrap';
           const colorClass = selected
             ? warn

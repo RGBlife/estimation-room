@@ -118,7 +118,21 @@ describe('VotingBar', () => {
     expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
   });
 
-  it('shows the ROM flagged-count warning when flaggedCount > 0', async () => {
+  it('shows a partial flagged-count warning when some but not all votes are flagged', async () => {
+    renderVotingBar({
+      deck: DECKS.rom,
+      isRevealed: true,
+      distribution: [
+        { value: 'Needs breaking down', count: 1, isTop: false, voters: [] },
+        { value: '2', count: 1, isTop: false, voters: [] },
+      ],
+      mode: '2',
+      flaggedCount: 1,
+    });
+    await waitFor(() => expect(screen.getByText(/1 of 2 flagged this as needing to be broken down/)).toBeInTheDocument());
+  });
+
+  it('shows an "everyone flagged" warning when every vote is flagged', async () => {
     renderVotingBar({
       deck: DECKS.rom,
       isRevealed: true,
@@ -126,7 +140,7 @@ describe('VotingBar', () => {
       mode: null,
       flaggedCount: 2,
     });
-    await waitFor(() => expect(screen.getByText(/2 of 2 flagged/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Everyone flagged this as needing to be broken down/)).toBeInTheDocument());
   });
 
   it('renders a free-text input instead of a card grid for the Custom deck', () => {
