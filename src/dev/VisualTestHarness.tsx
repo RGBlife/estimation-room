@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import VotingBar from '../features/room/VotingBar.tsx';
-import { DECKS, DECK_ORDER } from '../features/room/decks.ts';
+import { DECKS, ALL_DECK_IDS } from '../features/room/decks.ts';
 import { computeStats, computeDistribution, computeCustomGroups } from '../features/room/stats.ts';
 import type { Participant, DeckId } from '../types/room.ts';
 
@@ -10,7 +10,7 @@ import type { Participant, DeckId } from '../types/room.ts';
 // Reached via ?visual-test=cards, stripped from production builds by the same
 // import.meta.env.DEV gate used elsewhere (see useDevFakeParticipants.ts).
 //
-// One deck is rendered at a time (rather than all 5 stacked) because
+// One deck is rendered at a time (rather than all stacked) because
 // VotingBar is `position: fixed` to the viewport bottom by design in the real
 // app -- stacking multiple instances would have them all overlap at the
 // bottom of the page instead of laying out predictably for a test to target.
@@ -25,7 +25,7 @@ function fixtureParticipants(deckId: DeckId): Record<string, Participant> {
 }
 
 export default function VisualTestHarness() {
-  const [deckId, setDeckId] = useState<DeckId>(DECK_ORDER[0]);
+  const [deckId, setDeckId] = useState<DeckId>(ALL_DECK_IDS[0]);
   const deck = DECKS[deckId];
   const [myVote, setMyVote] = useState<string | null>(deck.values?.[0]?.value ?? null);
   const [revealed, setRevealed] = useState(false);
@@ -44,7 +44,7 @@ export default function VisualTestHarness() {
     <div className="sp-app">
       <div className="flex flex-wrap items-center gap-2 p-4">
         <span className="font-sp-mono text-xs font-bold text-sp-text">Visual test harness:</span>
-        {DECK_ORDER.map((id) => (
+        {ALL_DECK_IDS.map((id) => (
           <button
             key={id}
             data-testid={`select-deck-${id}`}

@@ -51,7 +51,8 @@ export const DECKS: Record<DeckId, DeckDefinition> = {
       { value: '2' },
       { value: '3' },
       { value: '5' },
-      { value: '8+ sprints', wide: true, warn: true },
+      { value: '8' },
+      { value: '13+ sprints', wide: true, warn: true },
       { value: '?' },
     ],
     resultKind: 'mode',
@@ -65,5 +66,16 @@ export const DECKS: Record<DeckId, DeckDefinition> = {
   },
 };
 
-export const DECK_ORDER: DeckId[] = ['fibonacci', 'tshirt', 'powersOf2', 'rom', 'custom'];
+// Custom is intentionally left out of DECK_ORDER (and so hidden from both the
+// pre-join deck picker and the in-room DeckSwitcher) -- the free-text flow
+// still needs more design/UX work before it's ready to surface. The deck
+// definition, results view, and vote-input UI stay fully wired up so it can
+// be re-added by just adding 'custom' back to this array.
+export const DECK_ORDER: DeckId[] = ['fibonacci', 'tshirt', 'powersOf2', 'rom'];
+
+// Every deck, including ones hidden from DECK_ORDER -- for tooling (dev visual
+// test harness) that needs to exercise decks regardless of whether a player
+// can currently select them.
+export const ALL_DECK_IDS: DeckId[] = [...DECK_ORDER, 'custom'];
+
 export const DEFAULT_DECK: DeckId = 'fibonacci';

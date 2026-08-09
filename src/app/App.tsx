@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { JoinScreen, loadProfile, loadLastRoomCode } from '../features/join/index.js';
+import { JoinScreen, loadProfile, loadLastRoomCode } from '../features/join/index.ts';
 import type { JoinPayload } from '../features/join/JoinScreen.tsx';
 import { RoomScreen } from '../features/room/index.js';
 import { useRoomStore } from '../features/room/roomStore.ts';

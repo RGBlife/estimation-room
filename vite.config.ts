@@ -7,7 +7,7 @@ export default defineConfig({
   base: process.env.GITHUB_PAGES ? '/estimation-room/' : '/',
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.js'],
+    setupFiles: ['./src/test/setup.ts'],
     globals: false,
     // tests/visual is a separate Playwright suite (npm run test:visual), not
     // a Vitest suite -- its own `test`/`expect` globals clash with Vitest's.

@@ -104,7 +104,7 @@ interface SeatProps {
 // reverse flips the column so the vote card sits adjacent to the table on the
 // bottom row.
 // Short tokens (numbers, "XS".."XXL", "?", "☕") fit the standard card as-is.
-// Longer labels (ROM's "Needs breaking down"/"8+ sprints", any Custom free
+// Longer labels (ROM's "Needs breaking down"/"13+ sprints", any Custom free
 // text) get a wider card instead of shrinking the font to fit -- only that
 // seat's card widens, everyone else's stays the standard size.
 const LONG_LABEL_THRESHOLD = 3;

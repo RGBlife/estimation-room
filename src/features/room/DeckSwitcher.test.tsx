@@ -15,7 +15,8 @@ describe('DeckSwitcher', () => {
     await user.click(screen.getByText('Fibonacci'));
     expect(screen.getByText('T-shirt')).toBeInTheDocument();
     expect(screen.getByText('ROM')).toBeInTheDocument();
-    expect(screen.getByText('Custom')).toBeInTheDocument();
+    // Custom is deliberately excluded from the dropdown -- see DECK_ORDER in decks.ts.
+    expect(screen.queryByText('Custom')).not.toBeInTheDocument();
     // "Fibonacci" appears only once (on the pill), not again in the dropdown.
     expect(screen.getAllByText('Fibonacci')).toHaveLength(1);
   });

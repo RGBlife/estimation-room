@@ -17,9 +17,17 @@ describe('decks registry', () => {
     expect(DECKS[DEFAULT_DECK]).toBeDefined();
   });
 
-  it('DECK_ORDER lists every deck in DECKS exactly once', () => {
-    expect(new Set(DECK_ORDER)).toEqual(new Set(Object.keys(DECKS)));
-    expect(DECK_ORDER.length).toBe(Object.keys(DECKS).length);
+  it('DECK_ORDER lists every selectable deck in DECKS exactly once', () => {
+    // Custom is deliberately excluded from DECK_ORDER (hidden from deck
+    // pickers) while its DECKS entry stays fully defined -- see decks.ts.
+    const selectableIds = Object.keys(DECKS).filter((id) => id !== 'custom');
+    expect(new Set(DECK_ORDER)).toEqual(new Set(selectableIds));
+    expect(DECK_ORDER.length).toBe(selectableIds.length);
+  });
+
+  it('Custom stays defined in DECKS even though it is hidden from DECK_ORDER', () => {
+    expect(DECKS.custom).toBeDefined();
+    expect(DECK_ORDER).not.toContain('custom');
   });
 
   it('ROM flagValue matches one of its own values', () => {

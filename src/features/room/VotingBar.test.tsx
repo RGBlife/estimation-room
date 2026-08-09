@@ -114,7 +114,7 @@ describe('VotingBar', () => {
   it('renders ROM\'s wide/warn pills for its flag values', () => {
     renderVotingBar({ deck: DECKS.rom });
     expect(screen.getByRole('button', { name: 'Needs breaking down' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '8+ sprints' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '13+ sprints' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
   });
 
