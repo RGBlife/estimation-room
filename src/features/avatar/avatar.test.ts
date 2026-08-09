@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { avatarDataUri, participantAvatarSrc, AVATAR_BG } from './avatar.js';
+import { avatarDataUri, participantAvatarSrc, AVATAR_BG } from './avatar.ts';
 
 const base = { seed: 'test-seed', bgIdx: 1, glasses: false, earrings: false, flair: false };
 

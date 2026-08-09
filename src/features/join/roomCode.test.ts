@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { randomRoomCode } from './roomCode.js';
+import { randomRoomCode } from './roomCode.ts';
 
 describe('randomRoomCode', () => {
   it('produces 4 characters from the unambiguous letter set', () => {

@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { loadProfile, saveProfile, loadLastRoomCode, saveLastRoomCode } from './profile.js';
+import { loadProfile, saveProfile, loadLastRoomCode, saveLastRoomCode } from './profile.ts';
+import type { AvatarOptions } from '../../types/room.ts';
 
-function stubLocalStorage(store = {}) {
+function stubLocalStorage(store: Record<string, string> = {}) {
   vi.stubGlobal('localStorage', {
-    getItem: (k) => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
+    getItem: (k: string) => (k in store ? store[k] : null),
+    setItem: (k: string, v: string) => { store[k] = String(v); },
   });
   return store;
 }
@@ -14,7 +15,7 @@ describe('profile persistence', () => {
 
   it('round-trips a saved profile', () => {
     stubLocalStorage();
-    const avatar = { seed: 'abc', bgIdx: 2, glasses: true, earrings: false, flair: false };
+    const avatar = { seed: 'abc', bgIdx: 2, glasses: true, earrings: false, flair: false } as unknown as AvatarOptions;
     saveProfile({ name: 'Sam', avatar });
     expect(loadProfile()).toEqual({ name: 'Sam', avatar });
   });
@@ -37,7 +38,7 @@ describe('profile persistence', () => {
       getItem: () => { throw new Error('denied'); },
       setItem: () => { throw new Error('denied'); },
     });
-    expect(() => saveProfile({ name: 'x', avatar: {} })).not.toThrow();
+    expect(() => saveProfile({ name: 'x', avatar: {} as AvatarOptions })).not.toThrow();
     expect(loadProfile()).toBe(null);
   });
 });
