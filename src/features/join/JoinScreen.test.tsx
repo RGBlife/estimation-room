@@ -101,6 +101,22 @@ describe('JoinScreen', () => {
     expect(payload.isObserver).toBe(true);
   });
 
+  it('remembers the observer role from a previous session', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('sp_profile', JSON.stringify({
+      name: 'Ada', avatar: { seed: 'abc' }, isObserver: true,
+    }));
+    const { props } = renderJoinScreen();
+
+    expect(screen.getByText('Observer')).toHaveClass('text-sp-bg');
+
+    await user.type(screen.getByPlaceholderText('Enter your room code'), 'ABCD');
+    await user.click(screen.getByText('Join room'));
+
+    const [, payload] = props.onJoin.mock.calls[0];
+    expect(payload.isObserver).toBe(true);
+  });
+
   it('shows "Connecting…" instead of the mode label while not ready', () => {
     renderJoinScreen({ ready: false });
     expect(screen.getByText('Connecting…')).toBeInTheDocument();

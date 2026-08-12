@@ -111,7 +111,7 @@ export default function App() {
     if (!profile) return;
     autoJoinAttempted.current = true;
     setAutoJoining(true);
-    joinRoom(urlRoomCode, { name: profile.name, avatar: profile.avatar, isObserver: false, deck: DEFAULT_DECK })
+    joinRoom(urlRoomCode, { name: profile.name, avatar: profile.avatar, isObserver: !!profile.isObserver, deck: DEFAULT_DECK })
       .catch((e: Error) => setJoinError(e.message))
       .finally(() => setAutoJoining(false));
   }, [uid, urlRoomCode, room, joinRoom]);

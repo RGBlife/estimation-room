@@ -20,6 +20,13 @@ describe('profile persistence', () => {
     expect(loadProfile()).toEqual({ name: 'Sam', avatar });
   });
 
+  it('round-trips a saved observer role', () => {
+    stubLocalStorage();
+    const avatar = { seed: 'abc', bgIdx: 2, glasses: true, earrings: false, flair: false } as unknown as AvatarOptions;
+    saveProfile({ name: 'Sam', avatar, isObserver: true });
+    expect(loadProfile()).toEqual({ name: 'Sam', avatar, isObserver: true });
+  });
+
   it('returns null when nothing is stored', () => {
     stubLocalStorage();
     expect(loadProfile()).toBe(null);

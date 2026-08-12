@@ -31,7 +31,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   const [avatar, setAvatar] = useState(() => storedProfile?.avatar ?? randomAvatar());
   const [name, setName] = useState(() => storedProfile?.name ?? '');
   const [mode, setMode] = useState<'join' | 'create'>('join');
-  const [role, setRole] = useState<'participant' | 'observer'>('participant');
+  const [role, setRole] = useState<'participant' | 'observer'>(storedProfile?.isObserver ? 'observer' : 'participant');
   const [deck, setDeck] = useState<DeckId>(DEFAULT_DECK);
   const [roomCodeInput, setRoomCodeInput] = useState(prefillRoomCode ?? '');
   const [busy, setBusy] = useState(false);
@@ -39,11 +39,11 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   const panelWidth = useAvatarPanelWidth(avatarExpanded);
   const cardMaxWidth = panelWidth ? panelWidth + 56 : 460;
 
-  // Persist as the user customizes, not just on join, so the look/name
+  // Persist as the user customizes, not just on join, so the look/name/role
   // survives closing the tab even if they never actually joined a room.
   useEffect(() => {
-    saveProfile({ name: name.trim().slice(0, 40), avatar });
-  }, [name, avatar]);
+    saveProfile({ name: name.trim().slice(0, 40), avatar, isObserver: role === 'observer' });
+  }, [name, avatar, role]);
 
   const switchToCreate = () => { setMode('create'); setRoomCodeInput(randomRoomCode()); };
   const switchToJoin = () => { setMode('join'); setRoomCodeInput(''); };

@@ -53,14 +53,18 @@ export function computeDistribution(participants: Record<string, Participant>, d
       (groups[p.vote] = groups[p.vote] || []).push(p);
     }
   });
-  const maxCount = Math.max(1, ...Object.values(groups).map((g) => g!.length));
+  // The flagged value (ROM's "Needs breaking down") is excluded from "top"
+  // consideration, same as it's excluded from mode in computeStats -- it
+  // isn't a size estimate, so it shouldn't out-tie or tie with one.
+  const rankable = Object.entries(groups).filter(([value]) => value !== deck.flagValue);
+  const maxCount = Math.max(1, ...rankable.map(([, g]) => g!.length));
   const values = deck.values?.map((spec) => spec.value) ?? [];
   return values.filter((value) => groups[value]).map((value) => {
     const group = groups[value]!;
     return {
       value,
       count: group.length,
-      isTop: group.length === maxCount,
+      isTop: value !== deck.flagValue && group.length === maxCount,
       voters: group,
     };
   });

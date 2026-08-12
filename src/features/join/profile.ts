@@ -5,6 +5,7 @@ const PROFILE_KEY = 'sp_profile';
 export interface Profile {
   name: string;
   avatar: AvatarOptions;
+  isObserver?: boolean;
 }
 
 export function loadProfile(): Profile | null {
@@ -19,9 +20,9 @@ export function loadProfile(): Profile | null {
   }
 }
 
-export function saveProfile({ name, avatar }: Profile): void {
+export function saveProfile({ name, avatar, isObserver }: Profile): void {
   try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify({ name, avatar }));
+    localStorage.setItem(PROFILE_KEY, JSON.stringify({ name, avatar, isObserver }));
   } catch {
     // localStorage unavailable (private mode, quota, etc.) — profile just won't persist.
   }
