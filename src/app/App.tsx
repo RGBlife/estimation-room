@@ -116,6 +116,15 @@ export default function App() {
       .finally(() => setAutoJoining(false));
   }, [uid, urlRoomCode, room, joinRoom]);
 
+  // Put the room code in the tab title so several rooms open at once stay
+  // tellable apart, and surface the reveal in the title too -- it's the one
+  // moment you care about while tabbed away.
+  useEffect(() => {
+    document.title = roomCode
+      ? `${room?.isRevealed ? '✓ ' : ''}${roomCode} · Estimation Room`
+      : 'Estimation Room';
+  }, [roomCode, room?.isRevealed]);
+
   // Keep the address bar in sync with the current room so the URL itself
   // is always a valid shareable/refreshable link, not just the copy-link button.
   useEffect(() => {

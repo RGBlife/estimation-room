@@ -5,7 +5,7 @@ interface ObserverRailProps {
   observers: [string, Participant][];
   uid: string | null;
   canTarget?: boolean;
-  onThrowAt: (id: string, e: React.MouseEvent) => void;
+  onThrowAt: (id: string, e?: React.MouseEvent) => void;
   registerSeatNode?: (id: string, node: HTMLElement | null) => void;
   horizontal?: boolean;
 }

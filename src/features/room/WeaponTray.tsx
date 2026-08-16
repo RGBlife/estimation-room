@@ -38,6 +38,9 @@ export default function WeaponTray({ open, selectedWeaponId, onSelect, onClose }
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sp-weapon-tray-title"
         onClick={e => e.stopPropagation()}
         className="rounded-t-2xl border border-sp-border bg-sp-panel px-6.5 pt-5.5 pb-7 shadow-[0_-10px_30px_rgba(0,0,0,0.4)]"
         style={{
@@ -45,15 +48,16 @@ export default function WeaponTray({ open, selectedWeaponId, onSelect, onClose }
           animation: `${closing ? 'sp-tray-slide-down' : 'sp-tray-slide-up'} ${CLOSE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1) both`,
         }}
       >
-        <div className="mb-3.5 text-[17px] font-extrabold text-sp-text">Choose your weapon</div>
+        <div id="sp-weapon-tray-title" className="mb-3.5 text-[17px] font-extrabold text-sp-text">Choose your weapon</div>
         <div className="grid grid-cols-4 gap-3">
           {WEAPONS.map(w => (
             <button
               key={w.id}
               onClick={() => onSelect(w.id)}
+              aria-pressed={selectedWeaponId === w.id}
               className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-[10px] bg-sp-card-bg px-2 py-3 font-sp-font ${selectedWeaponId === w.id ? 'border-2 border-sp-accent' : 'border border-sp-border'}`}
             >
-              <div className="flex h-7 w-7 items-center justify-center">
+              <div aria-hidden="true" className="flex h-7 w-7 items-center justify-center">
                 {w.hasEmoji ? <span className="text-[26px] leading-none">{w.glyph}</span> : <WeaponShape shape={w.shape} />}
               </div>
               <span className="text-[11px] font-bold text-sp-text-dim">{w.label}</span>

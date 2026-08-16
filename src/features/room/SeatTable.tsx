@@ -96,7 +96,7 @@ interface SeatProps {
   seat: SeatData;
   reverse?: boolean;
   canTarget: boolean;
-  onThrowAt: (id: string, e: React.MouseEvent) => void;
+  onThrowAt: (id: string, e?: React.MouseEvent) => void;
   registerSeatNode: (id: string, node: HTMLElement | null) => void;
   sizes: SeatSizes;
 }
@@ -124,11 +124,24 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
       className={`flex shrink-0 flex-col items-center gap-2 transition-opacity duration-150 ${reverse ? 'flex-col-reverse' : ''}`}
       style={{ width: sizes.seatW, opacity: dimmed ? 0.35 : 1 }}
     >
+      {/* While a weapon is equipped the avatar becomes a throw target, so it
+          needs to be a real button -- otherwise throwing is mouse-only and
+          the avatar is invisible to a screen reader. Outside targeting mode
+          it stays decorative (the name below already carries the identity). */}
       <img
         ref={node => registerSeatNode(seat.id, node)}
         src={seat.avatarUrl}
         alt=""
+        role={canClick ? 'button' : undefined}
+        tabIndex={canClick ? 0 : undefined}
+        aria-label={canClick ? `Throw at ${seat.displayName}` : undefined}
         onClick={canClick ? (e) => onThrowAt(seat.id, e) : undefined}
+        onKeyDown={canClick ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onThrowAt(seat.id);
+          }
+        } : undefined}
         className={`block rounded-full border border-sp-border bg-sp-card-bg ${canClick ? 'cursor-crosshair' : 'cursor-default'}`}
         style={{ width: seat.size, height: seat.size }}
       />
@@ -205,7 +218,7 @@ interface SeatTableProps {
   allVoted: boolean;
   onReveal: () => void;
   canTarget: boolean;
-  onThrowAt: (id: string, e: React.MouseEvent) => void;
+  onThrowAt: (id: string, e?: React.MouseEvent) => void;
   registerSeatNode: (id: string, node: HTMLElement | null) => void;
   getSeatNode: (id: string) => HTMLElement | null;
   stageRef: RefObject<HTMLDivElement | null>;
@@ -287,11 +300,19 @@ export default function SeatTable({
               }`}
               style={{ minWidth: TABLE_MIN_WIDTH, height: tableHeight }}
             >
+              {/* The visual vote counter and the reveal are otherwise silent to
+                  a screen reader -- this narrates round progress instead. */}
+              <div aria-live="polite" aria-atomic="true" className="sr-only">
+                {isRevealed
+                  ? 'Votes revealed'
+                  : `${votedCount} of ${n} ${n === 1 ? 'person has' : 'people have'} voted`}
+              </div>
+
               {!isRevealed && (
                 allVoted ? (
                   <div className="sp-kbd-hint-wrap">
                     {anyVote && (
-                      <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
+                      <div aria-hidden="true" className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
                         Enter
                       </div>
                     )}
@@ -302,7 +323,7 @@ export default function SeatTable({
                     >Reveal votes</button>
                   </div>
                 ) : (
-                  <div className="font-sp-mono text-[15px] font-bold text-sp-text-dim">
+                  <div aria-hidden="true" className="font-sp-mono text-[15px] font-bold text-sp-text-dim">
                     {votedCount}/{n}
                   </div>
                 )

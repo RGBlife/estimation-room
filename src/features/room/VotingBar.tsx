@@ -125,8 +125,8 @@ function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowPr
   const values = deck.values ?? [];
   return (
     <>
-      <span className="text-[11px] font-bold tracking-[0.05em] whitespace-nowrap text-sp-text-faintest uppercase">Your vote</span>
-      <div className="flex flex-wrap justify-center gap-2">
+      <span id="sp-vote-label" className="text-[11px] font-bold tracking-[0.05em] whitespace-nowrap text-sp-text-faintest uppercase">Your vote</span>
+      <div role="group" aria-labelledby="sp-vote-label" className="flex flex-wrap justify-center gap-2">
         {values.map((spec, i) => {
           const { value, wide, warn } = spec;
           const selected = value === myVote;
@@ -145,6 +145,7 @@ function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowPr
             <button
               key={value}
               onClick={() => onSelect(value)}
+              aria-pressed={selected}
               className={`cursor-pointer rounded-lg font-sp-mono font-bold transition-[transform,border-color] duration-150 ${shapeClass} ${colorClass} ${animClass}`}
               style={{
                 transform: selected && !exiting ? 'translateY(-6px)' : undefined,

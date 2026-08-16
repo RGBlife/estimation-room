@@ -38,11 +38,19 @@ export default function RoomHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-5 border-b border-sp-border px-7 py-4">
       <div className="flex min-w-[280px] flex-1 flex-wrap items-center gap-5">
-        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-md bg-sp-accent font-sp-mono text-[10px] font-bold text-sp-bg">ER</div>
-        <button onClick={onCopy} title="Copy shareable invite link" className="flex cursor-pointer items-center gap-[7px] rounded-md border border-sp-border bg-sp-panel px-2.5 py-1.5 text-sp-text-dim">
-          <span className="font-sp-mono text-[13px] tracking-[0.08em]">{roomCode}</span>
-          <span className="text-[11px] text-sp-text-faint">{copied ? 'link copied' : 'copy link'}</span>
+        <div aria-hidden="true" className="flex h-[22px] w-[22px] items-center justify-center rounded-md bg-sp-accent font-sp-mono text-[10px] font-bold text-sp-bg">ER</div>
+        <button
+          onClick={onCopy}
+          title="Copy shareable invite link"
+          aria-label={`Room ${roomCode.split('').join(' ')}. Copy shareable invite link`}
+          className="flex cursor-pointer items-center gap-[7px] rounded-md border border-sp-border bg-sp-panel px-2.5 py-1.5 text-sp-text-dim"
+        >
+          <span aria-hidden="true" className="font-sp-mono text-[13px] tracking-[0.08em]">{roomCode}</span>
+          <span aria-hidden="true" className="text-[11px] text-sp-text-faint">{copied ? 'link copied' : 'copy link'}</span>
         </button>
+        {/* Announced separately from the button label so the confirmation is
+            read out on click -- a label change alone isn't reliably announced. */}
+        <span aria-live="polite" className="sr-only">{copied ? 'Invite link copied to clipboard' : ''}</span>
 
         {isCreator ? (
           <div className="relative min-w-[180px] max-w-[420px] flex-1">
@@ -51,6 +59,7 @@ export default function RoomHeader({
               value={storyDraft}
               onChange={onStoryChange}
               maxLength={STORY_MAX_LENGTH}
+              aria-label="Story title or ticket reference"
               placeholder="Click to add a story title or ticket ref..."
               className="w-full rounded-md border border-transparent bg-transparent px-2.5 py-1.5 font-sp-mono text-sm text-sp-text outline-none"
             />
