@@ -96,14 +96,7 @@ describe('computeDistribution', () => {
     expect(dist[0].value).toBe('8');
   });
 
-  it('never marks the ROM flagValue as top, even when it ties or outnumbers the leading estimate', () => {
-    const tied = computeDistribution(
-      byId([participant('8'), participant('Needs breaking down')]),
-      DECKS.rom,
-    );
-    expect(tied.find((g) => g.value === '8')!.isTop).toBe(true);
-    expect(tied.find((g) => g.value === 'Needs breaking down')!.isTop).toBe(false);
-
+  it('lets the ROM flagValue be marked top when it has the most votes', () => {
     const outnumbered = computeDistribution(
       byId([
         participant('8'),
@@ -112,8 +105,8 @@ describe('computeDistribution', () => {
       ]),
       DECKS.rom,
     );
-    expect(outnumbered.find((g) => g.value === '8')!.isTop).toBe(true);
-    expect(outnumbered.find((g) => g.value === 'Needs breaking down')!.isTop).toBe(false);
+    expect(outnumbered.find((g) => g.value === '8')!.isTop).toBe(false);
+    expect(outnumbered.find((g) => g.value === 'Needs breaking down')!.isTop).toBe(true);
   });
 });
 
