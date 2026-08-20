@@ -13,8 +13,10 @@ import {
   createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setStoryAction, setDeckAction,
   revealAction, startNextRoundAction, throwWeaponAction, leaveAction,
 } from './roomStore.actions.ts';
+import { startDriving, publishDriverState, stopDriving, subscribeDrivers, teardownGta } from './roomStore.gta.ts';
 import type { RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
+import type { DriverState } from '../../types/gta.ts';
 
 interface RoomState {
   uid: string | null;
@@ -23,6 +25,7 @@ interface RoomState {
   error: string | null;
   notice: string | null;
   throws: ThrowEvent[];
+  drivers: Record<string, DriverState>;
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -36,6 +39,9 @@ interface RoomState {
   leave: () => Promise<void>;
   throwWeapon: (targetUid: string, weaponId: string, offsetX?: number, offsetY?: number) => Promise<void>;
   dismissThrow: (throwId: string) => void;
+  startDrive: () => void;
+  publishDrive: (state: Omit<DriverState, 'uid'>) => void;
+  stopDrive: () => void;
 }
 
 // Listener handles for the room doc / throws subscriptions. Like
@@ -50,7 +56,8 @@ function teardown(set: (partial: Partial<RoomState>) => void): void {
   if (snapshotUnsubscribe) { snapshotUnsubscribe(); snapshotUnsubscribe = null; }
   if (throwsUnsubscribe) { throwsUnsubscribe(); throwsUnsubscribe = null; }
   teardownPresence();
-  set({ throws: [] });
+  teardownGta();
+  set({ throws: [], drivers: {} });
 }
 
 // Subscribes to newly-thrown weapon events for the room. Uses startAt(now)
@@ -113,6 +120,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   error: null,
   notice: null,
   throws: [],
+  drivers: {},
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {
@@ -132,6 +140,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     subscribeTo(code, get, set);
     trackPresence(code, uid, () => get().room);
     subscribeThrows(code, set);
+    subscribeDrivers(code, set);
     return code;
   },
 
@@ -143,6 +152,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     subscribeTo(code, get, set);
     trackPresence(code, uid, () => get().room);
     subscribeThrows(code, set);
+    subscribeDrivers(code, set);
   },
 
   setRole: async (isObserver) => {
@@ -189,6 +199,20 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
   dismissThrow: (throwId) => {
     set(state => ({ throws: state.throws.filter(t => t.id !== throwId) }));
+  },
+
+  startDrive: () => {
+    const { uid, roomCode } = get();
+    if (!uid || !roomCode) return;
+    startDriving(roomCode, uid);
+  },
+
+  publishDrive: (state) => {
+    publishDriverState(state);
+  },
+
+  stopDrive: () => {
+    stopDriving();
   },
 
   leave: async () => {

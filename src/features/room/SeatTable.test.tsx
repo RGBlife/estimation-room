@@ -42,6 +42,11 @@ function renderSeatTable(overrides: Partial<React.ComponentProps<typeof SeatTabl
     stageRef: createRef<HTMLDivElement>() as React.RefObject<HTMLDivElement | null>,
     throws: [],
     onThrowDone: vi.fn(),
+    isDriving: false,
+    forceEndDrive: false,
+    drivers: {},
+    onPublishDrive: vi.fn(),
+    onExitDrive: vi.fn(),
     ...overrides,
   };
   return { ...render(<SeatTable {...props} />), props };

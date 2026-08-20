@@ -9,6 +9,15 @@
         }
       }
     },
+    "gta": {
+      "$roomCode": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['x','y','r','t']) && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 1 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 1 && newData.child('r').isNumber() && newData.child('t').isNumber() && (!newData.hasChild('hit') || (newData.child('hit').isString() && newData.child('hit').val().length <= 128))"
+        }
+      }
+    },
     "throws": {
       "$roomCode": {
         ".read": "auth != null",

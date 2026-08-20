@@ -26,6 +26,7 @@ export default function App() {
   const error = useRoomStore(s => s.error);
   const notice = useRoomStore(s => s.notice);
   const throws = useRoomStore(s => s.throws);
+  const drivers = useRoomStore(s => s.drivers);
   const createRoom = useRoomStore(s => s.createRoom);
   const joinRoom = useRoomStore(s => s.joinRoom);
   const setRole = useRoomStore(s => s.setRole);
@@ -37,6 +38,9 @@ export default function App() {
   const leave = useRoomStore(s => s.leave);
   const throwWeapon = useRoomStore(s => s.throwWeapon);
   const dismissThrow = useRoomStore(s => s.dismissThrow);
+  const startDrive = useRoomStore(s => s.startDrive);
+  const publishDrive = useRoomStore(s => s.publishDrive);
+  const stopDrive = useRoomStore(s => s.stopDrive);
 
   useEffect(() => useRoomStore.getState().initAuth(), []);
 
@@ -166,7 +170,11 @@ export default function App() {
           roomCode={roomCode!}
           uid={uid}
           throws={throws}
-          actions={{ setRole, castVote, setStory, setDeck, reveal, startNextRound, leave, throwWeapon, dismissThrow }}
+          drivers={drivers}
+          actions={{
+            setRole, castVote, setStory, setDeck, reveal, startNextRound, leave, throwWeapon, dismissThrow,
+            startDrive, publishDrive, stopDrive,
+          }}
           theme={theme}
           onToggleTheme={toggleTheme}
         />

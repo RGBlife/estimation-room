@@ -37,6 +37,14 @@ vi.mock('./roomStore.presence.ts', () => ({
   teardownPresence: vi.fn(),
 }));
 
+vi.mock('./roomStore.gta.ts', () => ({
+  startDriving: vi.fn(),
+  publishDriverState: vi.fn(),
+  stopDriving: vi.fn(),
+  subscribeDrivers: vi.fn(),
+  teardownGta: vi.fn(),
+}));
+
 const createRoomAction = vi.fn();
 const joinRoomAction = vi.fn();
 const setRoleAction = vi.fn();

@@ -14,6 +14,7 @@ import { computeStats, computeDistribution, computeCustomGroups } from './stats.
 import { DECKS, DEFAULT_DECK } from './decks.ts';
 import type { RoomDoc, Participant, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
+import type { DriverState } from '../../types/gta.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 
 interface RoomActions {
@@ -26,6 +27,9 @@ interface RoomActions {
   leave: () => Promise<void>;
   throwWeapon: (targetUid: string, weaponId: string, offsetX?: number, offsetY?: number) => Promise<void>;
   dismissThrow: (throwId: string) => void;
+  startDrive: () => void;
+  publishDrive: (state: Omit<DriverState, 'uid'>) => void;
+  stopDrive: () => void;
 }
 
 interface RoomScreenProps {
@@ -33,16 +37,18 @@ interface RoomScreenProps {
   roomCode: string;
   uid: string | null;
   throws: ThrowEvent[];
+  drivers: Record<string, DriverState>;
   actions: RoomActions;
   theme: Theme;
   onToggleTheme: () => void;
 }
 
-export default function RoomScreen({ room, roomCode, uid, throws, actions, theme, onToggleTheme }: RoomScreenProps) {
+export default function RoomScreen({ room, roomCode, uid, throws, drivers, actions, theme, onToggleTheme }: RoomScreenProps) {
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [hoveredVoteValue, setHoveredVoteValue] = useState<CardValue | null>(null);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
+  const [isDriving, setIsDriving] = useState(false);
   const participants: Record<string, Participant> = FAKE_PARTICIPANTS
     ? { ...FAKE_PARTICIPANTS, ...room.participants }
     : room.participants;
@@ -118,6 +124,25 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
     });
   };
 
+  // A new round hides votes again, and GTA Mode was gated on isRevealed --
+  // starting the next round should end any drive in progress, but gracefully:
+  // GtaOverlay's forceEnd sends an actively-driving car through its normal
+  // explosion/return sequence instead of yanking the car out from under the
+  // driver. isDriving itself only clears once that sequence finishes and
+  // GtaOverlay calls onExit (handleExitDrive) -- not the instant the round
+  // resets, or the animation never gets to play.
+  const forceEndDrive = isDriving && !isRevealed;
+
+  const handleStartDriving = useCallback(() => {
+    actions.startDrive();
+    setIsDriving(true);
+  }, [actions]);
+
+  const handleExitDrive = useCallback(() => {
+    actions.stopDrive();
+    setIsDriving(false);
+  }, [actions]);
+
   const handleCopy = () => {
     const url = new URL(window.location.href);
     url.search = '';
@@ -147,6 +172,9 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         equippedWeaponId={equippedWeaponId}
         onCancelTargeting={cancelTargeting}
         onOpenWeaponTray={openTray}
+        isRevealed={isRevealed}
+        isDriving={isDriving}
+        onStartDriving={handleStartDriving}
         onSwitchRole={(nextIsObserver) => runAction(() => actions.setRole(nextIsObserver), "Couldn't switch role — check your connection.")}
         onLeave={actions.leave}
       />
@@ -178,6 +206,11 @@ export default function RoomScreen({ room, roomCode, uid, throws, actions, theme
         onThrowDone={actions.dismissThrow}
         highlightValues={highlightValues}
         bottomClearance={votingBarHeight}
+        isDriving={isDriving}
+        forceEndDrive={forceEndDrive}
+        drivers={drivers}
+        onPublishDrive={actions.publishDrive}
+        onExitDrive={handleExitDrive}
       />
 
       {actionError && (

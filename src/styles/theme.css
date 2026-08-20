@@ -315,3 +315,174 @@ a:hover {
   transform: translateX(-50%) translateY(0);
   transition-delay: 1.1s;
 }
+
+/* GTA Mode. Both animations return the element to its exact starting
+   transform, which is what makes the sync design safe: a bumped or squashed
+   avatar always converges back to its real DOM position, so no divergent
+   state can accumulate across clients even if a packet is dropped. */
+@keyframes sp-gta-wobble {
+  0% { transform: rotate(0deg) translateY(0); }
+  20% { transform: rotate(-13deg) translateY(-3px); }
+  45% { transform: rotate(10deg) translateY(-1px); }
+  70% { transform: rotate(-5deg) translateY(0); }
+  85% { transform: rotate(2deg); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+
+@keyframes sp-gta-squash {
+  0% { transform: scale(1, 1); }
+  18% { transform: scale(1.45, 0.25) translateY(9px); }
+  42% { transform: scale(1.45, 0.25) translateY(9px); }
+  62% { transform: scale(0.86, 1.16) translateY(-4px); }
+  80% { transform: scale(1.06, 0.94) translateY(0); }
+  100% { transform: scale(1, 1); }
+}
+
+/* GTA Mode lifecycle. Every one of these ends on the element's natural
+   transform so nothing is left displaced once the animation finishes --
+   the same convergence rule the wobble and squash follow. */
+
+/* The car arriving from off-stage, overshooting slightly then settling. */
+@keyframes sp-gta-arrive {
+  0%   { transform: translate(var(--sp-gta-from-x), var(--sp-gta-from-y)) scale(0.85); opacity: 0; }
+  12%  { opacity: 1; }
+  72%  { transform: translate(6px, 0) scale(1.02); }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+
+/* The rider dropping into the seat: a hop up, a tip, then a bounce down. */
+@keyframes sp-gta-board {
+  0%   { transform: translateY(-14px) rotate(-16deg) scale(1.05); }
+  35%  { transform: translateY(-4px) rotate(11deg) scale(1.02); }
+  60%  { transform: translateY(2px) rotate(-6deg) scale(0.97); }
+  80%  { transform: translateY(0) rotate(3deg) scale(1.01); }
+  100% { transform: translateY(0) rotate(0deg) scale(1); }
+}
+
+/* The whole car rocking on its suspension as the rider climbs in and drops
+   their weight into the seat -- distinct from sp-gta-board (which only
+   animates the rider), so the car itself visibly reacts to someone getting
+   in rather than staying rigid while only they bounce. Settles back level. */
+@keyframes sp-gta-car-rock {
+  0%   { transform: rotate(0deg) translateY(0); }
+  30%  { transform: rotate(-3.5deg) translateY(-2px); }
+  55%  { transform: rotate(2.5deg) translateY(1px); }
+  75%  { transform: rotate(-1.4deg) translateY(0); }
+  90%  { transform: rotate(0.6deg); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+
+/* The car detonating. Scale-up + fade, so it reads as a blast rather than
+   the car simply disappearing. Punchier flash at 10% (near-white before the
+   brightness ramp) is what sells the "blew up" read in the first frame. */
+@keyframes sp-gta-explode {
+  0%   { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
+  10%  { transform: scale(1.15) rotate(-4deg); opacity: 1; filter: brightness(3.2); }
+  22%  { transform: scale(1.45) rotate(-8deg); opacity: 1; filter: brightness(2.6); }
+  55%  { transform: scale(1.85) rotate(10deg); opacity: 0.5; filter: brightness(1.6); }
+  100% { transform: scale(2.3) rotate(16deg); opacity: 0; filter: brightness(1); }
+}
+
+/* Two concentric blast rings pushed out from the point of detonation --
+   an inner hot flash and an outer shock ring, staggered by delay, so the
+   blast reads as an actual explosion instead of one ring dissolving. */
+@keyframes sp-gta-blast {
+  0%   { transform: scale(0.15); opacity: 0.95; border-width: 12px; }
+  100% { transform: scale(3.2); opacity: 0; border-width: 1px; }
+}
+
+/* Smoke puffs that linger after the flash and debris are gone -- each puff
+   drifts up and out a little, staggered by delay via --sx/--sy/--sr. */
+@keyframes sp-gta-smoke {
+  0%   { transform: translate(0, 0) scale(0.4); opacity: 0.55; }
+  100% { transform: translate(var(--sx), var(--sy)) scale(var(--sr, 2.4)); opacity: 0; }
+}
+
+/* A brief, small shake of the whole stage on impact -- sells the "punch" of
+   the detonation without needing a screen flash. Kept subtle (a few px) so
+   it reads as a jolt, not motion sickness. */
+@keyframes sp-gta-impact-shake {
+  0%   { transform: translate(0, 0); }
+  15%  { transform: translate(-5px, 3px); }
+  30%  { transform: translate(4px, -3px); }
+  45%  { transform: translate(-3px, 2px); }
+  60%  { transform: translate(2px, -2px); }
+  75%  { transform: translate(-1px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Debris flung outward. --fx/--fy are set per fragment, matching how
+   sp-frag-burst already parameterises the snowball shards. Tumbles as it
+   flies (--fr can now exceed a single rotation) so bigger fragments read as
+   chunks rather than flat squares sliding away. */
+@keyframes sp-gta-debris {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translate(var(--fx), var(--fy)) rotate(var(--fr)) scale(0.6); opacity: 0; }
+}
+
+/* The rider launched clear of the wreck, tumbling, then sliding home. The
+   arc peaks mid-flight via the negative Y at 45%. */
+@keyframes sp-gta-eject {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+  45%  { transform: translate(calc(var(--sp-gta-back-x) * 0.5), calc(var(--sp-gta-back-y) * 0.5 - var(--sp-gta-arc, 46px))) rotate(340deg) scale(1.16); }
+  78%  { transform: translate(calc(var(--sp-gta-back-x) * 0.88), calc(var(--sp-gta-back-y) * 0.88 + 6px)) rotate(650deg) scale(1.02); }
+  100% { transform: translate(var(--sp-gta-back-x), var(--sp-gta-back-y)) rotate(720deg) scale(1); }
+}
+
+/* A crack decal popping onto the table at the point of impact -- scales up
+   from nothing with a tiny overshoot, then settles and stays (the decal's
+   own opacity/transform after this animation is its permanent rest state,
+   since cracks persist for the round rather than fading like a bump does). */
+@keyframes sp-gta-crack-appear {
+  0%   { transform: scale(0) rotate(var(--cr, 0deg)); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(var(--cr, 0deg)); opacity: 1; }
+  100% { transform: scale(1) rotate(var(--cr, 0deg)); opacity: 0.85; }
+}
+
+/* The table splitting into two separate pieces once enough cracks land: each
+   piece shoves outward and tips away from the break with a small overshoot
+   and a downward settle (the "thud" of landing as two chunks, not one shape
+   jolting), ending up gaping apart rather than fully closing the gap again.
+   sp-gta-table-split-left/-right mirror each other. */
+@keyframes sp-gta-table-split-left {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  30%  { transform: translate(-18px, -3px) rotate(-3.5deg); }
+  60%  { transform: translate(-11px, 2px) rotate(-2deg); }
+  100% { transform: translate(-13px, 1px) rotate(-2.6deg); }
+}
+@keyframes sp-gta-table-split-right {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  30%  { transform: translate(18px, -3px) rotate(3.5deg); }
+  60%  { transform: translate(11px, 2px) rotate(2deg); }
+  100% { transform: translate(13px, 1px) rotate(2.6deg); }
+}
+
+/* A vote card getting knocked aside by the car driving over/near it: kicked
+   out to one side with some spin, then settling back into place -- reads as
+   debris getting scattered rather than the card being destroyed. */
+@keyframes sp-gta-card-scatter {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  30%  { transform: translate(var(--cx), var(--cy)) rotate(var(--crot)); }
+  65%  { transform: translate(calc(var(--cx) * 0.3), calc(var(--cy) * 0.3)) rotate(calc(var(--crot) * 0.25)); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* The knocked-out avatar settling into its "wasted" resting pose -- tips
+   onto its side and stays there (desaturation is a plain filter on the
+   element, not part of this animation, since it needs to persist after the
+   animation finishes). */
+@keyframes sp-gta-wasted-fall {
+  0%   { transform: rotate(0deg) scale(1); }
+  40%  { transform: rotate(100deg) scale(1.08); }
+  70%  { transform: rotate(78deg) scale(0.96); }
+  100% { transform: rotate(90deg) scale(1); }
+}
+
+/* The GTA-style "WASTED" stamp: punches in oversized then settles to size,
+   matching the classic death-screen title card. */
+@keyframes sp-gta-wasted-stamp {
+  0%   { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+  55%  { transform: translate(-50%, -50%) scale(0.92); opacity: 1; }
+  75%  { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}

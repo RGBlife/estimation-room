@@ -24,15 +24,20 @@ interface RoomHeaderProps {
   equippedWeaponId: string | null;
   onCancelTargeting: () => void;
   onOpenWeaponTray: () => void;
+  isRevealed: boolean;
+  isDriving: boolean;
+  onStartDriving: () => void;
   onSwitchRole: (isObserver: boolean) => void;
   onLeave: () => void;
 }
 
 // Top bar: room code / copy-link, story title, theme toggle, deck switcher
-// (host-only), weapon-equip button, role switch, and leave button.
+// (host-only), weapon-equip button, GTA Mode button, role switch, and leave
+// button.
 export default function RoomHeader({
   roomCode, copied, onCopy, isCreator, storyDraft, storyInputRef, onStoryChange, story,
   theme, onToggleTheme, isObserver, deck, onSwitchDeck, equippedWeaponId, onCancelTargeting, onOpenWeaponTray,
+  isRevealed, isDriving, onStartDriving,
   onSwitchRole, onLeave,
 }: RoomHeaderProps) {
   return (
@@ -80,6 +85,19 @@ export default function RoomHeader({
           ) : (
             <button onClick={onOpenWeaponTray} className="cursor-pointer whitespace-nowrap rounded-md border-none bg-sp-accent px-3.5 py-2.5 font-sp-font text-xs font-bold text-sp-bg">🎯 Choose Your Weapon</button>
           )
+        )}
+        {/* Only once the round's votes are revealed -- a fun beat between
+            reveal and starting the next round, not a mid-vote distraction. */}
+        {!isObserver && isRevealed && (
+          <button
+            onClick={onStartDriving}
+            disabled={isDriving}
+            className={`whitespace-nowrap rounded-md border-none px-3.5 py-2.5 font-sp-font text-xs font-bold ${
+              isDriving
+                ? 'cursor-default bg-sp-panel-2 text-sp-text-faint opacity-50'
+                : 'cursor-pointer bg-sp-accent text-sp-bg'
+            }`}
+          >🚗 GTA Mode</button>
         )}
         {!isObserver ? (
           <button onClick={() => onSwitchRole(true)} className="cursor-pointer rounded-md border border-sp-border-strong bg-sp-panel-2 px-3 py-2 font-sp-font text-xs font-semibold text-sp-text-dim">Switch to observing</button>
