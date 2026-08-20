@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import SeatTable from './SeatTable.tsx';
 import VotingBar from './VotingBar.tsx';
 import WeaponTray from './WeaponTray.tsx';
@@ -14,7 +14,7 @@ import { computeStats, computeDistribution, computeCustomGroups } from './stats.
 import { DECKS, DEFAULT_DECK } from './decks.ts';
 import type { RoomDoc, Participant, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
-import type { DriverState } from '../../types/gta.ts';
+import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 
 interface RoomActions {
@@ -30,6 +30,10 @@ interface RoomActions {
   startDrive: () => void;
   publishDrive: (state: Omit<DriverState, 'uid'>) => void;
   stopDrive: () => void;
+  publishCrack: (crack: Omit<TableCrackEvent, 'id' | 'fromUid' | 'ts'>) => void;
+  publishPieceMove: (side: 'left' | 'right', move: TablePieceMove) => void;
+  markPlayerWasted: (targetUid: string) => void;
+  resetTable: () => void;
 }
 
 interface RoomScreenProps {
@@ -38,12 +42,17 @@ interface RoomScreenProps {
   uid: string | null;
   throws: ThrowEvent[];
   drivers: Record<string, DriverState>;
+  tableCracks: TableCrackEvent[];
+  tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
+  tableWasted: WastedMap;
   actions: RoomActions;
   theme: Theme;
   onToggleTheme: () => void;
 }
 
-export default function RoomScreen({ room, roomCode, uid, throws, drivers, actions, theme, onToggleTheme }: RoomScreenProps) {
+export default function RoomScreen({
+  room, roomCode, uid, throws, drivers, tableCracks, tablePieceMove, tableWasted, actions, theme, onToggleTheme,
+}: RoomScreenProps) {
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [hoveredVoteValue, setHoveredVoteValue] = useState<CardValue | null>(null);
@@ -133,6 +142,17 @@ export default function RoomScreen({ room, roomCode, uid, throws, drivers, actio
   // resets, or the animation never gets to play.
   const forceEndDrive = isDriving && !isRevealed;
 
+  // Cracks/wasted/piece-shove all live under gtaTable/$roomCode and persist
+  // for the round, same as votes -- clear them on the same isRevealed
+  // true->false transition that resets everyone's vote. resetTableDamage is
+  // a remove(), so every client's independent call here is a harmless no-op
+  // after the first one lands (see resetTableDamage in roomStore.gta.ts).
+  const wasRevealedRef = useRef(isRevealed);
+  useEffect(() => {
+    if (wasRevealedRef.current && !isRevealed) actions.resetTable();
+    wasRevealedRef.current = isRevealed;
+  }, [isRevealed, actions]);
+
   const handleStartDriving = useCallback(() => {
     actions.startDrive();
     setIsDriving(true);
@@ -209,8 +229,14 @@ export default function RoomScreen({ room, roomCode, uid, throws, drivers, actio
         isDriving={isDriving}
         forceEndDrive={forceEndDrive}
         drivers={drivers}
+        tableCracks={tableCracks}
+        tablePieceMove={tablePieceMove}
+        tableWasted={tableWasted}
         onPublishDrive={actions.publishDrive}
         onExitDrive={handleExitDrive}
+        onPublishCrack={actions.publishCrack}
+        onPublishPieceMove={actions.publishPieceMove}
+        onMarkWasted={actions.markPlayerWasted}
       />
 
       {actionError && (

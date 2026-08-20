@@ -23,33 +23,149 @@ const REMOTE_STALE_MS = 4000;
 
 type StyleVars = React.CSSProperties & Record<string, string | number>;
 
+// The blast: two staggered rings, tumbling debris, and drifting smoke,
+// centered on (x, y). Shared between the local driver's own explosion and a
+// remote driver's (via RemoteCar) -- debris/smoke are deterministic (see
+// debrisPieces/smokePuffs in gtaLifecycle.ts), so no synced data is needed
+// beyond "this driver is exploding, here" to render an identical blast on
+// every client.
+function ExplosionEffect({ x, y }: { x: number; y: number }) {
+  const debris = debrisPieces();
+  const smoke = smokePuffs();
+  return (
+    <>
+      {/* Inner hot flash + outer shock ring -- two rings staggered by a
+          short delay read as an actual blast, not one ring fading. */}
+      <div
+        className="absolute rounded-full border-solid border-[#fff3d6]"
+        style={{
+          left: x, top: y, width: 46, height: 46,
+          marginLeft: -23, marginTop: -23,
+          animation: `sp-gta-blast ${EXPLODE_MS * 0.7}ms ease-out both`,
+        }}
+      />
+      <div
+        className="absolute rounded-full border-solid border-[#ffca7a]"
+        style={{
+          left: x, top: y, width: 70, height: 70,
+          marginLeft: -35, marginTop: -35,
+          animation: `sp-gta-blast ${EXPLODE_MS}ms ease-out 60ms both`,
+        }}
+      />
+      {debris.map((d, i) => {
+        const big = i % 3 === 0;
+        const size = big ? 11 : 7;
+        return (
+          <div
+            key={i}
+            className="absolute rounded-[2px] bg-[#ffb347]"
+            style={{
+              left: x, top: y, width: size, height: size,
+              marginLeft: -size / 2, marginTop: -size / 2,
+              '--fx': `${d.fx}px`, '--fy': `${d.fy}px`, '--fr': `${d.fr}deg`,
+              animation: `sp-gta-debris ${EXPLODE_MS + (big ? 200 : 0)}ms ease-out ${d.delay}ms both`,
+            } as StyleVars}
+          />
+        );
+      })}
+      {smoke.map((s, i) => (
+        <div
+          key={`smoke-${i}`}
+          className="absolute rounded-full bg-[#6b6862]"
+          style={{
+            left: x, top: y, width: 22, height: 22,
+            marginLeft: -11, marginTop: -11,
+            '--sx': `${s.sx}px`, '--sy': `${s.sy}px`, '--sr': s.sr,
+            animation: `sp-gta-smoke ${EXPLODE_MS + 500}ms ease-out ${s.delay}ms both`,
+          } as StyleVars}
+        />
+      ))}
+    </>
+  );
+}
+
 interface RemoteCarProps {
   driver: DriverState;
   stageBox: { w: number; h: number };
   color: string;
   avatarUrl: string | undefined;
+  seatNode: HTMLElement | null;
+  stageNode: HTMLElement;
 }
 
-function RemoteCar({ driver, stageBox, color, avatarUrl }: RemoteCarProps) {
+// Renders another driver's car for every phase they're in, not just
+// 'driving' -- position/heading now stream continuously through the whole
+// lifecycle (see roomStore.gta.ts), so there's always a fresh x/y/r to work
+// from even while the car is stationary (arriving/boarding/exploding).
+//
+// arriving/boarding are deliberately simplified next to the local driver's
+// own treatment: we don't know a remote car's actual off-stage entry point
+// (sp-gta-arrive's travel distance is computed from the local seat's DOM
+// position, which only the driver's own client measures), so a remote
+// arrival is just a fade+scale-in in place rather than a matching flight
+// path. It's the brief phase and the least important one to get exactly
+// right; exploding/returning (the two phases everyone actually watches
+// happen) reuse the same animations as the local driver's own.
+function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: RemoteCarProps) {
+  const x = driver.x * stageBox.w;
+  const y = driver.y * stageBox.h;
+  const phase = driver.phase as GtaPhase;
+
+  if (phase === 'exploding') {
+    return <ExplosionEffect x={x} y={y} />;
+  }
+
+  if (phase === 'returning') {
+    const sb = stageNode.getBoundingClientRect();
+    const seatHome = (() => {
+      if (!seatNode) return { dx: 0, dy: 0, arc: 46 };
+      const b = seatNode.getBoundingClientRect();
+      const dx = b.left + b.width / 2 - sb.left - x;
+      const dy = b.top + b.height / 2 - sb.top - y;
+      const midY = y + dy * 0.5;
+      return { dx, dy, arc: Math.max(12, Math.min(46, midY - 10)) };
+    })();
+    return (
+      <div
+        className="absolute"
+        style={{
+          left: x, top: y,
+          marginLeft: -SEAT_SIZE_FALLBACK / 2, marginTop: -SEAT_SIZE_FALLBACK / 2,
+          '--sp-gta-back-x': `${seatHome.dx}px`,
+          '--sp-gta-back-y': `${seatHome.dy}px`,
+          '--sp-gta-arc': `${seatHome.arc}px`,
+          animation: `sp-gta-eject ${RETURN_MS}ms cubic-bezier(.3,.6,.3,1) both`,
+        } as StyleVars}
+      >
+        <img
+          src={avatarUrl}
+          alt=""
+          className="block rounded-full border border-sp-border bg-sp-card-bg"
+          style={{ width: SEAT_SIZE_FALLBACK, height: SEAT_SIZE_FALLBACK }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
-      className="pointer-events-none absolute"
+      className="absolute"
       style={{
-        left: driver.x * stageBox.w,
-        top: driver.y * stageBox.h,
-        width: CAR_W,
-        height: CAR_H,
+        left: x, top: y, width: CAR_W, height: CAR_H,
         transform: `translate(-50%, -50%) rotate(${driver.r}rad)`,
-        // Remote cars aren't hand-off animated (arriving/exploding) -- they
-        // simply appear/disappear with the RTDB node, which is the simplest
-        // thing that reads correctly for a viewer who wasn't driving. The
-        // squash itself plays on whatever it hit (a seat's own avatar, via
-        // onSeatSquash), not on this car -- ramming something doesn't flatten
-        // the car doing the ramming.
+        // Interpolates smoothly between throttled position samples while
+        // driving; harmless during arriving/boarding since the car barely
+        // moves in those phases anyway.
         transition: 'left 60ms linear, top 60ms linear, transform 60ms linear',
+        animation: phase === 'arriving' ? 'sp-gta-remote-arrive 200ms ease both' : undefined,
       }}
     >
-      <CarWithRider color={color} avatarUrl={avatarUrl} />
+      <CarWithRider
+        color={color}
+        // Matches the local driver's own hand-off: empty through arriving
+        // and boarding, visible once actually driving.
+        avatarUrl={phase === 'arriving' || phase === 'boarding' ? undefined : avatarUrl}
+      />
     </div>
   );
 }
@@ -90,18 +206,20 @@ interface GtaOverlayProps {
   onTableHit: (tableId: string, stageX: number, stageY: number, impactDx: number, impactDy: number) => void;
   // Fires the instant the local phase crosses into/out of seatVacated --
   // driven straight off local state, not the RTDB round-trip. Publishing to
-  // `drivers` only starts once actually driving, and network latency would
-  // otherwise leave the seat's own avatar visible (duplicated alongside the
-  // car) for however long that write takes to land.
+  // `drivers` now starts as soon as 'arriving' begins (not just once
+  // driving), so this still can't be derived from drivers[uid] existing --
+  // a remote viewer keys their own equivalent read off driver.phase instead
+  // (see SeatTable.tsx), which is why phase rides along on every sample.
   onSeatVacatedChange: (vacated: boolean) => void;
   onExit: () => void;
 }
 
 // Renders GTA Mode inside the real room: the local player's fully-animated
 // car (entry, driving, explosion, return -- same lifecycle as the offline
-// sandbox) plus every other driver's live-streamed car. Local physics runs
-// against both real seat boxes and other drivers' current positions, so cars
-// can ram each other as well as the furniture.
+// sandbox) plus every other driver's live-streamed car, each rendered
+// through that same lifecycle rather than just an interpolated dot. Local
+// physics runs against both real seat boxes and other drivers' current
+// positions, so cars can ram each other as well as the furniture.
 export default function GtaOverlay({
   active, forceEnd, driverUid, driverAvatarUrl, colorIndex, remoteDrivers, getAvatarForUid, colorIndexForUid,
   obstacleIds, wastedIds, getSeatNode, stageNode, onPublish, onSeatBump, onSeatSquash, onTableHit,
@@ -123,8 +241,6 @@ export default function GtaOverlay({
   const [hintClosing, setHintClosing] = useState(false);
   const [wreck, setWreck] = useState<{ x: number; y: number } | null>(null);
 
-  const debris = debrisPieces();
-  const smoke = smokePuffs();
   const color = CAR_COLORS[colorIndex % CAR_COLORS.length];
 
   const setPhaseBoth = (p: GtaPhase) => {
@@ -178,9 +294,8 @@ export default function GtaOverlay({
   }, [phase]);
 
   // Reports the vacated transition the instant it happens locally -- must
-  // not wait on the RTDB round-trip (drivers[uid] only appears once actually
-  // driving), or the seat's own avatar stays visibly duplicated alongside
-  // the car for however long that write takes to land.
+  // not wait on the RTDB round-trip, or the seat's own avatar stays visibly
+  // duplicated alongside the car for however long that write takes to land.
   useEffect(() => {
     onSeatVacatedChange(seatVacated(phase));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,7 +357,10 @@ export default function GtaOverlay({
     }
     // Other drivers' current cars are obstacles too, so cars can ram each
     // other -- represented as boxes the same shape stepCar already handles.
+    // Only while they're actually driving: a remote car mid-explosion or
+    // mid-return isn't a solid thing to collide with on the board anymore.
     for (const d of remoteDriversRef.current) {
+      if (d.phase !== 'driving') continue;
       out.push({
         id: `driver:${d.uid}`,
         x: d.x * stageBox.width,
@@ -256,20 +374,27 @@ export default function GtaOverlay({
 
   useLayoutEffect(() => {
     const loop = (now: number) => {
-      if (stageNode && isDriveable(phaseRef.current)) {
-        const box = stageNode.getBoundingClientRect();
+      const stageBoxNow = stageNode?.getBoundingClientRect();
+      // Set only the one frame a driver-vs-driver hit lands, then published
+      // once below and forgotten -- transient by construction, same as it
+      // always was, just no longer folded into the branch that's gated on
+      // isDriveable (publish now happens every frame regardless of phase).
+      let hitDriverUid: string | null = null;
+      if (stageBoxNow && isDriveable(phaseRef.current)) {
         const prev = lastRef.current || now;
         const dt = Math.min(0.05, (now - prev) / 1000);
         lastRef.current = now;
-        const obstacles = measureObstacles(box);
-        const out = stepCar(carRef.current, inputRef.current, dt, { w: box.width, h: box.height }, obstacles);
+        const obstacles = measureObstacles(stageBoxNow);
+        const out = stepCar(carRef.current, inputRef.current, dt, { w: stageBoxNow.width, h: stageBoxNow.height }, obstacles);
         carRef.current = out.car;
         for (const id of out.bumpedIds) if (!id.startsWith('driver:')) onSeatBump(id);
-        // A driver-vs-driver hit only reports our own uid via the RTDB
-        // payload -- the other side detects the same collision independently
-        // from their own stepCar call, so it doesn't need relaying.
-        const hitSeatId = out.hitId && !out.hitId.startsWith('driver:') ? out.hitId : null;
-        if (hitSeatId?.startsWith('__table') && out.hitPoint) {
+        if (out.hitId?.startsWith('driver:')) {
+          // A driver-vs-driver hit only reports our own uid via the RTDB
+          // payload -- the other side detects the same collision
+          // independently from their own stepCar call, so it doesn't need
+          // relaying, only reporting who *we* hit.
+          hitDriverUid = out.hitId.slice('driver:'.length);
+        } else if (out.hitId?.startsWith('__table') && out.hitPoint) {
           // Shove direction: straight out from the car's center through the
           // contact point -- simpler and just as physically sensible as
           // deriving it from velocity, and always well-defined even for a
@@ -277,20 +402,29 @@ export default function GtaOverlay({
           const dx = out.hitPoint.x - out.car.x;
           const dy = out.hitPoint.y - out.car.y;
           const mag = Math.hypot(dx, dy) || 1;
-          onTableHit(hitSeatId, out.hitPoint.x, out.hitPoint.y, dx / mag, dy / mag);
-        } else if (hitSeatId) {
-          onSeatSquash(hitSeatId);
+          onTableHit(out.hitId, out.hitPoint.x, out.hitPoint.y, dx / mag, dy / mag);
+        } else if (out.hitId) {
+          onSeatSquash(out.hitId);
         }
-        onPublish({
-          x: box.width > 0 ? out.car.x / box.width : 0,
-          y: box.height > 0 ? out.car.y / box.height : 0,
-          r: out.car.r,
-          t: Date.now(),
-          hit: out.hitId?.startsWith('driver:') ? out.hitId.slice('driver:'.length) : null,
-        });
         forceRender(n => (n + 1) % 1000000);
       } else {
         lastRef.current = now;
+      }
+      // Position (and phase) publish every frame regardless of whether the
+      // car is actually moving this tick -- a remote viewer needs to see
+      // arriving/boarding/exploding/returning play out too, not just
+      // 'driving'. publishDriverState's own throttle (plus an immediate
+      // bypass on phase change or a hit) keeps the actual write rate sane.
+      if (stageBoxNow) {
+        const car = carRef.current;
+        onPublish({
+          x: stageBoxNow.width > 0 ? car.x / stageBoxNow.width : 0,
+          y: stageBoxNow.height > 0 ? car.y / stageBoxNow.height : 0,
+          r: car.r,
+          t: Date.now(),
+          phase: phaseRef.current,
+          hit: hitDriverUid,
+        });
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -307,8 +441,12 @@ export default function GtaOverlay({
     setPhaseBoth('exploding');
   };
 
-  // Anyone else's car ramming the driver ends their round too -- being hit
-  // reads as "you got wrecked," not a no-op.
+  // Anyone else's car ramming us ends our round too -- being hit reads as
+  // "you got wrecked," not a no-op. Each side detects the collision
+  // independently from their own stepCar call (their car is one of our
+  // `driver:`-prefixed obstacle boxes and vice versa); this effect is what
+  // the *victim's* client watches for, keyed off the other driver's
+  // transient `hit` field naming us (see the loop above).
   useEffect(() => {
     if (phase !== 'driving') return;
     const gotHit = remoteDrivers.some(d => d.hit === driverUid);
@@ -353,13 +491,15 @@ export default function GtaOverlay({
           : undefined,
       }}
     >
-      {stageBox && otherDrivers.map(d => (
+      {stageBox && stageNode && otherDrivers.map(d => (
         <RemoteCar
           key={d.uid}
           driver={d}
           stageBox={{ w: stageBox.width, h: stageBox.height }}
           color={CAR_COLORS[colorIndexForUid(d.uid) % CAR_COLORS.length]}
           avatarUrl={getAvatarForUid(d.uid)}
+          seatNode={getSeatNode(d.uid)}
+          stageNode={stageNode}
         />
       ))}
 
@@ -404,56 +544,7 @@ export default function GtaOverlay({
             </div>
           )}
 
-          {phase === 'exploding' && wreck && (
-            <>
-              {/* Inner hot flash + outer shock ring -- two rings staggered by
-                  a short delay read as an actual blast, not one ring fading. */}
-              <div
-                className="absolute rounded-full border-solid border-[#fff3d6]"
-                style={{
-                  left: wreck.x, top: wreck.y, width: 46, height: 46,
-                  marginLeft: -23, marginTop: -23,
-                  animation: `sp-gta-blast ${EXPLODE_MS * 0.7}ms ease-out both`,
-                }}
-              />
-              <div
-                className="absolute rounded-full border-solid border-[#ffca7a]"
-                style={{
-                  left: wreck.x, top: wreck.y, width: 70, height: 70,
-                  marginLeft: -35, marginTop: -35,
-                  animation: `sp-gta-blast ${EXPLODE_MS}ms ease-out 60ms both`,
-                }}
-              />
-              {debris.map((d, i) => {
-                const big = i % 3 === 0;
-                const size = big ? 11 : 7;
-                return (
-                  <div
-                    key={i}
-                    className="absolute rounded-[2px] bg-[#ffb347]"
-                    style={{
-                      left: wreck.x, top: wreck.y, width: size, height: size,
-                      marginLeft: -size / 2, marginTop: -size / 2,
-                      '--fx': `${d.fx}px`, '--fy': `${d.fy}px`, '--fr': `${d.fr}deg`,
-                      animation: `sp-gta-debris ${EXPLODE_MS + (big ? 200 : 0)}ms ease-out ${d.delay}ms both`,
-                    } as StyleVars}
-                  />
-                );
-              })}
-              {smoke.map((s, i) => (
-                <div
-                  key={`smoke-${i}`}
-                  className="absolute rounded-full bg-[#6b6862]"
-                  style={{
-                    left: wreck.x, top: wreck.y, width: 22, height: 22,
-                    marginLeft: -11, marginTop: -11,
-                    '--sx': `${s.sx}px`, '--sy': `${s.sy}px`, '--sr': s.sr,
-                    animation: `sp-gta-smoke ${EXPLODE_MS + 500}ms ease-out ${s.delay}ms both`,
-                  } as StyleVars}
-                />
-              ))}
-            </>
-          )}
+          {phase === 'exploding' && wreck && <ExplosionEffect x={wreck.x} y={wreck.y} />}
 
           {phase === 'returning' && wreck && (
             <div

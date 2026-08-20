@@ -45,8 +45,14 @@ function renderSeatTable(overrides: Partial<React.ComponentProps<typeof SeatTabl
     isDriving: false,
     forceEndDrive: false,
     drivers: {},
+    tableCracks: [],
+    tablePieceMove: { left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } },
+    tableWasted: {},
     onPublishDrive: vi.fn(),
     onExitDrive: vi.fn(),
+    onPublishCrack: vi.fn(),
+    onPublishPieceMove: vi.fn(),
+    onMarkWasted: vi.fn(),
     ...overrides,
   };
   return { ...render(<SeatTable {...props} />), props };

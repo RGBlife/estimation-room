@@ -4,9 +4,10 @@ import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import ObserverRail from './ObserverRail.tsx';
 import ThrowOverlay from './ThrowOverlay.tsx';
 import GtaOverlay from './GtaOverlay.tsx';
+import { seatVacated, type GtaPhase } from './gtaLifecycle.ts';
 import type { Participant, CardValue } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
-import type { DriverState } from '../../types/gta.ts';
+import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 
 // CSSProperties doesn't allow arbitrary custom-property keys (--cx, --cr,
 // etc.) by default -- these are read by @keyframes in theme.css via var(),
@@ -346,15 +347,22 @@ interface SeatTableProps {
   isDriving: boolean;
   forceEndDrive: boolean;
   drivers: Record<string, DriverState>;
+  tableCracks: TableCrackEvent[];
+  tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
+  tableWasted: WastedMap;
   onPublishDrive: (state: Omit<DriverState, 'uid'>) => void;
   onExitDrive: () => void;
+  onPublishCrack: (crack: Omit<TableCrackEvent, 'id' | 'fromUid' | 'ts'>) => void;
+  onPublishPieceMove: (side: 'left' | 'right', move: TablePieceMove) => void;
+  onMarkWasted: (targetUid: string) => void;
 }
 
 export default function SeatTable({
   participants, uid, isRevealed, anyVote, allVoted, onReveal,
   canTarget, onThrowAt, registerSeatNode, getSeatNode, stageRef, throws, onThrowDone,
   highlightValues = [], bottomClearance: measuredClearance,
-  isDriving, forceEndDrive, drivers, onPublishDrive, onExitDrive,
+  isDriving, forceEndDrive, drivers, tableCracks, tablePieceMove, tableWasted,
+  onPublishDrive, onExitDrive, onPublishCrack, onPublishPieceMove, onMarkWasted,
 }: SeatTableProps) {
   const active: ParticipantEntry[] = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
   const observers: ParticipantEntry[] = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
@@ -376,41 +384,21 @@ export default function SeatTable({
   // stale 'squash'/'wobble' animation value indefinitely between hits.
   const [wobbling, setWobbling] = useState<Record<string, number>>({});
   const [squashed, setSquashed] = useState<Record<string, number>>({});
-  // uids run over this round -- persists (grayscale + WASTED stamp) rather
-  // than fading like a bump/squash does, and only clears when a new round
-  // starts (mirrors votes resetting on the same transition).
-  const [wasted, setWasted] = useState<Set<string>>(new Set());
-  // Crack decals, as fractions (0..1) local to whichever surface they landed
-  // on -- the whole table before the split, or a specific piece afterward
-  // (see `side` -- 'left'/'right' cracks are local to that piece's own box,
-  // 'table' cracks are local to the unsplit table and get partitioned into
-  // the two pieces' local spaces once split happens under them).
-  const [cracks, setCracks] = useState<{ fx: number; fy: number; rot: number; side: 'table' | 'left' | 'right' }[]>([]);
-  // Once enough cracks land, the table splits into two separate pieces --
-  // each becomes its own real physics obstacle (see obstacleIds below) that
-  // can go on being hit and shoved independently, not just a one-time visual.
-  const tableSplit = cracks.length >= TABLE_SPLIT_THRESHOLD;
-  // Each piece's cumulative shove from being hit after the split: a small
-  // discrete offset + rotation added per hit (not continuous physics), so a
-  // piece that keeps getting rammed visibly skids further and further away
-  // and keeps blocking the car from its new spot.
-  const [pieceMove, setPieceMove] = useState<{ left: { x: number; y: number; rot: number }; right: { x: number; y: number; rot: number } }>(
-    { left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } },
-  );
+  // Table damage (cracks/piece-shove/wasted) is synced via RTDB under
+  // gtaTable/$roomCode (see roomStore.gta.ts) so every viewer sees the same
+  // table condition, not just whoever's car caused it -- these come in as
+  // props rather than local state. wobbling/squashed above stay local-only:
+  // they're purely cosmetic per-render animation timers, and a remote hit
+  // already retriggers them independently via the `drivers[x].hit` watcher
+  // below, the same as it always has.
+  const tableSplit = tableCracks.length >= TABLE_SPLIT_THRESHOLD;
   // Our own vacated state, reported directly by GtaOverlay off local phase
-  // (not the RTDB round-trip that `id in drivers` relies on for remote
-  // players) -- otherwise the seat's own avatar stays visible, duplicated
-  // alongside the car, for however long that write takes to land.
+  // (not the RTDB round-trip) -- otherwise the seat's own avatar stays
+  // visible, duplicated alongside the car, for however long that write
+  // takes to land. Everyone else's vacated state (see `seats` below) reads
+  // their streamed `phase` instead, now that position/phase publish from
+  // the moment a drive starts arriving, not just once actually driving.
   const [myVacated, setMyVacated] = useState(false);
-  const wasRevealedRef = useRef(isRevealed);
-  useEffect(() => {
-    if (wasRevealedRef.current && !isRevealed) {
-      setWasted(new Set());
-      setCracks([]);
-      setPieceMove({ left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } });
-    }
-    wasRevealedRef.current = isRevealed;
-  }, [isRevealed]);
   const now = performance.now();
 
   // How far one hit shoves an already-split piece, and the cap on how far it
@@ -421,6 +409,16 @@ export default function SeatTable({
   const PIECE_SHOVE_MAX_PX = 46;
   const PIECE_SHOVE_ROT_DEG = 3;
   const PIECE_SHOVE_MAX_ROT_DEG = 22;
+
+  // handleTableHit is called from inside GtaOverlay's rAF loop, whose
+  // closure over onTableHit is captured once at mount (see GtaOverlay's own
+  // useLayoutEffect deps) and never refreshed -- so reading tablePieceMove
+  // directly here would compute every shove increment on top of the value
+  // from that first render. A ref sidesteps it, the same fix
+  // remoteDriversRef/wastedIdsRef already apply in GtaOverlay for the same
+  // stale-closure shape.
+  const tablePieceMoveRef = useRef(tablePieceMove);
+  tablePieceMoveRef.current = tablePieceMove;
 
   const handleTableHit = (tableId: string, stageX: number, stageY: number, impactDx: number, impactDy: number) => {
     const stageNode = stageRef.current;
@@ -442,7 +440,7 @@ export default function SeatTable({
       const margin = 15; // px, roughly the crack decal's own radius
       const px = Math.min(tb.width - margin, Math.max(margin, stageX + sb.left - tb.left));
       const py = Math.min(tb.height - margin, Math.max(margin, stageY + sb.top - tb.top));
-      setCracks(c => [...c, { fx: px / tb.width, fy: py / tb.height, rot: Math.round(Math.random() * 360), side: 'table' }]);
+      onPublishCrack({ fx: px / tb.width, fy: py / tb.height, rot: Math.round(Math.random() * 360), side: 'table' });
       return;
     }
 
@@ -456,20 +454,18 @@ export default function SeatTable({
         const margin = 15;
         const px = Math.min(pb.width - margin, Math.max(margin, stageX + sb.left - pb.left));
         const py = Math.min(pb.height - margin, Math.max(margin, stageY + sb.top - pb.top));
-        setCracks(c => [...c, { fx: px / pb.width, fy: py / pb.height, rot: Math.round(Math.random() * 360), side }]);
+        onPublishCrack({ fx: px / pb.width, fy: py / pb.height, rot: Math.round(Math.random() * 360), side });
       }
     }
-    setPieceMove(pm => {
-      const cur = pm[side];
-      const nextX = Math.max(-PIECE_SHOVE_MAX_PX, Math.min(PIECE_SHOVE_MAX_PX, cur.x + impactDx * PIECE_SHOVE_PX));
-      const nextY = Math.max(-PIECE_SHOVE_MAX_PX, Math.min(PIECE_SHOVE_MAX_PX, cur.y + impactDy * PIECE_SHOVE_PX));
-      // Rotation direction alternates with which way the piece is being hit
-      // (impactDx sign), so repeated hits from the same side keep twisting
-      // the same way rather than fighting themselves back to level.
-      const rotDelta = (impactDx >= 0 ? 1 : -1) * PIECE_SHOVE_ROT_DEG * (side === 'left' ? -1 : 1);
-      const nextRot = Math.max(-PIECE_SHOVE_MAX_ROT_DEG, Math.min(PIECE_SHOVE_MAX_ROT_DEG, cur.rot + rotDelta));
-      return { ...pm, [side]: { x: nextX, y: nextY, rot: nextRot } };
-    });
+    const cur = tablePieceMoveRef.current[side];
+    const nextX = Math.max(-PIECE_SHOVE_MAX_PX, Math.min(PIECE_SHOVE_MAX_PX, cur.x + impactDx * PIECE_SHOVE_PX));
+    const nextY = Math.max(-PIECE_SHOVE_MAX_PX, Math.min(PIECE_SHOVE_MAX_PX, cur.y + impactDy * PIECE_SHOVE_PX));
+    // Rotation direction alternates with which way the piece is being hit
+    // (impactDx sign), so repeated hits from the same side keep twisting
+    // the same way rather than fighting themselves back to level.
+    const rotDelta = (impactDx >= 0 ? 1 : -1) * PIECE_SHOVE_ROT_DEG * (side === 'left' ? -1 : 1);
+    const nextRot = Math.max(-PIECE_SHOVE_MAX_ROT_DEG, Math.min(PIECE_SHOVE_MAX_ROT_DEG, cur.rot + rotDelta));
+    onPublishPieceMove(side, { x: nextX, y: nextY, rot: nextRot });
   };
 
   const handleSeatBump = (seatId: string) => {
@@ -484,6 +480,17 @@ export default function SeatTable({
       return rest;
     }), WOBBLE_MS);
   };
+  // Whether a remote uid currently reads as "off driving" -- keyed off their
+  // streamed phase (see seatVacated in gtaLifecycle.ts), not merely having a
+  // live entry in `drivers`. Position/phase now publish continuously from
+  // the moment a drive starts arriving (not just once actually driving), so
+  // `id in drivers` alone would vacate a remote seat far too early --
+  // while they're still visibly sitting there, wobbling through boarding.
+  const remoteVacated = (id: string): boolean => {
+    const d = drivers[id];
+    return !!d && seatVacated(d.phase as GtaPhase);
+  };
+
   const handleSeatSquash = (seatId: string) => {
     const stamp = performance.now();
     setSquashed(s => ({ ...s, [seatId]: stamp }));
@@ -494,12 +501,9 @@ export default function SeatTable({
       return rest;
     }), SQUASH_MS);
     // A driver can't be wasted by getting squashed -- they're in a car, not
-    // sitting in the seat that just got hit. Same signal as `vacated` above
-    // (myVacated for us, `in drivers` for everyone else): still occupied
-    // (and hittable) through arriving and boarding, only actually vacated
-    // once driving starts.
-    const targetVacated = seatId === uid ? myVacated : seatId in drivers;
-    if (!targetVacated) setWasted(w => (w.has(seatId) ? w : new Set(w).add(seatId)));
+    // sitting in the seat that just got hit.
+    const targetVacated = seatId === uid ? myVacated : remoteVacated(seatId);
+    if (!targetVacated) onMarkWasted(seatId);
   };
 
   // Remote drivers report their hit target on the streamed position payload
@@ -544,12 +548,11 @@ export default function SeatTable({
       showValue: isRevealed,
       voteValue: p.vote,
       // Our own seat uses GtaOverlay's direct local signal (instant, no
-      // network round-trip); everyone else's uses their live entry in
-      // drivers, which is the only signal we have for a remote player.
-      vacated: isMe ? myVacated : id in drivers,
+      // network round-trip); everyone else's uses their streamed phase.
+      vacated: isMe ? myVacated : remoteVacated(id),
       hitAnimation: hitAnimationFor(id),
       squashAt: squashAtFor(id),
-      wasted: wasted.has(id),
+      wasted: id in tableWasted,
       // Staggered per seat so the reveal ripples across the table instead of
       // every card flipping in perfect unison.
       flipDelay: (seatIdx % 8) * 45,
@@ -628,13 +631,13 @@ export default function SeatTable({
                       borderBottomLeftRadius: 28,
                       clipPath:
                         'polygon(0 0, 100% 0, 78% 12%, 92% 24%, 74% 36%, 90% 50%, 72% 62%, 88% 76%, 76% 88%, 100% 100%, 0 100%)',
-                      transform: `translate(${-13 + pieceMove.left.x}px, ${1 + pieceMove.left.y}px) rotate(${-2.6 + pieceMove.left.rot}deg)`,
+                      transform: `translate(${-13 + tablePieceMove.left.x}px, ${1 + tablePieceMove.left.y}px) rotate(${-2.6 + tablePieceMove.left.rot}deg)`,
                       transition: 'transform 220ms cubic-bezier(.2,.7,.3,1)',
                       animation: 'sp-gta-table-split-left 420ms cubic-bezier(.3,.6,.35,1)',
                     }}
                   >
-                    {cracks.filter(c => c.side === 'left').map((c, i) => (
-                      <TableCrack key={i} fx={c.fx} fy={c.fy} rot={c.rot} />
+                    {tableCracks.filter(c => c.side === 'left').map(c => (
+                      <TableCrack key={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
                   <div
@@ -647,13 +650,13 @@ export default function SeatTable({
                       borderBottomRightRadius: 28,
                       clipPath:
                         'polygon(22% 12%, 0 0, 100% 0, 100% 100%, 0 100%, 24% 88%, 12% 76%, 28% 62%, 10% 50%, 26% 36%, 8% 24%)',
-                      transform: `translate(${13 + pieceMove.right.x}px, ${1 + pieceMove.right.y}px) rotate(${2.6 + pieceMove.right.rot}deg)`,
+                      transform: `translate(${13 + tablePieceMove.right.x}px, ${1 + tablePieceMove.right.y}px) rotate(${2.6 + tablePieceMove.right.rot}deg)`,
                       transition: 'transform 220ms cubic-bezier(.2,.7,.3,1)',
                       animation: 'sp-gta-table-split-right 420ms cubic-bezier(.3,.6,.35,1)',
                     }}
                   >
-                    {cracks.filter(c => c.side === 'right').map((c, i) => (
-                      <TableCrack key={i} fx={c.fx} fy={c.fy} rot={c.rot} />
+                    {tableCracks.filter(c => c.side === 'right').map(c => (
+                      <TableCrack key={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
                 </>
@@ -661,7 +664,7 @@ export default function SeatTable({
                 // GTA Mode: cracks left by the car ramming the table, pinned
                 // as fractions of the table's own box so they stay put as it
                 // resizes. Purely decorative, so it's excluded from the a11y tree.
-                cracks.filter(c => c.side === 'table').map((c, i) => <TableCrack key={i} fx={c.fx} fy={c.fy} rot={c.rot} />)
+                tableCracks.filter(c => c.side === 'table').map(c => <TableCrack key={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />)
               )}
 
               {/* The visual vote counter and the reveal are otherwise silent to
@@ -717,7 +720,7 @@ export default function SeatTable({
           getAvatarForUid={otherUid => participantAvatarSrc(participants[otherUid] ?? {})}
           colorIndexForUid={otherUid => joinOrderIds.indexOf(otherUid)}
           obstacleIds={obstacleIds}
-          wastedIds={wasted}
+          wastedIds={new Set(Object.keys(tableWasted))}
           getSeatNode={getSeatNode}
           stageNode={stageRef.current}
           onPublish={onPublishDrive}

@@ -13,10 +13,14 @@ import {
   createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setStoryAction, setDeckAction,
   revealAction, startNextRoundAction, throwWeaponAction, leaveAction,
 } from './roomStore.actions.ts';
-import { startDriving, publishDriverState, stopDriving, subscribeDrivers, teardownGta } from './roomStore.gta.ts';
+import {
+  startDriving, publishDriverState, stopDriving, subscribeDrivers, teardownGta,
+  publishTableCrack, subscribeTableCracks, publishTablePieceMove, markWasted,
+  subscribeTableDamage, resetTableDamage,
+} from './roomStore.gta.ts';
 import type { RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
-import type { DriverState } from '../../types/gta.ts';
+import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 
 interface RoomState {
   uid: string | null;
@@ -26,6 +30,9 @@ interface RoomState {
   notice: string | null;
   throws: ThrowEvent[];
   drivers: Record<string, DriverState>;
+  tableCracks: TableCrackEvent[];
+  tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
+  tableWasted: WastedMap;
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -42,6 +49,10 @@ interface RoomState {
   startDrive: () => void;
   publishDrive: (state: Omit<DriverState, 'uid'>) => void;
   stopDrive: () => void;
+  publishCrack: (crack: Omit<TableCrackEvent, 'id' | 'fromUid' | 'ts'>) => void;
+  publishPieceMove: (side: 'left' | 'right', move: TablePieceMove) => void;
+  markPlayerWasted: (targetUid: string) => void;
+  resetTable: () => void;
 }
 
 // Listener handles for the room doc / throws subscriptions. Like
@@ -52,12 +63,14 @@ let snapshotUnsubscribe: FirestoreUnsubscribe | null = null;
 let throwsUnsubscribe: RtdbUnsubscribe | null = null;
 let throwsSubscribeStartAt = 0;
 
+const ZERO_PIECE_MOVE = { left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } };
+
 function teardown(set: (partial: Partial<RoomState>) => void): void {
   if (snapshotUnsubscribe) { snapshotUnsubscribe(); snapshotUnsubscribe = null; }
   if (throwsUnsubscribe) { throwsUnsubscribe(); throwsUnsubscribe = null; }
   teardownPresence();
   teardownGta();
-  set({ throws: [], drivers: {} });
+  set({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: ZERO_PIECE_MOVE, tableWasted: {} });
 }
 
 // Subscribes to newly-thrown weapon events for the room. Uses startAt(now)
@@ -121,6 +134,9 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   notice: null,
   throws: [],
   drivers: {},
+  tableCracks: [],
+  tablePieceMove: ZERO_PIECE_MOVE,
+  tableWasted: {},
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {
@@ -141,6 +157,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     trackPresence(code, uid, () => get().room);
     subscribeThrows(code, set);
     subscribeDrivers(code, set);
+    subscribeTableCracks(code, set);
+    subscribeTableDamage(code, set);
     return code;
   },
 
@@ -153,6 +171,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     trackPresence(code, uid, () => get().room);
     subscribeThrows(code, set);
     subscribeDrivers(code, set);
+    subscribeTableCracks(code, set);
+    subscribeTableDamage(code, set);
   },
 
   setRole: async (isObserver) => {
@@ -213,6 +233,30 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
   stopDrive: () => {
     stopDriving();
+  },
+
+  publishCrack: (crack) => {
+    const { uid, roomCode } = get();
+    if (!uid || !roomCode) return;
+    publishTableCrack(roomCode, uid, crack);
+  },
+
+  publishPieceMove: (side, move) => {
+    const { roomCode } = get();
+    if (!roomCode) return;
+    publishTablePieceMove(roomCode, side, move);
+  },
+
+  markPlayerWasted: (targetUid) => {
+    const { roomCode } = get();
+    if (!roomCode) return;
+    markWasted(roomCode, targetUid);
+  },
+
+  resetTable: () => {
+    const { roomCode } = get();
+    if (!roomCode) return;
+    resetTableDamage(roomCode);
   },
 
   leave: async () => {

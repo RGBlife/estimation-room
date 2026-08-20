@@ -27,6 +27,9 @@ export default function App() {
   const notice = useRoomStore(s => s.notice);
   const throws = useRoomStore(s => s.throws);
   const drivers = useRoomStore(s => s.drivers);
+  const tableCracks = useRoomStore(s => s.tableCracks);
+  const tablePieceMove = useRoomStore(s => s.tablePieceMove);
+  const tableWasted = useRoomStore(s => s.tableWasted);
   const createRoom = useRoomStore(s => s.createRoom);
   const joinRoom = useRoomStore(s => s.joinRoom);
   const setRole = useRoomStore(s => s.setRole);
@@ -41,6 +44,10 @@ export default function App() {
   const startDrive = useRoomStore(s => s.startDrive);
   const publishDrive = useRoomStore(s => s.publishDrive);
   const stopDrive = useRoomStore(s => s.stopDrive);
+  const publishCrack = useRoomStore(s => s.publishCrack);
+  const publishPieceMove = useRoomStore(s => s.publishPieceMove);
+  const markPlayerWasted = useRoomStore(s => s.markPlayerWasted);
+  const resetTable = useRoomStore(s => s.resetTable);
 
   useEffect(() => useRoomStore.getState().initAuth(), []);
 
@@ -171,9 +178,12 @@ export default function App() {
           uid={uid}
           throws={throws}
           drivers={drivers}
+          tableCracks={tableCracks}
+          tablePieceMove={tablePieceMove}
+          tableWasted={tableWasted}
           actions={{
             setRole, castVote, setStory, setDeck, reveal, startNextRound, leave, throwWeapon, dismissThrow,
-            startDrive, publishDrive, stopDrive,
+            startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
           }}
           theme={theme}
           onToggleTheme={toggleTheme}

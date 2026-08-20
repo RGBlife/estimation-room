@@ -316,6 +316,16 @@ a:hover {
   transition-delay: 1.1s;
 }
 
+/* A remote driver's car popping in as they start arriving. Opacity only --
+   never transform -- because this animates alongside the car's own
+   translate(-50%,-50%) rotate(...) positioning on the same element, and a
+   transform in the keyframe would override that base transform for the
+   animation's duration and visibly mislocate the car. */
+@keyframes sp-gta-remote-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* GTA Mode. Both animations return the element to its exact starting
    transform, which is what makes the sync design safe: a bumped or squashed
    avatar always converges back to its real DOM position, so no divergent

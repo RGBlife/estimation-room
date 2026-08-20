@@ -43,6 +43,12 @@ vi.mock('./roomStore.gta.ts', () => ({
   stopDriving: vi.fn(),
   subscribeDrivers: vi.fn(),
   teardownGta: vi.fn(),
+  publishTableCrack: vi.fn(),
+  subscribeTableCracks: vi.fn(),
+  publishTablePieceMove: vi.fn(),
+  markWasted: vi.fn(),
+  subscribeTableDamage: vi.fn(),
+  resetTableDamage: vi.fn(),
 }));
 
 const createRoomAction = vi.fn();
