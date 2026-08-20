@@ -11,7 +11,11 @@
     "test:visual": "playwright test",
     "typecheck": "tsc",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "dev:lan": "EXPOSE=1 vite --host",
+    "emulators": "firebase emulators:start --project demo-scrum-poker",
+    "dev:emulated": "VITE_USE_EMULATOR=1 EXPOSE=1 vite --host",
+    "dev:staging": "vite --mode staging --host"
   },
   "dependencies": {
     "@dicebear/collection": "^9.4.2",

@@ -16,6 +16,90 @@ Realtime Database is used only for presence (detecting when a tab closes/crashes
 
 Avatars are generated locally with `@dicebear/core` — participants store just the avatar options, so nothing depends on the dicebear API at runtime.
 
+## Testing with multiple users locally
+
+There is only **one** Firebase project, and it also serves the live site. So by
+default `npm run dev` talks to the same database real users are in — fine for
+solo work, but not where you want to test a feature that writes continuously.
+
+Three ways to test, in increasing order of realism:
+
+### 1. Two browser windows (no setup)
+
+`npm run dev`, then open the room link in a second window (use a private/
+incognito window so it gets its own anonymous auth user). Good enough for
+checking that state syncs at all. **Writes go to the real database.**
+
+### 2. A separate staging Firebase project — recommended
+
+A second free project in the same Firebase account, used only for testing.
+Real network, real latency, real multi-device behaviour — but its own database
+and its own quota, so nothing you do reaches live users.
+
+Set it up once (see `.env.staging.example` for the full walkthrough):
+
+1. Firebase console → **Add project** → e.g. `scrum-poker-staging`.
+2. Enable Firestore, Realtime Database, and Anonymous auth.
+3. Add a Web app and copy its config.
+4. Publish this repo's `firestore.rules` and `database.rules.json` to it.
+5. `cp .env.staging.example .env.staging.local` and fill in the values.
+
+Then:
+
+```bash
+npm run dev:staging     # also exposes on the LAN, so other devices can join
+```
+
+`.env.staging.local` is gitignored. Note that Vite still loads `.env` in
+staging mode, so a missing or incomplete `.env.staging.local` would otherwise
+fall back to **production** config while looking like staging — the app
+therefore refuses to start in staging mode unless `VITE_STAGING=1` is set.
+
+### 3. Local emulators — fully offline
+
+Nothing you do here touches the real project, so a runaway write loop or a
+broken rules change costs nothing.
+
+```bash
+brew install --cask temurin   # one-time: the emulators need a Java runtime
+npm i -g firebase-tools       # one-time
+npm run emulators             # terminal 1 — Firestore, RTDB, Auth + UI on :4000
+npm run dev:emulated          # terminal 2 — app pointed at the emulators
+```
+
+The emulator UI at <http://localhost:4000> shows every document and RTDB node
+live, which is the fastest way to confirm what a feature is actually writing.
+Emulator data is wiped on restart; add `--import`/`--export-on-exit` if you
+want it to persist.
+
+The app only talks to emulators when `VITE_USE_EMULATOR=1` **and** it is a dev
+build — a production build can never point at localhost (see
+`src/shared/lib/firebase.ts`).
+
+### 4. Real devices on your LAN — real latency
+
+Two tabs on one machine share a CPU and have no network latency between them,
+so they cannot show you interpolation, jitter or reconnect behaviour. For that
+you need separate devices:
+
+```bash
+npm run dev:lan        # or dev:emulated, which also exposes on the LAN
+```
+
+Vite prints a `Network:` URL (e.g. `http://192.168.1.196:5173`). Open it on a
+phone or a colleague's laptop on the same Wi-Fi. Both machines must reach the
+same backend, so use `dev:emulated` on both if you want the emulator.
+
+To simulate a bad connection, use Chrome DevTools → Network → throttling on one
+of the clients, and check the other still renders smoothly.
+
+### Before anything reaches production
+
+`database.rules.json` and `firestore.rules` auto-deploy on push to `main`
+(`.github/workflows/deploy-firebase-rules.yml`). Work on a branch — the
+workflow only fires on `main` — and test rules changes against the emulator or
+the console's Rules Playground first.
+
 ## Deployment (GitHub Pages)
 
 `.github/workflows/deploy-pages.yml` builds and deploys to GitHub Pages on every push to `main`. It needs these repository secrets set (Settings → Secrets and variables → Actions):

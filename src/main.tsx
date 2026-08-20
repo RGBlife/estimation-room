@@ -16,14 +16,18 @@ import './styles/tailwind.css';
 // harness route (which has no Firebase secrets in CI) would crash before
 // React ever mounts anything. Lazy-loading keeps each route's module graph
 // isolated to only the route that's actually chosen.
-const isVisualTestRoute = import.meta.env.DEV && new URLSearchParams(window.location.search).get('visual-test') === 'cards';
+const visualTest = import.meta.env.DEV
+  ? new URLSearchParams(window.location.search).get('visual-test')
+  : null;
+const isVisualTestRoute = visualTest === 'cards' || visualTest === 'gta';
 const App = isVisualTestRoute ? null : lazy(() => import('./app/App.tsx'));
-const VisualTestHarness = isVisualTestRoute ? lazy(() => import('./dev/VisualTestHarness.tsx')) : null;
+const VisualTestHarness = visualTest === 'cards' ? lazy(() => import('./dev/VisualTestHarness.tsx')) : null;
+const GtaSandbox = visualTest === 'gta' ? lazy(() => import('./dev/GtaSandbox.tsx')) : null;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Suspense fallback={null}>
-      {VisualTestHarness ? <VisualTestHarness /> : App && <App />}
+      {GtaSandbox ? <GtaSandbox /> : VisualTestHarness ? <VisualTestHarness /> : App && <App />}
     </Suspense>
   </StrictMode>,
 );
