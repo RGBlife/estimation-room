@@ -20,6 +20,11 @@ export interface OverflowResult {
 // gracefully" pattern, not the jagged mid-character clipping this check is
 // meant to catch. An element opting into ellipsis is explicitly declaring
 // "I may not show everything," so overflow there isn't a bug.
+//
+// A scrollable axis (overflow: auto/scroll) is excluded for the same reason:
+// the content is reachable, just not all at once. The voting bar relies on
+// this -- it is capped and scrolls on a phone rather than growing tall enough
+// to push the table off screen.
 // A few px of rounding slack absorbs sub-pixel font-metrics differences that
 // don't correspond to any visible defect.
 const TOLERANCE_PX = 4;
@@ -28,9 +33,11 @@ export async function checkOverflow(locator: Locator): Promise<OverflowResult> {
   return locator.evaluate((el, tolerance) => {
     const style = window.getComputedStyle(el);
     const isEllipsisTruncated = style.textOverflow === 'ellipsis' && style.overflow !== 'visible';
+    const scrollsX = style.overflowX === 'auto' || style.overflowX === 'scroll';
+    const scrollsY = style.overflowY === 'auto' || style.overflowY === 'scroll';
     return {
-      overflowsHorizontally: !isEllipsisTruncated && el.scrollWidth > el.clientWidth + tolerance,
-      overflowsVertically: el.scrollHeight > el.clientHeight + tolerance,
+      overflowsHorizontally: !isEllipsisTruncated && !scrollsX && el.scrollWidth > el.clientWidth + tolerance,
+      overflowsVertically: !scrollsY && el.scrollHeight > el.clientHeight + tolerance,
       scrollWidth: el.scrollWidth,
       clientWidth: el.clientWidth,
       scrollHeight: el.scrollHeight,

@@ -19,15 +19,19 @@ import './styles/tailwind.css';
 const visualTest = import.meta.env.DEV
   ? new URLSearchParams(window.location.search).get('visual-test')
   : null;
-const isVisualTestRoute = visualTest === 'cards' || visualTest === 'gta';
+const isVisualTestRoute = visualTest === 'cards' || visualTest === 'gta' || visualTest === 'room';
 const App = isVisualTestRoute ? null : lazy(() => import('./app/App.tsx'));
 const VisualTestHarness = visualTest === 'cards' ? lazy(() => import('./dev/VisualTestHarness.tsx')) : null;
 const GtaSandbox = visualTest === 'gta' ? lazy(() => import('./dev/GtaSandbox.tsx')) : null;
+const RoomLayoutHarness = visualTest === 'room' ? lazy(() => import('./dev/RoomLayoutHarness.tsx')) : null;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Suspense fallback={null}>
-      {GtaSandbox ? <GtaSandbox /> : VisualTestHarness ? <VisualTestHarness /> : App && <App />}
+      {GtaSandbox ? <GtaSandbox />
+        : RoomLayoutHarness ? <RoomLayoutHarness />
+        : VisualTestHarness ? <VisualTestHarness />
+        : App && <App />}
     </Suspense>
   </StrictMode>,
 );

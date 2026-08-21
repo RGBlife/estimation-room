@@ -16,6 +16,35 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Desktop Chrome (1280x720) was the only project, which is how the room
+    // layout stayed broken on phones without any test noticing.
+    //
+    // Both mobile projects run on Chromium rather than the WebKit that
+    // devices['iPhone 14'] would otherwise select: these assert layout
+    // geometry, which the viewport size decides, and requiring a second
+    // browser download to run them would be a barrier for no added signal.
+    {
+      name: 'mobile',
+      use: {
+        ...devices['Desktop Chrome'],
+        // iPhone 14 -- the narrowest common target, and what the responsive
+        // sizing tiers are calibrated against.
+        viewport: { width: 390, height: 844 },
+        isMobile: false,
+        hasTouch: true,
+      },
+    },
+    {
+      name: 'tablet',
+      use: {
+        ...devices['Desktop Chrome'],
+        // iPad portrait. Below every table breakpoint before this work, so it
+        // used to get the smallest desktop layout with no adaptation at all.
+        viewport: { width: 768, height: 1024 },
+        isMobile: false,
+        hasTouch: true,
+      },
+    },
   ],
   webServer: {
     // Vite's default dev-server binding resolves "localhost" ambiguously
