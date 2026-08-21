@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import CarWithRider from './CarShape.tsx';
-import { createCar, stepCar, CAR_W, CAR_H } from './gtaPhysics.ts';
+import { createCar, stepCar, carSize, CAR_W, CAR_H } from './gtaPhysics.ts';
 import {
   nextPhase, phaseDuration, isDriveable, hasCar, seatVacated, debrisPieces, smokePuffs,
   ARRIVE_MS, BOARD_MS, EXPLODE_MS, RETURN_MS, HINT_MS, HINT_FADE_MS,
@@ -21,6 +21,19 @@ const SEAT_SIZE_FALLBACK = 52;
 // onDisconnect) without leaving a ghost car parked on the board forever.
 const REMOTE_STALE_MS = 4000;
 
+// The stage width the car/physics constants in gtaPhysics.ts are tuned at.
+// A narrower stage (phone-width board) scales the car down proportionally so
+// it still reads sized-right next to the seats/table rather than towering
+// over a shrunk board -- floored so the kart never gets so small the rider
+// inside it is unreadable.
+const CAR_SCALE_REF_WIDTH = 720;
+const CAR_SCALE_MIN = 0.62;
+
+function carScaleFor(stageWidth: number): number {
+  if (stageWidth <= 0) return 1;
+  return Math.min(1, Math.max(CAR_SCALE_MIN, stageWidth / CAR_SCALE_REF_WIDTH));
+}
+
 type StyleVars = React.CSSProperties & Record<string, string | number>;
 
 // The blast: two staggered rings, tumbling debris, and drifting smoke,
@@ -29,7 +42,11 @@ type StyleVars = React.CSSProperties & Record<string, string | number>;
 // debrisPieces/smokePuffs in gtaLifecycle.ts), so no synced data is needed
 // beyond "this driver is exploding, here" to render an identical blast on
 // every client.
-function ExplosionEffect({ x, y }: { x: number; y: number }) {
+//
+// `scale` shrinks the whole blast radius/piece sizes to match a smaller car
+// on a smaller board (see carScaleFor) -- a full-size explosion on a
+// phone-width table would visually swallow half the seats.
+function ExplosionEffect({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   const debris = debrisPieces();
   const smoke = smokePuffs();
   return (
@@ -39,22 +56,22 @@ function ExplosionEffect({ x, y }: { x: number; y: number }) {
       <div
         className="absolute rounded-full border-solid border-[#fff3d6]"
         style={{
-          left: x, top: y, width: 46, height: 46,
-          marginLeft: -23, marginTop: -23,
+          left: x, top: y, width: 46 * scale, height: 46 * scale,
+          marginLeft: (-23) * scale, marginTop: (-23) * scale,
           animation: `sp-gta-blast ${EXPLODE_MS * 0.7}ms ease-out both`,
         }}
       />
       <div
         className="absolute rounded-full border-solid border-[#ffca7a]"
         style={{
-          left: x, top: y, width: 70, height: 70,
-          marginLeft: -35, marginTop: -35,
+          left: x, top: y, width: 70 * scale, height: 70 * scale,
+          marginLeft: (-35) * scale, marginTop: (-35) * scale,
           animation: `sp-gta-blast ${EXPLODE_MS}ms ease-out 60ms both`,
         }}
       />
       {debris.map((d, i) => {
         const big = i % 3 === 0;
-        const size = big ? 11 : 7;
+        const size = (big ? 11 : 7) * scale;
         return (
           <div
             key={i}
@@ -62,24 +79,27 @@ function ExplosionEffect({ x, y }: { x: number; y: number }) {
             style={{
               left: x, top: y, width: size, height: size,
               marginLeft: -size / 2, marginTop: -size / 2,
-              '--fx': `${d.fx}px`, '--fy': `${d.fy}px`, '--fr': `${d.fr}deg`,
+              '--fx': `${d.fx * scale}px`, '--fy': `${d.fy * scale}px`, '--fr': `${d.fr}deg`,
               animation: `sp-gta-debris ${EXPLODE_MS + (big ? 200 : 0)}ms ease-out ${d.delay}ms both`,
             } as StyleVars}
           />
         );
       })}
-      {smoke.map((s, i) => (
-        <div
-          key={`smoke-${i}`}
-          className="absolute rounded-full bg-[#6b6862]"
-          style={{
-            left: x, top: y, width: 22, height: 22,
-            marginLeft: -11, marginTop: -11,
-            '--sx': `${s.sx}px`, '--sy': `${s.sy}px`, '--sr': s.sr,
-            animation: `sp-gta-smoke ${EXPLODE_MS + 500}ms ease-out ${s.delay}ms both`,
-          } as StyleVars}
-        />
-      ))}
+      {smoke.map((s, i) => {
+        const size = 22 * scale;
+        return (
+          <div
+            key={`smoke-${i}`}
+            className="absolute rounded-full bg-[#6b6862]"
+            style={{
+              left: x, top: y, width: size, height: size,
+              marginLeft: -size / 2, marginTop: -size / 2,
+              '--sx': `${s.sx * scale}px`, '--sy': `${s.sy * scale}px`, '--sr': s.sr,
+              animation: `sp-gta-smoke ${EXPLODE_MS + 500}ms ease-out ${s.delay}ms both`,
+            } as StyleVars}
+          />
+        );
+      })}
     </>
   );
 }
@@ -110,9 +130,12 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
   const x = driver.x * stageBox.w;
   const y = driver.y * stageBox.h;
   const phase = driver.phase as GtaPhase;
+  const scale = carScaleFor(stageBox.w);
+  const { w: carW, h: carH } = carSize(scale);
+  const seatSize = SEAT_SIZE_FALLBACK * scale;
 
   if (phase === 'exploding') {
-    return <ExplosionEffect x={x} y={y} />;
+    return <ExplosionEffect x={x} y={y} scale={scale} />;
   }
 
   if (phase === 'returning') {
@@ -130,7 +153,7 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
         className="absolute"
         style={{
           left: x, top: y,
-          marginLeft: -SEAT_SIZE_FALLBACK / 2, marginTop: -SEAT_SIZE_FALLBACK / 2,
+          marginLeft: -seatSize / 2, marginTop: -seatSize / 2,
           '--sp-gta-back-x': `${seatHome.dx}px`,
           '--sp-gta-back-y': `${seatHome.dy}px`,
           '--sp-gta-arc': `${seatHome.arc}px`,
@@ -141,7 +164,7 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
           src={avatarUrl}
           alt=""
           className="block rounded-full border border-sp-border bg-sp-card-bg"
-          style={{ width: SEAT_SIZE_FALLBACK, height: SEAT_SIZE_FALLBACK }}
+          style={{ width: seatSize, height: seatSize }}
         />
       </div>
     );
@@ -151,7 +174,7 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
     <div
       className="absolute"
       style={{
-        left: x, top: y, width: CAR_W, height: CAR_H,
+        left: x, top: y, width: carW, height: carH,
         transform: `translate(-50%, -50%) rotate(${driver.r}rad)`,
         // Interpolates smoothly between throttled position samples while
         // driving; harmless during arriving/boarding since the car barely
@@ -162,6 +185,8 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
     >
       <CarWithRider
         color={color}
+        w={carW}
+        h={carH}
         // Matches the local driver's own hand-off: empty through arriving
         // and boarding, visible once actually driving.
         avatarUrl={phase === 'arriving' || phase === 'boarding' ? undefined : avatarUrl}
@@ -256,12 +281,13 @@ export default function GtaOverlay({
     const seatNode = getSeatNode(driverUid);
     if (!stage) return;
     const sb = stage.getBoundingClientRect();
+    const { w: carW, h: carH } = carSize(carScaleFor(sb.width));
     let startX = sb.width / 2;
     let startY = sb.height / 2;
     if (seatNode) {
       const b = seatNode.getBoundingClientRect();
-      startX = Math.min(b.left + b.width / 2 - sb.left + 80, sb.width - CAR_W);
-      startY = Math.min(Math.max(b.top + b.height / 2 - sb.top + 34, CAR_H), sb.height - CAR_H);
+      startX = Math.min(b.left + b.width / 2 - sb.left + 80 * (carW / CAR_W), sb.width - carW);
+      startY = Math.min(Math.max(b.top + b.height / 2 - sb.top + 34 * (carH / CAR_H), carH), sb.height - carH);
     }
     carRef.current = createCar(startX, startY, Math.PI);
     setWreck(null);
@@ -359,14 +385,15 @@ export default function GtaOverlay({
     // other -- represented as boxes the same shape stepCar already handles.
     // Only while they're actually driving: a remote car mid-explosion or
     // mid-return isn't a solid thing to collide with on the board anymore.
+    const { w: carW, h: carH } = carSize(carScaleFor(stageBox.width));
     for (const d of remoteDriversRef.current) {
       if (d.phase !== 'driving') continue;
       out.push({
         id: `driver:${d.uid}`,
         x: d.x * stageBox.width,
         y: d.y * stageBox.height,
-        w: CAR_W,
-        h: CAR_H,
+        w: carW,
+        h: carH,
       });
     }
     return out;
@@ -385,7 +412,8 @@ export default function GtaOverlay({
         const dt = Math.min(0.05, (now - prev) / 1000);
         lastRef.current = now;
         const obstacles = measureObstacles(stageBoxNow);
-        const out = stepCar(carRef.current, inputRef.current, dt, { w: stageBoxNow.width, h: stageBoxNow.height }, obstacles);
+        const scale = carScaleFor(stageBoxNow.width);
+        const out = stepCar(carRef.current, inputRef.current, dt, { w: stageBoxNow.width, h: stageBoxNow.height }, obstacles, scale);
         carRef.current = out.car;
         for (const id of out.bumpedIds) if (!id.startsWith('driver:')) onSeatBump(id);
         if (out.hitId?.startsWith('driver:')) {
@@ -468,6 +496,9 @@ export default function GtaOverlay({
   const now = performance.now();
   const car = carRef.current;
   const stageBox = stageNode?.getBoundingClientRect();
+  const scale = carScaleFor(stageBox?.width ?? 0);
+  const { w: carW, h: carH } = carSize(scale);
+  const seatSize = SEAT_SIZE_FALLBACK * scale;
 
   const seatHome = (() => {
     const node = getSeatNode(driverUid);
@@ -509,13 +540,13 @@ export default function GtaOverlay({
             <div
               className="absolute"
               style={{
-                left: car.x, top: car.y, width: CAR_W, height: CAR_H,
+                left: car.x, top: car.y, width: carW, height: carH,
                 transform: `translate(-50%, -50%) rotate(${car.r}rad)`,
               }}
             >
               <div
                 style={{
-                  width: CAR_W, height: CAR_H,
+                  width: carW, height: carH,
                   '--sp-gta-from-x': '160px', '--sp-gta-from-y': '-10px',
                   animation:
                     phase === 'arriving' ? `sp-gta-arrive ${ARRIVE_MS}ms cubic-bezier(.2,.9,.3,1) both`
@@ -533,6 +564,8 @@ export default function GtaOverlay({
                 >
                   <CarWithRider
                     color={color}
+                    w={carW}
+                    h={carH}
                     // Empty through arriving and boarding -- the rider is
                     // visibly still in their seat (wobbling) until the exact
                     // moment driving starts, which is when they actually
@@ -544,14 +577,14 @@ export default function GtaOverlay({
             </div>
           )}
 
-          {phase === 'exploding' && wreck && <ExplosionEffect x={wreck.x} y={wreck.y} />}
+          {phase === 'exploding' && wreck && <ExplosionEffect x={wreck.x} y={wreck.y} scale={scale} />}
 
           {phase === 'returning' && wreck && (
             <div
               className="absolute"
               style={{
                 left: wreck.x, top: wreck.y,
-                marginLeft: -SEAT_SIZE_FALLBACK / 2, marginTop: -SEAT_SIZE_FALLBACK / 2,
+                marginLeft: -seatSize / 2, marginTop: -seatSize / 2,
                 '--sp-gta-back-x': `${seatHome.dx}px`,
                 '--sp-gta-back-y': `${seatHome.dy}px`,
                 '--sp-gta-arc': `${seatHome.arc}px`,
@@ -562,7 +595,7 @@ export default function GtaOverlay({
                 src={driverAvatarUrl}
                 alt=""
                 className="block rounded-full border border-sp-border bg-sp-card-bg"
-                style={{ width: SEAT_SIZE_FALLBACK, height: SEAT_SIZE_FALLBACK }}
+                style={{ width: seatSize, height: seatSize }}
               />
             </div>
           )}

@@ -19,12 +19,18 @@ const WELL = { x: 24, y: 8, w: 40, h: 40, r: 12 };
 
 interface CarShapeProps {
   color?: string;
+  // Rendered pixel size -- defaults to the desktop reference size (CAR_W x
+  // CAR_H) but shrinks on smaller boards (see carScale in GtaOverlay.tsx) so
+  // the kart stays proportionate to a phone-sized table instead of towering
+  // over it. The viewBox stays fixed at 96x58; only the rendered box scales.
+  w?: number;
+  h?: number;
 }
 
 // Everything BEHIND the rider: wheels, chassis ring, cockpit well.
-export function CarBody({ color = '#e5484d' }: CarShapeProps) {
+export function CarBody({ color = '#e5484d', w = CAR_W, h = CAR_H }: CarShapeProps) {
   return (
-    <svg width={CAR_W} height={CAR_H} viewBox="0 0 96 58" aria-hidden="true">
+    <svg width={w} height={h} viewBox="0 0 96 58" aria-hidden="true">
       <rect x="17" y="0" width="20" height="9" rx="3.5" fill="#16161a" />
       <rect x="17" y="49" width="20" height="9" rx="3.5" fill="#16161a" />
       <rect x="62" y="0" width="20" height="9" rx="3.5" fill="#16161a" />
@@ -46,9 +52,9 @@ export function CarBody({ color = '#e5484d' }: CarShapeProps) {
 // Everything IN FRONT of the rider: just the headlights -- open-top means
 // nothing crosses the rider's body at all. Takes no color: unlike CarBody,
 // nothing here is chassis-colored.
-export function CarOverlay() {
+export function CarOverlay({ w = CAR_W, h = CAR_H }: Pick<CarShapeProps, 'w' | 'h'>) {
   return (
-    <svg width={CAR_W} height={CAR_H} viewBox="0 0 96 58" aria-hidden="true">
+    <svg width={w} height={h} viewBox="0 0 96 58" aria-hidden="true">
       <circle cx="90" cy="18" r="3" fill="#ffe9a8" />
       <circle cx="90" cy="40" r="3" fill="#ffe9a8" />
     </svg>
@@ -65,14 +71,14 @@ interface CarWithRiderProps extends CarShapeProps {
 // than a panel occluding them. Rigidly part of the chassis (no
 // counter-rotation), so they turn with the kart exactly like someone
 // actually sitting in it would.
-export default function CarWithRider({ color, avatarUrl }: CarWithRiderProps) {
-  const scale = CAR_W / 96; // viewBox units -> px
+export default function CarWithRider({ color, avatarUrl, w = CAR_W, h = CAR_H }: CarWithRiderProps) {
+  const scale = w / 96; // viewBox units -> px
   // Sized to fill the well, since nothing crops it -- the full disc is
   // visible, not just the head-and-shoulders.
   const head = 36 * scale;
   return (
-    <div className="relative" style={{ width: CAR_W, height: CAR_H }}>
-      <div className="absolute inset-0"><CarBody color={color} /></div>
+    <div className="relative" style={{ width: w, height: h }}>
+      <div className="absolute inset-0"><CarBody color={color} w={w} h={h} /></div>
       {avatarUrl && (
         <img
           src={avatarUrl}
@@ -92,7 +98,7 @@ export default function CarWithRider({ color, avatarUrl }: CarWithRiderProps) {
           }}
         />
       )}
-      <div className="absolute inset-0 pointer-events-none"><CarOverlay /></div>
+      <div className="absolute inset-0 pointer-events-none"><CarOverlay w={w} h={h} /></div>
     </div>
   );
 }

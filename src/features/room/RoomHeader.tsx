@@ -1,9 +1,17 @@
 import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
+import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import { WEAPONS } from './weapons.ts';
 import DeckSwitcher from './DeckSwitcher.tsx';
 import type { Theme } from '../../shared/lib/theme.ts';
 import type { DeckDefinition } from './decks.ts';
 import type { DeckId } from '../../types/room.ts';
+
+// GTA Mode only responds to a physical keyboard (WASD/arrows) -- on-screen
+// touch controls are a separate, not-yet-built feature. Offering the button
+// on a touch-only device would just strand the driver in an uncontrollable
+// car, so it's hidden there entirely; spectating other drivers still works
+// fully regardless of this device's own input.
+const TOUCH_PRIMARY_QUERY = '(pointer: coarse)';
 
 const STORY_MAX_LENGTH = 200;
 
@@ -40,6 +48,7 @@ export default function RoomHeader({
   isRevealed, isDriving, onStartDriving,
   onSwitchRole, onLeave,
 }: RoomHeaderProps) {
+  const touchPrimary = useMediaQuery(TOUCH_PRIMARY_QUERY);
   return (
     <div className="flex flex-wrap items-center justify-between gap-5 border-b border-sp-border px-7 py-4">
       <div className="flex min-w-[280px] flex-1 flex-wrap items-center gap-5">
@@ -87,8 +96,10 @@ export default function RoomHeader({
           )
         )}
         {/* Only once the round's votes are revealed -- a fun beat between
-            reveal and starting the next round, not a mid-vote distraction. */}
-        {!isObserver && isRevealed && (
+            reveal and starting the next round, not a mid-vote distraction.
+            Hidden on touch-only devices: driving needs a physical keyboard,
+            which on-screen controls don't yet replace. */}
+        {!isObserver && isRevealed && !touchPrimary && (
           <button
             onClick={onStartDriving}
             disabled={isDriving}

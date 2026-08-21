@@ -55,6 +55,14 @@ export function createCar(x: number, y: number, r = 0): CarState {
   return { x, y, vx: 0, vy: 0, r };
 }
 
+// The car's on-screen footprint at a given scale (1 = the desktop reference
+// size the physics constants above are tuned at). A shrunk board (small
+// phone stage) needs a proportionally shrunk car, or it reads oversized next
+// to the seats/table around it -- see carScale() in GtaOverlay.tsx.
+export function carSize(scale: number): { w: number; h: number } {
+  return { w: CAR_W * scale, h: CAR_H * scale };
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
@@ -65,9 +73,7 @@ function clamp(v: number, lo: number, hi: number): number {
 // *shorter* half-extent -- inscribed rather than enclosing -- because an
 // enclosing circle on a long car would stop it a visible gap short of
 // whatever it drove into.
-const CAR_RADIUS = Math.min(CAR_W, CAR_H) / 2;
-
-function overlap(car: CarState, seat: SeatBox): { nx: number; ny: number; depth: number; px: number; py: number } | null {
+function overlap(car: CarState, seat: SeatBox, carRadius: number): { nx: number; ny: number; depth: number; px: number; py: number } | null {
   // Closest point on the seat box to the car center.
   const halfW = seat.w / 2;
   const halfH = seat.h / 2;
@@ -76,11 +82,11 @@ function overlap(car: CarState, seat: SeatBox): { nx: number; ny: number; depth:
   const dx = car.x - cx;
   const dy = car.y - cy;
   const distSq = dx * dx + dy * dy;
-  if (distSq >= CAR_RADIUS * CAR_RADIUS) return null;
+  if (distSq >= carRadius * carRadius) return null;
   const dist = Math.sqrt(distSq);
   // Dead center: push straight up rather than dividing by zero.
-  if (dist === 0) return { nx: 0, ny: -1, depth: CAR_RADIUS, px: cx, py: cy };
-  return { nx: dx / dist, ny: dy / dist, depth: CAR_RADIUS - dist, px: cx, py: cy };
+  if (dist === 0) return { nx: 0, ny: -1, depth: carRadius, px: cx, py: cy };
+  return { nx: dx / dist, ny: dy / dist, depth: carRadius - dist, px: cx, py: cy };
 }
 
 export function speedOf(car: CarState): number {
@@ -90,29 +96,40 @@ export function speedOf(car: CarState): number {
 // Advances the car one step. `dt` is in seconds and is clamped by the caller
 // (see useGtaMode) so a backgrounded tab resuming after a long pause can't
 // tunnel the car through the whole board in one giant step.
+//
+// `scale` (default 1, the desktop reference size these constants are tuned
+// at) shrinks both the car's own radius and its motion together for a
+// smaller board (see carSize/carScale) -- so a phone-sized car still feels
+// like the same kart, just smaller, rather than a full-size car suddenly
+// covering half the table in one step.
 export function stepCar(
   car: CarState,
   input: DriveInput,
   dt: number,
   bounds: { w: number; h: number },
   seats: SeatBox[],
+  scale = 1,
 ): StepResult {
   const next: CarState = { ...car };
+  const carRadius = (Math.min(CAR_W, CAR_H) / 2) * scale;
+  const accel = ACCEL * scale;
+  const reverseAccel = REVERSE_ACCEL * scale;
+  const maxSpeed = MAX_SPEED * scale;
 
   // Steering scales with how fast you're actually going -- a parked car
   // shouldn't spin on the spot.
   const speed = speedOf(next);
-  const steerAuthority = Math.min(1, speed / 120);
+  const steerAuthority = Math.min(1, speed / (120 * scale));
   if (input.left) next.r -= TURN_RATE * steerAuthority * dt;
   if (input.right) next.r += TURN_RATE * steerAuthority * dt;
 
   if (input.forward) {
-    next.vx += Math.cos(next.r) * ACCEL * dt;
-    next.vy += Math.sin(next.r) * ACCEL * dt;
+    next.vx += Math.cos(next.r) * accel * dt;
+    next.vy += Math.sin(next.r) * accel * dt;
   }
   if (input.back) {
-    next.vx -= Math.cos(next.r) * REVERSE_ACCEL * dt;
-    next.vy -= Math.sin(next.r) * REVERSE_ACCEL * dt;
+    next.vx -= Math.cos(next.r) * reverseAccel * dt;
+    next.vy -= Math.sin(next.r) * reverseAccel * dt;
   }
 
   const decay = Math.max(0, 1 - DRAG * dt);
@@ -120,10 +137,10 @@ export function stepCar(
   next.vy *= decay;
 
   const newSpeed = speedOf(next);
-  if (newSpeed > MAX_SPEED) {
-    const scale = MAX_SPEED / newSpeed;
-    next.vx *= scale;
-    next.vy *= scale;
+  if (newSpeed > maxSpeed) {
+    const clampScale = maxSpeed / newSpeed;
+    next.vx *= clampScale;
+    next.vy *= clampScale;
   }
 
   next.x += next.vx * dt;
@@ -136,10 +153,10 @@ export function stepCar(
   let hitId: string | null = null;
   let hitPoint: { x: number; y: number } | null = null;
   for (const seat of seats) {
-    const hit = overlap(next, seat);
+    const hit = overlap(next, seat, carRadius);
     if (!hit) continue;
     bumpedIds.push(seat.id);
-    if (impactSpeed >= SQUASH_SPEED && hitId === null) {
+    if (impactSpeed >= SQUASH_SPEED * scale && hitId === null) {
       hitId = seat.id;
       hitPoint = { x: hit.px, y: hit.py };
     }
@@ -157,7 +174,7 @@ export function stepCar(
 
   // Stage walls. Keeps the car on the board no matter what, which also means
   // the streamed 0..1 fractions can never go out of range.
-  const half = CAR_RADIUS;
+  const half = carRadius;
   if (next.x < half) { next.x = half; next.vx = Math.abs(next.vx) * BOUNCE; }
   if (next.x > bounds.w - half) { next.x = bounds.w - half; next.vx = -Math.abs(next.vx) * BOUNCE; }
   if (next.y < half) { next.y = half; next.vy = Math.abs(next.vy) * BOUNCE; }

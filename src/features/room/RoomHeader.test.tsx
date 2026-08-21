@@ -1,9 +1,23 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import RoomHeader from './RoomHeader.tsx';
 import { DECKS } from './decks.ts';
+
+// jsdom has no matchMedia -- useMediaQuery (the touch-primary check gating
+// the GTA Mode button) needs a stub. Default to "not touch" (a mouse/desktop
+// pointer) so existing button-visibility tests reflect the common case.
+let touchPrimary = false;
+beforeEach(() => {
+  touchPrimary = false;
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: query === '(pointer: coarse)' ? touchPrimary : false,
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })) as unknown as typeof window.matchMedia;
+});
 
 function renderHeader(overrides: Partial<React.ComponentProps<typeof RoomHeader>> = {}) {
   const props: React.ComponentProps<typeof RoomHeader> = {
@@ -111,5 +125,16 @@ describe('RoomHeader', () => {
     await user.click(screen.getByText('Fibonacci'));
     await user.click(screen.getByText('T-shirt'));
     expect(props.onSwitchDeck).toHaveBeenCalledWith('tshirt');
+  });
+
+  it('shows the GTA Mode button once revealed on a non-touch device', () => {
+    renderHeader({ isRevealed: true });
+    expect(screen.getByText(/GTA Mode/)).toBeInTheDocument();
+  });
+
+  it('hides the GTA Mode button on a touch-primary device -- driving needs a keyboard', () => {
+    touchPrimary = true;
+    renderHeader({ isRevealed: true });
+    expect(screen.queryByText(/GTA Mode/)).not.toBeInTheDocument();
   });
 });
