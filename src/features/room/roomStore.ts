@@ -10,7 +10,7 @@ import { db, rtdb, auth } from '../../shared/lib/firebase.ts';
 import { saveLastRoomCode } from '../join/profile.ts';
 import { clearMyPresence, trackPresence, teardownPresence } from './roomStore.presence.ts';
 import {
-  createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setStoryAction, setDeckAction,
+  createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setDeckAction,
   revealAction, startNextRoundAction, throwWeaponAction, leaveAction,
 } from './roomStore.actions.ts';
 import {
@@ -39,7 +39,6 @@ interface RoomState {
   joinRoom: (code: string, payload: JoinPayload) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
-  setStory: (story: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
   startNextRound: () => Promise<void>;
@@ -185,12 +184,6 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     const { uid, roomCode, room } = get();
     if (!uid || !roomCode) return;
     await castVoteAction(uid, roomCode, room, value);
-  },
-
-  setStory: async (story) => {
-    const { roomCode } = get();
-    if (!roomCode) return;
-    await setStoryAction(roomCode, story);
   },
 
   setDeck: async (deckId) => {

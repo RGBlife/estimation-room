@@ -54,7 +54,6 @@ export interface Participant {
 
 export interface RoomDoc {
   code: string;
-  story: string; // <= 200 chars
   isRevealed: boolean;
   creatorId: string;
   deck: DeckId;

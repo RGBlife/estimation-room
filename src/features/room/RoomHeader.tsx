@@ -13,17 +13,11 @@ import type { DeckId } from '../../types/room.ts';
 // fully regardless of this device's own input.
 const TOUCH_PRIMARY_QUERY = '(pointer: coarse)';
 
-const STORY_MAX_LENGTH = 200;
-
 interface RoomHeaderProps {
   roomCode: string;
   copied: boolean;
   onCopy: () => void;
   isCreator: boolean;
-  storyDraft: string;
-  storyInputRef: React.RefObject<HTMLInputElement | null>;
-  onStoryChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  story: string;
   theme: Theme;
   onToggleTheme: () => void;
   isObserver: boolean;
@@ -39,11 +33,10 @@ interface RoomHeaderProps {
   onLeave: () => void;
 }
 
-// Top bar: room code / copy-link, story title, theme toggle, deck switcher
-// (host-only), weapon-equip button, GTA Mode button, role switch, and leave
-// button.
+// Top bar: room code / copy-link, theme toggle, deck switcher (host-only),
+// weapon-equip button, GTA Mode button, role switch, and leave button.
 export default function RoomHeader({
-  roomCode, copied, onCopy, isCreator, storyDraft, storyInputRef, onStoryChange, story,
+  roomCode, copied, onCopy, isCreator,
   theme, onToggleTheme, isObserver, deck, onSwitchDeck, equippedWeaponId, onCancelTargeting, onOpenWeaponTray,
   isRevealed, isDriving, onStartDriving,
   onSwitchRole, onLeave,
@@ -65,22 +58,6 @@ export default function RoomHeader({
         {/* Announced separately from the button label so the confirmation is
             read out on click -- a label change alone isn't reliably announced. */}
         <span aria-live="polite" className="sr-only">{copied ? 'Invite link copied to clipboard' : ''}</span>
-
-        {isCreator ? (
-          <div className="relative min-w-[180px] max-w-[420px] flex-1">
-            <input
-              ref={storyInputRef}
-              value={storyDraft}
-              onChange={onStoryChange}
-              maxLength={STORY_MAX_LENGTH}
-              aria-label="Story title or ticket reference"
-              placeholder="Click to add a story title or ticket ref..."
-              className="w-full rounded-md border border-transparent bg-transparent px-2.5 py-1.5 font-sp-mono text-sm text-sp-text outline-none"
-            />
-          </div>
-        ) : (
-          <div className="px-2.5 py-1.5 font-sp-mono text-sm text-sp-text-dim">{story || 'Untitled story'}</div>
-        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-4">

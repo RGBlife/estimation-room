@@ -99,7 +99,6 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && incomingData().code == roomCode
         && incomingData().isRevealed == false
-        && incomingData().story == ''
         && incomingData().creatorId == request.auth.uid
         && incomingData().deck in ['fibonacci', 'tshirt', 'powersOf2', 'rom', 'custom']
         && incomingData().participants.size() == 1
@@ -116,7 +115,6 @@ service cloud.firestore {
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
-          && incomingData().story == existingData().story
           && incomingData().deck == existingData().deck
         )
         ||
@@ -129,7 +127,6 @@ service cloud.firestore {
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
-          && incomingData().story == existingData().story
           && incomingData().deck == existingData().deck
         )
         ||
@@ -141,7 +138,6 @@ service cloud.firestore {
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
-          && incomingData().story == existingData().story
           && incomingData().deck == existingData().deck
         )
         ||
@@ -158,16 +154,7 @@ service cloud.firestore {
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
-          && incomingData().story == existingData().story
           && incomingData().deck == existingData().deck
-        )
-        ||
-        // The creator editing the story text; nothing else changes.
-        (
-          request.auth.uid == existingData().creatorId
-          && incomingData().diff(existingData()).affectedKeys().hasOnly(['story'])
-          && incomingData().story is string
-          && incomingData().story.size() <= 200
         )
         ||
         // Any current participant revealing votes. The "at least one vote cast"
@@ -180,12 +167,11 @@ service cloud.firestore {
           && incomingData().diff(existingData()).affectedKeys().hasOnly(['isRevealed'])
         )
         ||
-        // Any current participant starting the next round: clears votes, unreveals, clears story.
+        // Any current participant starting the next round: clears votes, unreveals.
         (
           request.auth.uid in existingData().participants
           && existingData().isRevealed == true
           && incomingData().isRevealed == false
-          && incomingData().story == ''
           && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
           && incomingData().deck == existingData().deck
         )
@@ -204,7 +190,6 @@ service cloud.firestore {
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
           && incomingData().isRevealed == existingData().isRevealed
-          && incomingData().story == existingData().story
           && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
         )
       );

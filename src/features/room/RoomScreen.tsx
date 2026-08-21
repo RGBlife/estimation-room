@@ -6,7 +6,6 @@ import RoomHeader from './RoomHeader.tsx';
 import WeaponTipBanner from './WeaponTipBanner.tsx';
 import Toast from './Toast.tsx';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts.ts';
-import { useStoryDraft } from './useStoryDraft.ts';
 import { useWeaponTargeting } from './useWeaponTargeting.ts';
 import { useDeckSwitchToast } from './useDeckSwitchToast.ts';
 import { FAKE_PARTICIPANTS } from './useDevFakeParticipants.ts';
@@ -20,7 +19,6 @@ import type { Theme } from '../../shared/lib/theme.ts';
 interface RoomActions {
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
-  setStory: (story: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
   startNextRound: () => Promise<void>;
@@ -94,10 +92,6 @@ export default function RoomScreen({
   const handleStartNextRound = useCallback(() => {
     runAction(actions.startNextRound, "Couldn't start the next round — try again.");
   }, [runAction, actions]);
-
-  const { storyDraft, storyInputRef, handleStoryChange } = useStoryDraft(room.story, (story) => {
-    runAction(() => actions.setStory(story), "The story title didn't save — check your connection.");
-  });
 
   const {
     weaponTrayOpen, equippedWeaponId, weaponTipRendered, weaponTipClosing,
@@ -180,10 +174,6 @@ export default function RoomScreen({
         copied={copied}
         onCopy={handleCopy}
         isCreator={isCreator}
-        storyDraft={storyDraft}
-        storyInputRef={storyInputRef}
-        onStoryChange={handleStoryChange}
-        story={room.story}
         theme={theme}
         onToggleTheme={onToggleTheme}
         isObserver={isObserver}

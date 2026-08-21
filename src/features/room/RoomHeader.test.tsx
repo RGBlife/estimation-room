@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createRef } from 'react';
 import RoomHeader from './RoomHeader.tsx';
 import { DECKS } from './decks.ts';
 
@@ -25,10 +24,6 @@ function renderHeader(overrides: Partial<React.ComponentProps<typeof RoomHeader>
     copied: false,
     onCopy: vi.fn(),
     isCreator: false,
-    storyDraft: '',
-    storyInputRef: createRef<HTMLInputElement>(),
-    onStoryChange: vi.fn(),
-    story: '',
     theme: 'dark',
     onToggleTheme: vi.fn(),
     isObserver: false,
@@ -59,17 +54,6 @@ describe('RoomHeader', () => {
   it('shows "link copied" once copied is true', () => {
     renderHeader({ copied: true });
     expect(screen.getByText('link copied')).toBeInTheDocument();
-  });
-
-  it('shows an editable story input for the creator', () => {
-    renderHeader({ isCreator: true, storyDraft: 'My story' });
-    expect(screen.getByPlaceholderText(/story title/i)).toHaveValue('My story');
-  });
-
-  it('shows read-only story text for non-creators, falling back to "Untitled story"', () => {
-    renderHeader({ isCreator: false, story: '' });
-    expect(screen.getByText('Untitled story')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/story title/i)).not.toBeInTheDocument();
   });
 
   it('hides weapon controls for observers', () => {

@@ -22,7 +22,6 @@ export async function createRoomAction(uid: string, { name, avatar, isObserver, 
     if (existing.exists()) continue;
     const data = {
       code,
-      story: '',
       isRevealed: false,
       creatorId: uid,
       deck,
@@ -65,10 +64,6 @@ export async function castVoteAction(uid: string, roomCode: string, room: RoomDo
   });
 }
 
-export async function setStoryAction(roomCode: string, story: string): Promise<void> {
-  await updateDoc(doc(db, 'rooms', roomCode), { story });
-}
-
 export async function setDeckAction(roomCode: string, room: RoomDoc, deckId: DeckId): Promise<void> {
   const clearedVotes: Record<string, null> = {};
   for (const pid of Object.keys(room.participants)) {
@@ -91,7 +86,6 @@ export async function startNextRoundAction(roomCode: string, room: RoomDoc): Pro
   }
   await updateDoc(doc(db, 'rooms', roomCode), {
     isRevealed: false,
-    story: '',
     ...clearedVotes,
   });
 }

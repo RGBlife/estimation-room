@@ -18,8 +18,8 @@ interface UseKeyboardShortcutsArgs {
 // currently available, and the number row casts a vote by position (1 is
 // the 1st card, 2 the 2nd, ... 0 the 10th) — keyed off deckValues' order
 // rather than its contents, so this keeps working across any deck's card
-// set. Both ignored while typing (story title input, Custom vote input) so
-// they don't hijack normal text entry.
+// set. Both ignored while typing (e.g. the Custom vote input) so they don't
+// hijack normal text entry.
 export function useKeyboardShortcuts({
   isRevealed, allVoted, anyVote, isObserver, deckValues, onReveal, onStartNextRound, onCastVote,
 }: UseKeyboardShortcutsArgs): void {

@@ -55,7 +55,6 @@ const createRoomAction = vi.fn();
 const joinRoomAction = vi.fn();
 const setRoleAction = vi.fn();
 const castVoteAction = vi.fn();
-const setStoryAction = vi.fn();
 const setDeckAction = vi.fn();
 const revealAction = vi.fn();
 const startNextRoundAction = vi.fn();
@@ -67,7 +66,6 @@ vi.mock('./roomStore.actions.ts', () => ({
   joinRoomAction: (...args: unknown[]) => joinRoomAction(...args),
   setRoleAction: (...args: unknown[]) => setRoleAction(...args),
   castVoteAction: (...args: unknown[]) => castVoteAction(...args),
-  setStoryAction: (...args: unknown[]) => setStoryAction(...args),
   setDeckAction: (...args: unknown[]) => setDeckAction(...args),
   revealAction: (...args: unknown[]) => revealAction(...args),
   startNextRoundAction: (...args: unknown[]) => startNextRoundAction(...args),
@@ -124,17 +122,15 @@ describe('useRoomStore', () => {
     expect(useRoomStore.getState().roomCode).toBe('ABCD');
   });
 
-  it('setRole/castVote/setStory/reveal/throwWeapon are no-ops without a joined room', async () => {
+  it('setRole/castVote/reveal/throwWeapon are no-ops without a joined room', async () => {
     useRoomStore.setState({ uid: 'u1', roomCode: null });
     await useRoomStore.getState().setRole(true);
     await useRoomStore.getState().castVote('5');
-    await useRoomStore.getState().setStory('story');
     await useRoomStore.getState().reveal();
     await useRoomStore.getState().throwWeapon('u2', 'heart');
 
     expect(setRoleAction).not.toHaveBeenCalled();
     expect(castVoteAction).not.toHaveBeenCalled();
-    expect(setStoryAction).not.toHaveBeenCalled();
     expect(revealAction).not.toHaveBeenCalled();
     expect(throwWeaponAction).not.toHaveBeenCalled();
   });
