@@ -259,6 +259,15 @@ export default function GtaOverlay({
   remoteDriversRef.current = remoteDrivers;
   const wastedIdsRef = useRef<Set<string>>(wastedIds);
   wastedIdsRef.current = wastedIds;
+  // Same stale-closure guard as the two above, and load-bearing for the same
+  // reason: the rAF loop below is set up once (deps: [stageNode]), so reading
+  // the obstacleIds prop directly would freeze the obstacle list at whatever
+  // it was when the overlay mounted. That mattered the moment the table
+  // gained its split -- the id list changes mid-drive from ['__table__'] to
+  // the two piece ids, and without this the running drive would keep
+  // colliding with the intact table it can no longer see.
+  const obstacleIdsRef = useRef<string[]>(obstacleIds);
+  obstacleIdsRef.current = obstacleIds;
 
   const [, forceRender] = useState(0);
   const [phase, setPhase] = useState<GtaPhase>('idle');
@@ -369,7 +378,7 @@ export default function GtaOverlay({
     if (!stageNode) return [];
     const sb = stageNode.getBoundingClientRect();
     const out: SeatBox[] = [];
-    for (const id of obstacleIds) {
+    for (const id of obstacleIdsRef.current) {
       // The driver isn't in their seat while driving, so it stops being an
       // obstacle -- otherwise the car collides with the chair it came from.
       if (id === driverUid && seatVacated(phaseRef.current)) continue;

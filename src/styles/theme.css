@@ -450,21 +450,38 @@ a:hover {
 }
 
 /* The table splitting into two separate pieces once enough cracks land: each
-   piece shoves outward and tips away from the break with a small overshoot
-   and a downward settle (the "thud" of landing as two chunks, not one shape
-   jolting), ending up gaping apart rather than fully closing the gap again.
-   sp-gta-table-split-left/-right mirror each other. */
+   piece shoves outward and tips away from the break, overshooting before it
+   drops and settles -- the "thud" of landing as two heavy chunks rather than
+   one shape jolting. sp-gta-table-split-left/-right mirror each other.
+
+   These animate the `translate`/`rotate` longhands, NOT the `transform`
+   shorthand, and deliberately end at the identity value. The piece's resting
+   offset (and every pieceMove shove on top of it) lives in its inline
+   `transform`, which composes with these longhands instead of fighting them.
+   An earlier version hardcoded the resting offset in the 100% keyframe, so
+   any hit landing during the animation was visually swallowed -- written to
+   the database, then painted over by the keyframe. Keep the endpoints
+   neutral. */
 @keyframes sp-gta-table-split-left {
-  0%   { transform: translate(0, 0) rotate(0deg); }
-  30%  { transform: translate(-18px, -3px) rotate(-3.5deg); }
-  60%  { transform: translate(-11px, 2px) rotate(-2deg); }
-  100% { transform: translate(-13px, 1px) rotate(-2.6deg); }
+  0%   { translate: 15px 0; rotate: 5.2deg; }
+  35%  { translate: -9px -7px; rotate: -3.4deg; }
+  62%  { translate: 3px 3px; rotate: 1.4deg; }
+  82%  { translate: -1px -1px; rotate: -0.5deg; }
+  100% { translate: 0 0; rotate: 0deg; }
 }
 @keyframes sp-gta-table-split-right {
-  0%   { transform: translate(0, 0) rotate(0deg); }
-  30%  { transform: translate(18px, -3px) rotate(3.5deg); }
-  60%  { transform: translate(11px, 2px) rotate(2deg); }
-  100% { transform: translate(13px, 1px) rotate(2.6deg); }
+  0%   { translate: -15px 0; rotate: -4.1deg; }
+  35%  { translate: 9px -6px; rotate: 2.8deg; }
+  62%  { translate: -3px 3px; rotate: -1.2deg; }
+  82%  { translate: 1px -1px; rotate: 0.4deg; }
+  100% { translate: 0 0; rotate: 0deg; }
+}
+
+/* Chunks knocked loose at the break dropping into the gap and settling. */
+@keyframes sp-gta-rubble-settle {
+  0%   { opacity: 0; transform: scale(0.4) translateY(-6px); }
+  60%  { opacity: 0.9; transform: scale(1.08) translateY(1px); }
+  100% { opacity: 0.9; transform: scale(1) translateY(0); }
 }
 
 /* A vote card getting knocked aside by the car driving over/near it: kicked

@@ -5,6 +5,7 @@ import ObserverRail from './ObserverRail.tsx';
 import ThrowOverlay from './ThrowOverlay.tsx';
 import GtaOverlay from './GtaOverlay.tsx';
 import { seatVacated, debrisPieces, smokePuffs, type GtaPhase } from './gtaLifecycle.ts';
+import { fracturePolygon } from './tableFracture.ts';
 import type { Participant, CardValue } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
@@ -33,10 +34,20 @@ const SQUASH_MS = 700;
 // How many table hits it takes before the table visibly splits in half --
 // enough to feel earned across a chaotic round rather than an instant gimmick.
 const TABLE_SPLIT_THRESHOLD = 5;
+// Ignore repeat table hits landing inside this window. stepCar reports a hit
+// on every frame the car is still overlapping at speed, so without this one
+// ram publishes a whole burst of cracks (an RTDB write each) and can blow
+// through the split threshold in a single collision -- which made the table
+// break on first contact rather than after sustained damage.
+const TABLE_HIT_COOLDOWN_MS = 140;
+// Total cracks kept per round. Past this the table is already thoroughly
+// wrecked and further decals only cost DOM and writes.
+const TABLE_CRACK_CAP = 14;
 // How long the one-shot debris/dust burst at the moment of the split stays
-// mounted -- long enough for the slowest smoke puff (see smokePuffs' own
-// duration in GtaOverlay) to finish fading before it's torn down.
-const SPLIT_BURST_MS = 1300;
+// mounted -- covers the slowest smoke puff (worst case ~1360ms: 1140ms of
+// animation behind a 220ms stagger, see smokePuffs in gtaLifecycle) so it
+// finishes fading rather than being cut mid-fade.
+const SPLIT_BURST_MS = 1450;
 
 const SEAT_GAP = 8;
 const DEFAULT_SIZES = { seatW: 96, avatar: 52, meAvatar: 60, cardW: 34, cardH: 48, cardFont: 16 };
@@ -394,43 +405,59 @@ function TableSplitBurst() {
   );
 }
 
-// Small triangular shards running down a piece's own broken edge, so the
-// fracture has actual jagged material sitting right at the seam rather than
-// reading as a perfectly clean clip-path line. `edge` is which side of this
-// piece is the broken one (the left piece's break is on its right, and vice
-// versa) -- shards point inward from that edge, at roughly the same
-// vertical spacing the clip-path zigzags already use.
-function TableSplinters({ edge }: { edge: 'left' | 'right' }) {
-  const ys = [10, 24, 37, 50, 63, 76, 89];
+// Chunks of table knocked loose at the break, sitting in the gap between the
+// two halves. Rendered in the *wrapper's* space rather than inside a piece --
+// each piece has both overflow-hidden and a clip-path (which clips
+// descendants), so anything drawn near a piece's broken edge gets cut away
+// exactly where it would be most visible. Living in the wrapper also means
+// the rubble stays put while the halves are shoved around, which is what
+// sells it as material that fell out rather than decoration stuck to an edge.
+//
+// Seeded off the synced crack ids via the same pathIndexFor hash the crack
+// decals use, so every client renders identical rubble without syncing a
+// thing -- the trick TableSplitBurst already relies on.
+function TableRubble({ seed }: { seed: string }) {
+  const chunks = [
+    { y: 12, dx: -3, size: 7 }, { y: 22, dx: 5, size: 5 },
+    { y: 31, dx: -6, size: 9 }, { y: 44, dx: 2, size: 6 },
+    { y: 53, dx: -4, size: 8 }, { y: 62, dx: 6, size: 5 },
+    { y: 74, dx: -2, size: 7 }, { y: 88, dx: 4, size: 6 },
+  ];
   return (
-    <>
-      {ys.map((y, i) => {
-        const size = 9 + (i % 3) * 3;
+    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      {chunks.map((c, i) => {
+        const v = pathIndexFor(seed + i);
+        const size = c.size + (v % 3);
         return (
           <div
             key={i}
             className="absolute"
             style={{
-              // Pinned flush to the piece's own broken edge (the parent has
-              // overflow-hidden, so anything placed past 0 would just be
-              // clipped) -- the triangle's apex still reads as jagged
-              // material right at the seam, just contained within the
-              // piece's own box rather than physically overflowing it.
-              [edge]: 0,
-              top: `${y}%`,
+              left: `calc(50% + ${c.dx}px)`,
+              top: `${c.y}%`,
               width: size,
-              height: size * 1.4,
-              marginTop: -size * 0.7,
-              background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 40%)',
-              clipPath: edge === 'right'
-                ? 'polygon(0 0, 100% 30%, 0 100%)'
-                : 'polygon(100% 0, 0 30%, 100% 100%)',
-              opacity: 0.8,
+              height: size * (0.8 + (v % 3) * 0.15),
+              marginLeft: -size / 2,
+              background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 62%)',
+              // Four irregular quads, picked by the same hash -- no two
+              // neighbouring chunks share a silhouette.
+              clipPath: [
+                'polygon(12% 0, 100% 22%, 84% 100%, 0 72%)',
+                'polygon(0 18%, 78% 0, 100% 80%, 22% 100%)',
+                'polygon(30% 0, 100% 40%, 62% 100%, 0 58%)',
+                'polygon(0 0, 88% 14%, 100% 92%, 16% 76%)',
+              ][v],
+              // The `rotate` longhand, not a transform -- the settle keyframe
+              // animates `transform`, and the two would otherwise clobber
+              // each other.
+              rotate: `${(v * 37) % 90 - 45}deg`,
+              opacity: 0.9,
+              animation: `sp-gta-rubble-settle ${300 + (v % 3) * 90}ms ease-out ${40 + i * 22}ms both`,
             }}
           />
         );
       })}
-    </>
+    </div>
   );
 }
 
@@ -549,13 +576,31 @@ export default function SeatTable({
   // stale-closure shape.
   const tablePieceMoveRef = useRef(tablePieceMove);
   tablePieceMoveRef.current = tablePieceMove;
+  // The visual halves, kept separately from the collision proxies registered
+  // under __table__left/__table__right: cracks have to be placed against the
+  // rect the player actually sees, while the car collides with a simpler
+  // unrotated box (see the split render below).
+  const pieceNodesRef = useRef<{ left: HTMLElement | null; right: HTMLElement | null }>({ left: null, right: null });
+  // Same stale-closure reason as tablePieceMoveRef above.
+  const crackCountRef = useRef(tableCracks.length);
+  crackCountRef.current = tableCracks.length;
+  const lastTableHitRef = useRef(0);
 
   const handleTableHit = (tableId: string, stageX: number, stageY: number, impactDx: number, impactDy: number) => {
     const stageNode = stageRef.current;
     if (!stageNode) return;
+    // stepCar reports a hit every frame the car is still overlapping at
+    // speed, so one ram would otherwise publish a burst of near-identical
+    // cracks (an RTDB write each) and could cross the split threshold on its
+    // own. One ram should read as one hit.
+    const nowMs = performance.now();
+    if (nowMs - lastTableHitRef.current < TABLE_HIT_COOLDOWN_MS) return;
+    lastTableHitRef.current = nowMs;
+    const atCrackCap = crackCountRef.current >= TABLE_CRACK_CAP;
     const sb = stageNode.getBoundingClientRect();
 
     if (tableId === '__table__') {
+      if (atCrackCap) return;
       const tableNode = getSeatNode('__table__');
       if (!tableNode) return;
       const tb = tableNode.getBoundingClientRect();
@@ -575,10 +620,12 @@ export default function SeatTable({
     }
 
     // A piece hit after the split: place the crack in that piece's own live
-    // rect, and shove the piece further away along the impact direction.
+    // rect, and shove the piece further away along the impact direction. The
+    // crack goes on the *visual* half, not the collision proxy -- they're
+    // deliberately different boxes.
     const side: 'left' | 'right' = tableId === '__table__left' ? 'left' : 'right';
-    const pieceNode = getSeatNode(tableId);
-    if (pieceNode) {
+    const pieceNode = pieceNodesRef.current[side];
+    if (pieceNode && !atCrackCap) {
       const pb = pieceNode.getBoundingClientRect();
       if (pb.width > 0 && pb.height > 0) {
         const margin = 15;
@@ -729,7 +776,12 @@ export default function SeatTable({
           <div className="flex items-center gap-4">
             {leftEnd && <Seat seat={leftEnd} {...seatProps} />}
             <div
-              ref={node => registerSeatNode('__table__', node)}
+              // Once split, this wrapper stops being a collidable thing --
+              // its two pieces are. Registering it anyway would leave a
+              // full-width phantom box that wins every collision, since
+              // stepCar takes the first overlapping obstacle and the table
+              // sorts ahead of the seats.
+              ref={node => registerSeatNode('__table__', tableSplit ? null : node)}
               className={`relative flex flex-1 items-center justify-center rounded-[28px] transition-[border-color,box-shadow] duration-150 ${
                 tableSplit ? '' : `overflow-hidden bg-sp-table-center ${!isRevealed && allVoted ? 'border-2 border-sp-accent shadow-[0_0_0_3px_var(--sp-accent-glow)]' : 'border border-sp-border'}`
               }`}
@@ -737,76 +789,114 @@ export default function SeatTable({
             >
               {/* GTA Mode: once enough cracks land, the table splits into two
                   separate pieces -- each keeps its own rounded outer corners
-                  and border, with the inner (broken) edge carved into a
-                  jagged zigzag via clip-path so the seam reads as a fracture.
+                  and border, with the inner (broken) edge carved by a shared
+                  irregular fracture line (see tableFracture.ts) so the two
+                  halves interlock like something that actually snapped.
                   Each piece is now also its own obstacle in obstacleIds
                   above: getting hit again shoves it further via pieceMove
                   (a small discrete offset + rotation per hit, capped), so it
                   keeps skidding away and keeps blocking the car from
                   wherever it ends up -- a real, independently-hittable
                   entity, not just a one-time settle animation.
-                  A dark seam strip sits behind both pieces so the gap between
-                  them reads as depth/shadow rather than just see-through
-                  page background, and each piece's own fill is nudged darker
-                  than the intact table's (via color-mix) so "broken" carries
-                  a material change, not just a shape change. */}
+                  Depth at the break comes from the pieces themselves -- an
+                  inset shadow along each broken edge, and a fill nudged
+                  darker than the intact table's (via color-mix) so "broken"
+                  carries a material change, not just a shape change. There's
+                  deliberately nothing painted in the gap: you see straight
+                  through to the page, which is what a real hole looks like.
+                  Loose chunks knocked out of the break sit in that gap (see
+                  TableRubble). */}
               {tableSplit ? (
                 <>
-                  <div
-                    aria-hidden="true"
-                    className="absolute top-2 bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/35"
-                    style={{ width: 20 }}
-                  />
                   {splitBurst && <TableSplitBurst />}
                   {/* Each piece owns its cracks as children in its own local
                       coordinate space (0..1 across just that piece), so a
                       crack lands on solid material and travels with the
-                      piece as pieceMove shoves it around. Small splinter
-                      shards line the broken edge itself so the fracture has
-                      actual jagged material at the seam, not just a clean
-                      clip-path line. */}
+                      piece as pieceMove shoves it around. */}
                   <div
-                    ref={node => registerSeatNode('__table__left', node)}
+                    ref={node => { pieceNodesRef.current.left = node; }}
                     aria-hidden="true"
-                    className="absolute top-0 bottom-0 left-0 overflow-hidden border border-sp-border shadow-[4px_0_10px_rgba(0,0,0,0.18)]"
+                    className="absolute top-0 bottom-0 left-0 overflow-hidden border border-sp-border"
                     style={{
-                      width: 'calc(50% + 14px)',
+                      // Only a hair past halfway: the pieces must not overlap
+                      // much, or their collision rects (plain bounding boxes,
+                      // clip-path invisible to them) would meet in mid-gap and
+                      // stop the car in what looks like open space.
+                      width: 'calc(50% + 2px)',
                       borderTopLeftRadius: 28,
                       borderBottomLeftRadius: 28,
                       background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 12%)',
-                      clipPath:
-                        'polygon(0 0, 100% 0, 78% 12%, 92% 24%, 74% 36%, 90% 50%, 72% 62%, 88% 76%, 76% 88%, 100% 100%, 0 100%)',
-                      transform: `translate(${-13 + tablePieceMove.left.x}px, ${1 + tablePieceMove.left.y}px) rotate(${-2.6 + tablePieceMove.left.rot}deg)`,
+                      boxShadow: 'inset -14px 0 16px -10px rgba(0,0,0,0.55), 5px 2px 12px rgba(0,0,0,0.26)',
+                      clipPath: fracturePolygon('left'),
+                      // The resting offset (plus every pieceMove shove) lives
+                      // here and only here. The entry keyframes animate the
+                      // translate/rotate longhands instead, which compose
+                      // with this rather than replacing it -- so a hit
+                      // landing mid-animation still moves the piece, which it
+                      // did not when the keyframe hardcoded its own endpoint.
+                      transform: `translate(${-15 + tablePieceMove.left.x}px, ${2 + tablePieceMove.left.y}px) rotate(${-5.2 + tablePieceMove.left.rot}deg)`,
                       transition: 'transform 220ms cubic-bezier(.2,.7,.3,1)',
-                      animation: 'sp-gta-table-split-left 420ms cubic-bezier(.3,.6,.35,1)',
+                      animation: 'sp-gta-table-split-left 520ms cubic-bezier(.34,1.24,.5,1) both',
                     }}
                   >
-                    <TableSplinters edge="right" />
                     {tableCracks.filter(c => c.side === 'left').map(c => (
                       <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
                   <div
-                    ref={node => registerSeatNode('__table__right', node)}
+                    ref={node => { pieceNodesRef.current.right = node; }}
                     aria-hidden="true"
-                    className="absolute top-0 right-0 bottom-0 overflow-hidden border border-sp-border shadow-[-4px_0_10px_rgba(0,0,0,0.18)]"
+                    className="absolute top-0 right-0 bottom-0 overflow-hidden border border-sp-border"
                     style={{
-                      width: 'calc(50% + 14px)',
+                      width: 'calc(50% + 2px)',
                       borderTopRightRadius: 28,
                       borderBottomRightRadius: 28,
                       background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 12%)',
-                      clipPath:
-                        'polygon(22% 12%, 0 0, 100% 0, 100% 100%, 0 100%, 24% 88%, 12% 76%, 28% 62%, 10% 50%, 26% 36%, 8% 24%)',
-                      transform: `translate(${13 + tablePieceMove.right.x}px, ${1 + tablePieceMove.right.y}px) rotate(${2.6 + tablePieceMove.right.rot}deg)`,
+                      boxShadow: 'inset 14px 0 16px -10px rgba(0,0,0,0.55), -5px 2px 12px rgba(0,0,0,0.26)',
+                      clipPath: fracturePolygon('right'),
+                      transform: `translate(${15 + tablePieceMove.right.x}px, ${3 + tablePieceMove.right.y}px) rotate(${4.1 + tablePieceMove.right.rot}deg)`,
                       transition: 'transform 220ms cubic-bezier(.2,.7,.3,1)',
-                      animation: 'sp-gta-table-split-right 420ms cubic-bezier(.3,.6,.35,1)',
+                      animation: 'sp-gta-table-split-right 520ms cubic-bezier(.34,1.24,.5,1) both',
                     }}
                   >
-                    <TableSplinters edge="left" />
                     {tableCracks.filter(c => c.side === 'right').map(c => (
                       <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
+                  <TableRubble seed={tableCracks[0]?.id ?? 'r'} />
+                  {/* Collision proxies. The pieces themselves are rotated and
+                      clip-path'd, and getBoundingClientRect sees neither --
+                      it returns the rotated element's inflated bounding box,
+                      including the void the fracture carves out. These
+                      unrotated boxes, inset to sit under the solid part of
+                      each half, are what the car actually collides with, so
+                      the physics matches what's on screen.
+
+                      They carry the same translate as their piece (rotation
+                      deliberately omitted -- a rotated box only inflates the
+                      rect back again), so a shoved half stays collidable
+                      where it now sits rather than leaving its hitbox behind
+                      at the original position. No transition either: physics
+                      should track the piece's destination immediately, not
+                      lag through the 220ms visual ease. */}
+                  <div
+                    ref={node => registerSeatNode('__table__left', node)}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-0 bottom-0 left-0"
+                    style={{
+                      width: 'calc(50% - 16px)',
+                      transform: `translate(${-15 + tablePieceMove.left.x}px, ${2 + tablePieceMove.left.y}px)`,
+                    }}
+                  />
+                  <div
+                    ref={node => registerSeatNode('__table__right', node)}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-0 right-0 bottom-0"
+                    style={{
+                      width: 'calc(50% - 16px)',
+                      transform: `translate(${15 + tablePieceMove.right.x}px, ${3 + tablePieceMove.right.y}px)`,
+                    }}
+                  />
                 </>
               ) : (
                 // GTA Mode: cracks left by the car ramming the table, pinned
