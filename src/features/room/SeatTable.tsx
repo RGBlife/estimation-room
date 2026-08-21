@@ -4,7 +4,7 @@ import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import ObserverRail from './ObserverRail.tsx';
 import ThrowOverlay from './ThrowOverlay.tsx';
 import GtaOverlay from './GtaOverlay.tsx';
-import { seatVacated, type GtaPhase } from './gtaLifecycle.ts';
+import { seatVacated, debrisPieces, smokePuffs, type GtaPhase } from './gtaLifecycle.ts';
 import type { Participant, CardValue } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
@@ -33,6 +33,10 @@ const SQUASH_MS = 700;
 // How many table hits it takes before the table visibly splits in half --
 // enough to feel earned across a chaotic round rather than an instant gimmick.
 const TABLE_SPLIT_THRESHOLD = 5;
+// How long the one-shot debris/dust burst at the moment of the split stays
+// mounted -- long enough for the slowest smoke puff (see smokePuffs' own
+// duration in GtaOverlay) to finish fading before it's torn down.
+const SPLIT_BURST_MS = 1300;
 
 const SEAT_GAP = 8;
 const DEFAULT_SIZES = { seatW: 96, avatar: 52, meAvatar: 60, cardW: 34, cardH: 48, cardFont: 16 };
@@ -289,35 +293,144 @@ function SeatRow({ seats, reverse, ...seatProps }: SeatRowProps) {
   );
 }
 
+// A handful of distinct fracture shapes -- some tight and spidery, some a
+// single long fault line -- so a table with several cracks reads as
+// genuinely broken rather than the same sticker stamped down repeatedly at
+// different angles. Picked deterministically per crack (see pathIndexFor)
+// so every viewer renders the identical decal for the same synced crack.
+const CRACK_PATHS = [
+  'M17 2 L15 12 L22 14 L13 17 L19 22 L11 21 L14 32 L9 20 L2 24 L8 16 L2 12 L10 13 Z',
+  'M3 4 L14 13 L10 9 L16 17 L12 15 L21 24 L17 20 L30 31 M14 13 L20 11 M16 17 L23 18 M21 24 L26 21',
+  'M5 30 L11 21 L8 22 L15 12 L12 14 L20 5 L17 9 L29 3 M11 21 L18 23 M15 12 L21 15',
+  'M2 17 L10 15 L9 10 L16 13 L15 6 L22 11 L23 3 L28 9 M10 15 L12 22 M16 13 L18 20',
+];
+
+function pathIndexFor(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return Math.abs(h) % CRACK_PATHS.length;
+}
+
 // A single crack decal, positioned by fraction (0..1) against whatever
 // container it's rendered in -- the table itself when unsplit, or one half
-// of it (in that half's own local fraction space) once split.
-function TableCrack({ fx, fy, rot }: { fx: number; fy: number; rot: number }) {
+// of it (in that half's own local fraction space) once split. `id` seeds
+// which fracture shape renders and how large it is, so the same crack
+// looks identical across every client without syncing anything beyond
+// what TableCrackEvent already carries.
+function TableCrack({ id, fx, fy, rot }: { id: string; fx: number; fy: number; rot: number }) {
+  const path = CRACK_PATHS[pathIndexFor(id)];
+  // Slightly larger cracks read as later, harder hits -- gives the table's
+  // damage a sense of progression rather than every hit leaving an
+  // identically-sized mark.
+  const size = 30 + (pathIndexFor(id + 'x') % 3) * 6;
   return (
     <svg
       aria-hidden="true"
       className="pointer-events-none absolute"
-      width="34"
-      height="34"
+      width={size}
+      height={size}
       viewBox="0 0 34 34"
       style={{
         left: `${fx * 100}%`,
         top: `${fy * 100}%`,
-        marginLeft: -17,
-        marginTop: -17,
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
         '--cr': `${rot}deg`,
         animation: 'sp-gta-crack-appear 260ms cubic-bezier(.3,1.4,.4,1) both',
       } as StyleVars}
     >
-      <path
-        d="M17 2 L15 12 L22 14 L13 17 L19 22 L11 21 L14 32 L9 20 L2 24 L8 16 L2 12 L10 13 Z"
-        fill="none"
-        stroke="var(--sp-border-strong)"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-        opacity="0.75"
-      />
+      {/* Faint wide underline first, then the crisp line on top -- reads as
+          a groove with depth instead of a single flat stroke. */}
+      <path d={path} fill="none" stroke="#000" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" opacity="0.18" />
+      <path d={path} fill="none" stroke="var(--sp-border-strong)" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
     </svg>
+  );
+}
+
+// Chips of table flying free the instant it actually breaks in two, plus a
+// low dust puff -- reuses the exact same debris/smoke building blocks (and
+// keyframes) as the car's own explosion in GtaOverlay, scaled down, so the
+// table's one dramatic moment doesn't look bare next to it. Centered on the
+// table (fractional 0..1 against the table's own box, same convention as
+// TableCrack) since the split can be triggered by a hit on either half.
+function TableSplitBurst() {
+  const debris = debrisPieces(7);
+  const smoke = smokePuffs(4);
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
+      {debris.map((d, i) => {
+        const big = i % 3 === 0;
+        const size = big ? 8 : 5;
+        return (
+          <div
+            key={i}
+            className="absolute rounded-[1px]"
+            style={{
+              left: '50%', top: '50%', width: size, height: size,
+              marginLeft: -size / 2, marginTop: -size / 2,
+              background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 55%)',
+              '--fx': `${d.fx * 0.6}px`, '--fy': `${d.fy * 0.6}px`, '--fr': `${d.fr}deg`,
+              animation: `sp-gta-debris ${560 + (big ? 160 : 0)}ms ease-out ${d.delay}ms both`,
+            } as StyleVars}
+          />
+        );
+      })}
+      {smoke.map((s, i) => {
+        const size = 16;
+        return (
+          <div
+            key={`smoke-${i}`}
+            className="absolute rounded-full bg-[#847e73]"
+            style={{
+              left: '50%', top: '50%', width: size, height: size,
+              marginLeft: -size / 2, marginTop: -size / 2,
+              '--sx': `${s.sx * 0.7}px`, '--sy': `${s.sy * 0.7}px`, '--sr': s.sr,
+              animation: `sp-gta-smoke ${900 + (i % 3) * 120}ms ease-out ${s.delay}ms both`,
+            } as StyleVars}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// Small triangular shards running down a piece's own broken edge, so the
+// fracture has actual jagged material sitting right at the seam rather than
+// reading as a perfectly clean clip-path line. `edge` is which side of this
+// piece is the broken one (the left piece's break is on its right, and vice
+// versa) -- shards point inward from that edge, at roughly the same
+// vertical spacing the clip-path zigzags already use.
+function TableSplinters({ edge }: { edge: 'left' | 'right' }) {
+  const ys = [10, 24, 37, 50, 63, 76, 89];
+  return (
+    <>
+      {ys.map((y, i) => {
+        const size = 9 + (i % 3) * 3;
+        return (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              // Pinned flush to the piece's own broken edge (the parent has
+              // overflow-hidden, so anything placed past 0 would just be
+              // clipped) -- the triangle's apex still reads as jagged
+              // material right at the seam, just contained within the
+              // piece's own box rather than physically overflowing it.
+              [edge]: 0,
+              top: `${y}%`,
+              width: size,
+              height: size * 1.4,
+              marginTop: -size * 0.7,
+              background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 40%)',
+              clipPath: edge === 'right'
+                ? 'polygon(0 0, 100% 30%, 0 100%)'
+                : 'polygon(100% 0, 0 30%, 100% 100%)',
+              opacity: 0.8,
+            }}
+          />
+        );
+      })}
+    </>
   );
 }
 
@@ -392,6 +505,23 @@ export default function SeatTable({
   // already retriggers them independently via the `drivers[x].hit` watcher
   // below, the same as it always has.
   const tableSplit = tableCracks.length >= TABLE_SPLIT_THRESHOLD;
+  // One-shot debris/dust burst the instant the table crosses into split --
+  // every viewer derives tableSplit independently from the same synced
+  // crack count, so this fires identically everywhere with no extra sync,
+  // the same trick debrisPieces/smokePuffs already rely on for the car's
+  // own explosion. Torn down after SPLIT_BURST_MS so it doesn't linger as
+  // dead DOM for the rest of the round.
+  const [splitBurst, setSplitBurst] = useState(false);
+  const wasSplitRef = useRef(tableSplit);
+  useEffect(() => {
+    if (tableSplit && !wasSplitRef.current) {
+      setSplitBurst(true);
+      const t = setTimeout(() => setSplitBurst(false), SPLIT_BURST_MS);
+      wasSplitRef.current = true;
+      return () => clearTimeout(t);
+    }
+    wasSplitRef.current = tableSplit;
+  }, [tableSplit]);
   // Our own vacated state, reported directly by GtaOverlay off local phase
   // (not the RTDB round-trip) -- otherwise the seat's own avatar stays
   // visible, duplicated alongside the car, for however long that write
@@ -614,21 +744,36 @@ export default function SeatTable({
                   (a small discrete offset + rotation per hit, capped), so it
                   keeps skidding away and keeps blocking the car from
                   wherever it ends up -- a real, independently-hittable
-                  entity, not just a one-time settle animation. */}
+                  entity, not just a one-time settle animation.
+                  A dark seam strip sits behind both pieces so the gap between
+                  them reads as depth/shadow rather than just see-through
+                  page background, and each piece's own fill is nudged darker
+                  than the intact table's (via color-mix) so "broken" carries
+                  a material change, not just a shape change. */}
               {tableSplit ? (
                 <>
+                  <div
+                    aria-hidden="true"
+                    className="absolute top-2 bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/35"
+                    style={{ width: 20 }}
+                  />
+                  {splitBurst && <TableSplitBurst />}
                   {/* Each piece owns its cracks as children in its own local
                       coordinate space (0..1 across just that piece), so a
                       crack lands on solid material and travels with the
-                      piece as pieceMove shoves it around. */}
+                      piece as pieceMove shoves it around. Small splinter
+                      shards line the broken edge itself so the fracture has
+                      actual jagged material at the seam, not just a clean
+                      clip-path line. */}
                   <div
                     ref={node => registerSeatNode('__table__left', node)}
                     aria-hidden="true"
-                    className="absolute top-0 bottom-0 left-0 overflow-hidden border border-sp-border bg-sp-table-center shadow-[4px_0_10px_rgba(0,0,0,0.18)]"
+                    className="absolute top-0 bottom-0 left-0 overflow-hidden border border-sp-border shadow-[4px_0_10px_rgba(0,0,0,0.18)]"
                     style={{
                       width: 'calc(50% + 14px)',
                       borderTopLeftRadius: 28,
                       borderBottomLeftRadius: 28,
+                      background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 12%)',
                       clipPath:
                         'polygon(0 0, 100% 0, 78% 12%, 92% 24%, 74% 36%, 90% 50%, 72% 62%, 88% 76%, 76% 88%, 100% 100%, 0 100%)',
                       transform: `translate(${-13 + tablePieceMove.left.x}px, ${1 + tablePieceMove.left.y}px) rotate(${-2.6 + tablePieceMove.left.rot}deg)`,
@@ -636,18 +781,20 @@ export default function SeatTable({
                       animation: 'sp-gta-table-split-left 420ms cubic-bezier(.3,.6,.35,1)',
                     }}
                   >
+                    <TableSplinters edge="right" />
                     {tableCracks.filter(c => c.side === 'left').map(c => (
-                      <TableCrack key={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
+                      <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
                   <div
                     ref={node => registerSeatNode('__table__right', node)}
                     aria-hidden="true"
-                    className="absolute top-0 right-0 bottom-0 overflow-hidden border border-sp-border bg-sp-table-center shadow-[-4px_0_10px_rgba(0,0,0,0.18)]"
+                    className="absolute top-0 right-0 bottom-0 overflow-hidden border border-sp-border shadow-[-4px_0_10px_rgba(0,0,0,0.18)]"
                     style={{
                       width: 'calc(50% + 14px)',
                       borderTopRightRadius: 28,
                       borderBottomRightRadius: 28,
+                      background: 'color-mix(in oklch, var(--sp-table-center), var(--sp-border-strong) 12%)',
                       clipPath:
                         'polygon(22% 12%, 0 0, 100% 0, 100% 100%, 0 100%, 24% 88%, 12% 76%, 28% 62%, 10% 50%, 26% 36%, 8% 24%)',
                       transform: `translate(${13 + tablePieceMove.right.x}px, ${1 + tablePieceMove.right.y}px) rotate(${2.6 + tablePieceMove.right.rot}deg)`,
@@ -655,8 +802,9 @@ export default function SeatTable({
                       animation: 'sp-gta-table-split-right 420ms cubic-bezier(.3,.6,.35,1)',
                     }}
                   >
+                    <TableSplinters edge="left" />
                     {tableCracks.filter(c => c.side === 'right').map(c => (
-                      <TableCrack key={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
+                      <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
                 </>
@@ -664,7 +812,7 @@ export default function SeatTable({
                 // GTA Mode: cracks left by the car ramming the table, pinned
                 // as fractions of the table's own box so they stay put as it
                 // resizes. Purely decorative, so it's excluded from the a11y tree.
-                tableCracks.filter(c => c.side === 'table').map(c => <TableCrack key={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />)
+                tableCracks.filter(c => c.side === 'table').map(c => <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />)
               )}
 
               {/* The visual vote counter and the reveal are otherwise silent to
