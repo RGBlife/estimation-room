@@ -1,6 +1,6 @@
 import {
   ref as rtdbRef, onValue, onDisconnect, set as rtdbSet, remove as rtdbRemove,
-  push, query, orderByChild, startAt, onChildAdded, type Unsubscribe,
+  push, type Unsubscribe,
 } from 'firebase/database';
 import { rtdb } from '../../shared/lib/firebase.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
@@ -87,7 +87,6 @@ export function subscribeDrivers(code: string, set: (fn: (state: { drivers: Reco
 // uses the shape it does.
 let cracksUnsubscribe: Unsubscribe | null = null;
 let wastedUnsubscribe: Unsubscribe | null = null;
-let cracksSubscribeStartAt = 0;
 
 // Writes one crack. Fire-and-forget like throwWeaponAction -- a dropped
 // write just means one client never sees that particular crack, which is
@@ -97,26 +96,39 @@ export function publishTableCrack(code: string, uid: string, crack: Omit<TableCr
   rtdbSet(crackRef, { ...crack, fromUid: uid, ts: Date.now() }).catch(() => {});
 }
 
-// Subscribes to new cracks for the room. Uses startAt(now) for the same
-// reason subscribeThrows in roomStore.ts does -- a client that joins
-// mid-round would otherwise replay every crack from the start of the round
-// as if they'd just landed, animating decals that are actually old news.
-// (A freshly-joined client also can't see the round's crack *history*, but
-// cracks/wasted reset on every round anyway, so mid-round joiners missing
-// the replay is a smaller gap than the sandbox-only staleness this avoids.)
+// Subscribes to the room's cracks. Unlike throws (see subscribeThrows in
+// roomStore.ts), this deliberately does NOT filter by subscribe time.
+//
+// A throw is transient -- missing one costs a single animation. A crack is
+// persistent shared state: it decides how damaged the table looks and, at
+// TABLE_SPLIT_THRESHOLD, whether the table is split at all. Filtering with
+// startAt(Date.now()) compared each client's own wall clock against ts
+// values stamped by whichever *other* client's clock published them, so even
+// modest skew between two machines silently dropped the other player's
+// cracks -- the table visibly cracked for the driver and stayed pristine for
+// everyone else, and the two sides could disagree about being split.
+//
+// onValue over the whole cracks node instead: every client converges on the
+// same list regardless of clock or join time, and a mid-round joiner sees
+// the damage that's actually there. The re-render cost is bounded by the
+// crack cap in SeatTable, and the decal's appear animation is keyed on the
+// crack id, so already-rendered cracks don't replay when a new one lands.
 export function subscribeTableCracks(code: string, set: (fn: (state: { tableCracks: TableCrackEvent[] }) => Partial<{ tableCracks: TableCrackEvent[] }>) => void): void {
   if (cracksUnsubscribe) { cracksUnsubscribe(); cracksUnsubscribe = null; }
   set(() => ({ tableCracks: [] }));
-  cracksSubscribeStartAt = Date.now();
-  const cracksQuery = query(
-    rtdbRef(rtdb, `gtaTable/${code}/cracks`),
-    orderByChild('ts'),
-    startAt(cracksSubscribeStartAt),
-  );
-  cracksUnsubscribe = onChildAdded(cracksQuery, snap => {
-    const val = snap.val();
-    if (!val || val.ts < cracksSubscribeStartAt) return;
-    set(state => ({ tableCracks: [...state.tableCracks, { id: snap.key!, ...val }] }));
+  const cracksRef = rtdbRef(rtdb, `gtaTable/${code}/cracks`);
+  cracksUnsubscribe = onValue(cracksRef, snap => {
+    const val = snap.val() as Record<string, Omit<TableCrackEvent, 'id'>> | null;
+    if (!val) {
+      // The node is gone -- a new round cleared it. Clearing here is what
+      // makes the reset reach every client, not just whoever triggered it.
+      set(() => ({ tableCracks: [] }));
+      return;
+    }
+    const cracks = Object.entries(val)
+      .map(([id, c]) => ({ id, ...c }))
+      .sort((a, b) => a.ts - b.ts);
+    set(() => ({ tableCracks: cracks }));
   });
 }
 

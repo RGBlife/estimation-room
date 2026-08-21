@@ -17,6 +17,24 @@ import { CAR_W, CAR_H } from './gtaPhysics.ts';
 // Cockpit well: the dark recess the rider sits down into.
 const WELL = { x: 24, y: 8, w: 40, h: 40, r: 12 };
 
+// Tyres are near-black, which on the dark theme is within a hair of the page
+// background (--sp-bg is oklch(0.17), the tyre ~oklch(0.18)) -- the wheels
+// simply disappeared. A lighter rim around each one keeps them legible on
+// both themes without theming the fill itself: the kart drives over the
+// table, the page and the seats, so it can't rely on any one backdrop.
+const TYRE_FILL = '#16161a';
+const TYRE_RIM = '#6f6f78';
+const TYRE_STROKE = 1.5;
+// Inset by half the stroke width: the tyres sit flush against the viewBox's
+// top and bottom edges, so a centred stroke would be clipped in half there
+// and the rim would look thinner on the outside than the inside. Insetting
+// keeps the outer silhouette exactly where it was.
+const TYRE_INSET = TYRE_STROKE / 2;
+const TYRES = [
+  { x: 17, y: 0 }, { x: 17, y: 49 },
+  { x: 62, y: 0 }, { x: 62, y: 49 },
+];
+
 interface CarShapeProps {
   color?: string;
   // Rendered pixel size -- defaults to the desktop reference size (CAR_W x
@@ -31,10 +49,19 @@ interface CarShapeProps {
 export function CarBody({ color = '#e5484d', w = CAR_W, h = CAR_H }: CarShapeProps) {
   return (
     <svg width={w} height={h} viewBox="0 0 96 58" aria-hidden="true">
-      <rect x="17" y="0" width="20" height="9" rx="3.5" fill="#16161a" />
-      <rect x="17" y="49" width="20" height="9" rx="3.5" fill="#16161a" />
-      <rect x="62" y="0" width="20" height="9" rx="3.5" fill="#16161a" />
-      <rect x="62" y="49" width="20" height="9" rx="3.5" fill="#16161a" />
+      {TYRES.map(t => (
+        <rect
+          key={`${t.x}-${t.y}`}
+          x={t.x + TYRE_INSET}
+          y={t.y + TYRE_INSET}
+          width={20 - TYRE_STROKE}
+          height={9 - TYRE_STROKE}
+          rx="3"
+          fill={TYRE_FILL}
+          stroke={TYRE_RIM}
+          strokeWidth={TYRE_STROKE}
+        />
+      ))}
 
       {/* The chassis ring -- a plain rounded-rect body, same footprint as
           the enclosed car had, but with no roof panel over the rider. */}
