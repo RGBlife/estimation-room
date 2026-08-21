@@ -132,7 +132,72 @@ It reuses the existing `VITE_FIREBASE_PROJECT_ID` secret to know which Firebase 
 
 If this secret isn't set, the workflow fails (rather than silently no-opping) so a stale rules file doesn't go unnoticed — publish manually via the console as a fallback, same as before this workflow existed.
 
-## Future improvements
+## Roadmap
+
+Bigger pieces of work, roughly in the order they'd be worth doing. Nothing
+here is committed to — it's a list to pick from.
+
+### Tracker integration (Azure DevOps / Jira)
+
+Pull the sprint backlog in, estimate against it, push the points back. This is
+the single reason teams pay for the commercial tools, and it's the most
+valuable thing this app could grow.
+
+The blocker is OAuth: both providers need a client secret exchanged for a
+token, which can't live in a client bundle, so this needs a small backend —
+awkward next to the current "static site on GitHub Pages, no server" setup.
+Options, cheapest first:
+
+- **A single serverless function** (Cloudflare Workers, Netlify, Vercel) doing
+  only the OAuth token exchange and proxying tracker API calls. Keeps hosting
+  on Pages; adds one deploy target and one secret to manage.
+- **Firebase Cloud Functions**, which keeps everything in one project and one
+  auth model — but requires the Blaze plan, the same billing threshold the
+  known limitations below are written to avoid.
+- **A personal access token pasted by the user**, stored locally. No backend at
+  all, and genuinely useful for a single team, but it pushes credential
+  handling onto the user and won't scale past "people who trust this app".
+
+Worth scoping read-only import first: it's most of the value, needs no
+write scopes, and defers the trickiest permissions conversation.
+
+### Rounds and history
+
+- **Estimate more than one item per session.** The room currently holds a
+  single round at a time — reveal, reset, repeat, with nothing kept. A list of
+  items with their agreed estimates would make the tool usable for a whole
+  refinement session rather than one ticket, and is a prerequisite for the
+  tracker write-back above (you need somewhere to hold "these five items got
+  these five numbers" before pushing).
+- **Session summary/export.** Once rounds persist, a copyable summary at the
+  end (or CSV) covers the teams who won't wire up a tracker integration.
+
+### GTA Mode
+
+Undocumented on purpose — it's an easter egg (reveal votes, then the button
+appears on non-touch devices). Known gaps:
+
+- **Unplayable on touch devices.** Deliberately hidden behind
+  `(pointer: coarse)` because driving needs a keyboard. On-screen controls
+  would open it up to anyone joining from a phone.
+- **A driver can be marked wasted mid-boarding.** Whether a remote player
+  counts as "in their seat" is read from their synced phase, so someone in
+  `arriving`/`boarding` can still be run over in the instant before they're
+  properly in the car.
+- **The offline sandbox (`?visual-test=gta`) doesn't cover the split table.**
+  It registers one intact table and has no split logic, so the fracture,
+  rubble and piece collisions can only be tuned in a real room — the slowest
+  possible feedback loop for the fiddliest visual work in the app.
+- **Shove rotation ignores purely vertical hits.** Direction comes from the
+  sign of the horizontal impact, so a dead-on hit from above or below always
+  twists the same way instead of being neutral.
+- **Dead CSS.** `sp-gta-board` in `theme.css` is unreferenced, superseded by
+  `sp-gta-car-rock`.
+
+## Known limitations
+
+Accepted trade-offs rather than oversights — each is here because fixing it
+properly costs more than the problem currently justifies.
 
 - **Rate limiting on room creation.** Currently unbounded — an anonymous client can create rooms as fast as it wants. Firestore security rules can't track request rate across documents/time on their own; the practical options are a per-uid Firestore counter doc checked in rules, and/or Firebase App Check to block non-browser scripted abuse.
 - **Presence cleanup trust model.** Disconnect cleanup (tab close/crash) is detected via Realtime Database and enforced with a Firestore rule that lets any current participant remove one other participant's key once presence confirms they're gone. This is a client-trust model — a malicious client could in theory remove a still-connected participant — accepted as low-severity (a griefing annoyance, not a data exposure) to avoid needing Cloud Functions/Blaze billing. Mitigations in place: an 8s absence grace period, clients whose own presence entry is missing never remove anyone, and an evicted client detects its removal and exits to the join screen cleanly.
