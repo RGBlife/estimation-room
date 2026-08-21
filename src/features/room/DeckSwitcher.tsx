@@ -37,7 +37,10 @@ export default function DeckSwitcher({ currentDeckId, onSwitch }: DeckSwitcherPr
         // box. The header row reflowing slightly when the host deliberately
         // switches decks (not on every render) is an acceptable trade-off
         // for correct spacing at every label length.
-        className="flex cursor-pointer items-center gap-1.5 rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-2.5 py-2 font-sp-font text-xs font-bold whitespace-nowrap text-sp-accent-text"
+        // min-h rather than more padding, so the desktop pill keeps its exact
+        // proportions while a phone still gets a 44px target. The 560px edge
+        // matches RoomHeader's own narrow breakpoint.
+        className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-2.5 py-2 font-sp-font text-xs font-bold whitespace-nowrap text-sp-accent-text min-[560px]:min-h-0"
       >
         <span className="uppercase tracking-[0.04em] text-sp-accent-text">Deck</span>
         <span className="text-sp-text">{DECKS[currentDeckId].name}</span>

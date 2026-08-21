@@ -325,6 +325,67 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
   );
 }
 
+// Phone layout: participants as a two-column list instead of ringed around a
+// table. The around-the-table arrangement is the whole point of the desktop
+// view, but at 390px the table is a ~104px empty slab and the seats wrap into
+// fragmented rows either side of it -- the metaphor stops paying for the space
+// it costs. A row per person reads immediately, fits far more people before
+// scrolling, and gives each vote somewhere unambiguous to sit.
+function ParticipantGrid({ seats, canTarget, onThrowAt, registerSeatNode }: {
+  seats: SeatData[];
+  canTarget: boolean;
+  onThrowAt: (id: string, e?: React.MouseEvent) => void;
+  registerSeatNode: (id: string, node: HTMLElement | null) => void;
+}) {
+  return (
+    <div className="grid w-full grid-cols-2 gap-1.5">
+      {seats.map(seat => {
+        const canClick = canTarget && !seat.isMe;
+        return (
+          <div
+            key={seat.id}
+            className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-opacity duration-150 ${
+              seat.isMe ? 'border-sp-accent-border bg-sp-accent-panel' : 'border-sp-border bg-sp-card-bg'
+            }`}
+            style={{ opacity: seat.dimmed ? 0.35 : 1 }}
+          >
+            <img
+              ref={node => registerSeatNode(seat.id, node)}
+              src={seat.avatarUrl}
+              alt=""
+              role={canClick ? 'button' : undefined}
+              tabIndex={canClick ? 0 : undefined}
+              aria-label={canClick ? `Throw at ${seat.displayName}` : undefined}
+              onClick={canClick ? e => onThrowAt(seat.id, e) : undefined}
+              onKeyDown={canClick ? e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onThrowAt(seat.id); }
+              } : undefined}
+              className={`block shrink-0 rounded-full border border-sp-border bg-sp-card-bg ${canClick ? 'cursor-crosshair' : ''} ${seat.wasted ? 'grayscale' : ''}`}
+              style={{ width: 30, height: 30 }}
+            />
+            <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-sp-text-dim">{seat.displayName}</span>
+            {/* Three states, same footprint so rows never reflow as votes
+                land: revealed value, "voted" tick, or waiting. */}
+            <span
+              aria-hidden="true"
+              className={`flex h-7 shrink-0 items-center justify-center rounded-[5px] font-sp-mono text-[12px] font-bold ${
+                seat.showValue && seat.voteValue != null
+                  ? 'border-2 border-sp-accent bg-sp-accent-panel px-1.5 text-sp-accent-on-card'
+                  : seat.showPlaced
+                    ? 'border-2 border-sp-accent bg-sp-accent-panel px-2 text-sp-accent-text'
+                    : 'border border-dashed border-sp-border-strong px-2 text-sp-text-faintest'
+              }`}
+              style={{ minWidth: 30 }}
+            >
+              {seat.showValue && seat.voteValue != null ? seat.voteValue : seat.showPlaced ? '✓' : '·'}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface SeatRowProps extends Omit<SeatProps, 'seat'> {
   seats: SeatData[];
 }
@@ -832,6 +893,37 @@ export default function SeatTable({
         className={`flex min-w-0 flex-1 flex-col items-center px-4 pt-5 transition-[padding-bottom] duration-250 ${isPhone ? 'justify-start' : 'justify-center'}`}
         style={{ paddingBottom: bottomClearance }}
       >
+        {isPhone ? (
+          // No table on a phone: GTA Mode is desktop-only (it needs a
+          // keyboard), so nothing here depends on the table existing, and the
+          // vote counter and Reveal button it used to hold read better as a
+          // proper action row anyway.
+          <div className="flex w-full flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <span aria-hidden="true" className="font-sp-mono text-[13px] font-bold text-sp-text-dim">
+                {isRevealed ? 'Votes revealed' : `${votedCount}/${n} voted`}
+              </span>
+              {!isRevealed && (
+                <button
+                  onClick={onReveal}
+                  disabled={!anyVote}
+                  className={`min-h-[44px] rounded-lg border-none bg-sp-accent px-5 font-sp-font text-sm font-bold text-sp-bg ${anyVote ? 'opacity-100' : 'cursor-default opacity-45'}`}
+                >Reveal votes</button>
+              )}
+            </div>
+            <ParticipantGrid
+              seats={seats}
+              canTarget={canTarget}
+              onThrowAt={onThrowAt}
+              registerSeatNode={registerSeatNode}
+            />
+            {/* The visual counter above is aria-hidden, so round progress is
+                narrated here instead. */}
+            <div aria-live="polite" aria-atomic="true" className="sr-only">
+              {isRevealed ? 'Votes revealed' : `${votedCount} of ${n} ${n === 1 ? 'person has' : 'people have'} voted`}
+            </div>
+          </div>
+        ) : (
         <div className="flex w-full flex-col gap-4.5" style={{ maxWidth: stageMaxWidth }}>
           <SeatRow seats={top} {...seatProps} />
 
@@ -1003,6 +1095,16 @@ export default function SeatTable({
 
           {!wide && <ObserverRail horizontal observers={observers} uid={uid} canTarget={canTarget} onThrowAt={onThrowAt} registerSeatNode={registerSeatNode} />}
         </div>
+        )}
+
+        {/* The phone branch above has no room for the seat-flanking rail, so
+            observers hang below the grid instead -- still present, just not
+            competing with the participants for width. */}
+        {isPhone && observers.length > 0 && (
+          <div className="mt-3 w-full">
+            <ObserverRail horizontal observers={observers} uid={uid} canTarget={canTarget} onThrowAt={onThrowAt} registerSeatNode={registerSeatNode} />
+          </div>
+        )}
       </div>
 
       {wide && <ObserverRail observers={observers} uid={uid} canTarget={canTarget} onThrowAt={onThrowAt} registerSeatNode={registerSeatNode} />}

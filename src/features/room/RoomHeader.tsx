@@ -3,6 +3,7 @@ import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import { WEAPONS } from './weapons.ts';
 import DeckSwitcher from './DeckSwitcher.tsx';
+import RoomMenu from './RoomMenu.tsx';
 import type { Theme } from '../../shared/lib/theme.ts';
 import type { DeckDefinition } from './decks.ts';
 import type { DeckId } from '../../types/room.ts';
@@ -82,7 +83,7 @@ export default function RoomHeader({
           onClick={onCopy}
           title="Copy shareable invite link"
           aria-label={`Room ${roomCode.split('').join(' ')}. Copy shareable invite link`}
-          className="flex cursor-pointer items-center gap-[7px] rounded-md border border-sp-border bg-sp-panel px-2.5 py-1.5 text-sp-text-dim"
+          className={`flex cursor-pointer items-center rounded-md border border-sp-border bg-sp-panel px-2.5 text-sp-text-dim ${narrow || touchPrimary ? 'min-h-[44px] gap-2' : 'gap-[7px] py-1.5'}`}
         >
           <span aria-hidden="true" className="font-sp-mono text-[13px] tracking-[0.08em]">{roomCode}</span>
           <span aria-hidden="true" className="text-[11px] text-sp-text-faint">{copied ? 'link copied' : 'copy link'}</span>
@@ -92,24 +93,61 @@ export default function RoomHeader({
         <span aria-live="polite" className="sr-only">{copied ? 'Invite link copied to clipboard' : ''}</span>
       </div>
 
-      <div className={`flex flex-wrap items-center justify-end ${narrow ? 'gap-1.5' : snug ? 'gap-2' : 'gap-4'}`}>
-        <ThemeToggle theme={theme} onToggle={onToggleTheme} size={narrow ? 28 : 34} />
+      {/* On a phone only the weapon button stays out in the open -- it's the
+          one control tied to what you're doing right now. Everything else is
+          a preference or a room action, and each was being squeezed under the
+          44px a finger needs; the menu gives them full-size rows instead. */}
+      {narrow ? (
+        <div className="flex items-center gap-2">
+          {/* Stays out of the menu: it's the host's most-used control, and it
+              already opens its own picker rather than acting immediately. */}
+          {isCreator && <DeckSwitcher currentDeckId={deck.id} onSwitch={onSwitchDeck} />}
+          {!isObserver && (
+            equippedWeaponId ? (
+              <button
+                onClick={onCancelTargeting}
+                aria-label={`Cancel throwing ${WEAPONS.find(w => w.id === equippedWeaponId)?.label}`}
+                className="min-h-[44px] cursor-pointer rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3 font-sp-font text-xs font-bold whitespace-nowrap text-sp-accent-text"
+              >Cancel</button>
+            ) : (
+              <button
+                onClick={onOpenWeaponTray}
+                aria-label="Choose Your Weapon"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-none bg-sp-accent text-base"
+              >🎯</button>
+            )
+          )}
+          <RoomMenu
+            items={[
+              { label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', onSelect: onToggleTheme },
+              ...(!isObserver && isRevealed && !touchPrimary ? [{ label: '🚗 GTA Mode', onSelect: onStartDriving }] : []),
+              isObserver
+                ? { label: 'Switch to voting', onSelect: () => onSwitchRole(false), accent: true }
+                : { label: 'Switch to observing', onSelect: () => onSwitchRole(true), accent: true },
+              { label: 'Leave room', onSelect: onLeave },
+            ]}
+          />
+        </div>
+      ) : (
+      // A tablet is wide enough for the full labels but still operated by
+      // finger, so every control here takes the 44px minimum when the
+      // pointer is coarse. `touch` is a no-op on a mouse-driven desktop.
+      <div className={`flex flex-wrap items-center justify-end ${snug ? 'gap-2' : 'gap-4'} ${touchPrimary ? '[&_button]:min-h-[44px]' : ''}`}>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} size={touchPrimary ? 44 : 34} />
         {isCreator && <DeckSwitcher currentDeckId={deck.id} onSwitch={onSwitchDeck} />}
         {!isObserver && (
           equippedWeaponId ? (
             <button
               onClick={onCancelTargeting}
-              aria-label={`Cancel throwing ${WEAPONS.find(w => w.id === equippedWeaponId)?.label}`}
-              className={`cursor-pointer whitespace-nowrap rounded-md border border-sp-accent-border bg-sp-accent-panel-2 font-sp-font text-xs font-bold text-sp-accent-text ${narrow ? 'px-2 py-1.5' : 'px-3.5 py-2.5'}`}
+              className="cursor-pointer whitespace-nowrap rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3.5 py-2.5 font-sp-font text-xs font-bold text-sp-accent-text"
             >
-              {narrow ? 'Cancel' : `Cancel throwing ${WEAPONS.find(w => w.id === equippedWeaponId)?.label}`}
+              Cancel throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label}
             </button>
           ) : (
             <button
               onClick={onOpenWeaponTray}
-              aria-label="Choose Your Weapon"
-              className={`cursor-pointer whitespace-nowrap rounded-md border-none bg-sp-accent font-sp-font text-xs font-bold text-sp-bg ${narrow ? 'px-2 py-1.5' : 'px-3.5 py-2.5'}`}
-            >{narrow ? '🎯' : '🎯 Choose Your Weapon'}</button>
+              className="cursor-pointer whitespace-nowrap rounded-md border-none bg-sp-accent px-3.5 py-2.5 font-sp-font text-xs font-bold text-sp-bg"
+            >🎯 Choose Your Weapon</button>
           )
         )}
         {/* Only once the round's votes are revealed -- a fun beat between
@@ -120,29 +158,27 @@ export default function RoomHeader({
           <button
             onClick={onStartDriving}
             disabled={isDriving}
-            aria-label="GTA Mode"
-            className={`whitespace-nowrap rounded-md border-none font-sp-font text-xs font-bold ${narrow ? 'px-2 py-1.5' : 'px-3.5 py-2.5'} ${
+            className={`whitespace-nowrap rounded-md border-none px-3.5 py-2.5 font-sp-font text-xs font-bold ${
               isDriving
                 ? 'cursor-default bg-sp-panel-2 text-sp-text-faint opacity-50'
                 : 'cursor-pointer bg-sp-accent text-sp-bg'
             }`}
-          >{narrow ? '🚗' : '🚗 GTA Mode'}</button>
+          >🚗 GTA Mode</button>
         )}
         {!isObserver ? (
           <button
             onClick={() => onSwitchRole(true)}
-            aria-label="Switch to observing"
-            className={`cursor-pointer rounded-md border border-sp-border-strong bg-sp-panel-2 font-sp-font text-xs font-semibold text-sp-text-dim ${narrow ? 'px-2 py-1.5' : 'px-3 py-2'}`}
-          >{narrow ? 'Observe' : 'Switch to observing'}</button>
+            className="cursor-pointer rounded-md border border-sp-border-strong bg-sp-panel-2 px-3 py-2 font-sp-font text-xs font-semibold text-sp-text-dim"
+          >Switch to observing</button>
         ) : (
           <button
             onClick={() => onSwitchRole(false)}
-            aria-label="Switch to voting"
-            className={`cursor-pointer rounded-md border border-sp-accent-border bg-sp-accent-panel-2 font-sp-font text-xs font-semibold text-sp-accent-text ${narrow ? 'px-2 py-1.5' : 'px-3 py-2'}`}
-          >{narrow ? 'Vote' : 'Switch to voting'}</button>
+            className="cursor-pointer rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3 py-2 font-sp-font text-xs font-semibold text-sp-accent-text"
+          >Switch to voting</button>
         )}
-        <button onClick={onLeave} aria-label="Leave room" className="cursor-pointer border-none bg-transparent text-xs text-sp-text-faintest">{narrow ? 'Leave' : 'Leave room'}</button>
+        <button onClick={onLeave} className="cursor-pointer border-none bg-transparent text-xs text-sp-text-faintest">Leave room</button>
       </div>
+      )}
     </div>
   );
 }
