@@ -16,6 +16,13 @@ import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 
+// Used only until the voting bar / header have reported their real measured
+// heights (the very first paint), so overlays don't flash at the wrong offset.
+const VOTING_BAR_FALLBACK = 96;
+const HEADER_FALLBACK = 64;
+// Breathing room between a floating overlay and the bar/header it clears.
+const OVERLAY_GAP = 12;
+
 interface RoomActions {
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
@@ -55,6 +62,7 @@ export default function RoomScreen({
   const [actionError, setActionError] = useState<string | null>(null);
   const [hoveredVoteValue, setHoveredVoteValue] = useState<CardValue | null>(null);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const [isDriving, setIsDriving] = useState(false);
   const participants: Record<string, Participant> = FAKE_PARTICIPANTS
     ? { ...FAKE_PARTICIPANTS, ...room.participants }
@@ -75,6 +83,12 @@ export default function RoomScreen({
   }, []);
   const getSeatNode = useCallback((seatUid: string) => seatNodesRef.current.get(seatUid) ?? null, []);
   const handleVotingBarHeightChange = useCallback((h: number) => setVotingBarHeight(h), []);
+  const handleHeaderHeightChange = useCallback((h: number) => setHeaderHeight(h), []);
+  // Overlays pinned near the bottom clear the voting bar by measuring it
+  // rather than assuming a one-row bar -- on a phone it wraps to two or three
+  // rows (and taller again once the distribution panel renders), which used to
+  // leave these rendering inside it.
+  const aboveBar = (votingBarHeight || VOTING_BAR_FALLBACK) + OVERLAY_GAP;
 
   const runAction = useCallback((fn: () => Promise<void>, failureMessage: string) => {
     setActionError(null);
@@ -187,15 +201,17 @@ export default function RoomScreen({
         onStartDriving={handleStartDriving}
         onSwitchRole={(nextIsObserver) => runAction(() => actions.setRole(nextIsObserver), "Couldn't switch role — check your connection.")}
         onLeave={actions.leave}
+        onHeightChange={handleHeaderHeightChange}
       />
 
-      <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} />
+      <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} bottom={aboveBar} />
 
       <WeaponTipBanner
         equippedWeaponId={equippedWeaponId}
         rendered={weaponTipRendered}
         closing={weaponTipClosing}
         onDismiss={dismissWeaponTip}
+        top={(headerHeight || HEADER_FALLBACK) + OVERLAY_GAP}
       />
 
       <WeaponTray open={weaponTrayOpen} selectedWeaponId={equippedWeaponId} onSelect={selectWeapon} onClose={closeTray} />
@@ -230,8 +246,8 @@ export default function RoomScreen({
       />
 
       {actionError && (
-        <div className="pointer-events-none fixed right-0 bottom-[92px] left-0 flex justify-center">
-          <div className="rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3.5 py-1.5 text-sm font-semibold text-sp-warn-text">{actionError}</div>
+        <div className="pointer-events-none fixed right-0 left-0 flex justify-center px-4" style={{ bottom: aboveBar }}>
+          <div className="max-w-full rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3.5 py-1.5 text-center text-sm font-semibold text-sp-warn-text">{actionError}</div>
         </div>
       )}
 

@@ -52,10 +52,28 @@ const SPLIT_BURST_MS = 1450;
 const SEAT_GAP = 8;
 const DEFAULT_SIZES = { seatW: 96, avatar: 52, meAvatar: 60, cardW: 34, cardH: 48, cardFont: 16 };
 const COMPACT_SIZES = { seatW: 78, avatar: 40, meAvatar: 46, cardW: 26, cardH: 36, cardFont: 12 };
+// Phone tier. Sized so a row actually fits: at 390px (358px after the stage's
+// px-4) a 62px seat plus the 8px gap gives 5 per row, so the common 8-10
+// person room lands in two clean rows instead of fragmenting into four or
+// five. The seat count alone used to decide this, which meant a 4-person room
+// on a phone still rendered 96px seats and wrapped every row.
+const PHONE_SIZES = { seatW: 62, avatar: 34, meAvatar: 40, cardW: 22, cardH: 32, cardFont: 11 };
 const COMPACT_AT = 17;
+// Below this the phone tier applies regardless of headcount -- 96px seats
+// simply do not fit a phone, however few people are in the room.
+const PHONE_MAX_WIDTH = 560;
+// ...and between the two, a mid tier so tablets and small windows aren't
+// forced to choose between phone-sized and full-sized.
+const COMPACT_MAX_WIDTH = 900;
 const STAGE_MAX_CAP = 1180;
+// Matches the stage column's own px-4, so width math can subtract what the
+// padding actually costs rather than assuming the full viewport is usable.
+const STAGE_H_PADDING = 32;
 const TABLE_MIN_WIDTH = 200;
-const TABLE_MIN_HEIGHT = 170;
+// The table shrinks with the tier too: 200x170 is a large share of a phone
+// viewport, and the seats around it matter more than the furniture.
+const PHONE_TABLE_MIN_WIDTH = 130;
+const PHONE_TABLE_HEIGHT = 104;
 const END_SEAT_BREAKPOINT = '(min-width: 640px)';
 
 // A small room (few seats) would otherwise size the table to just fit those
@@ -63,17 +81,23 @@ const END_SEAT_BREAKPOINT = '(min-width: 640px)';
 // a big monitor. These floors scale the table up with the viewport so it
 // still reads as a table on wide screens, independent of headcount — width
 // and height climb together so it stays table-shaped instead of a thin bar.
+// The sub-900 entries keep phones and tablets from all collapsing into one
+// flat bucket, which is what made a 390px phone and an 890px laptop render
+// identically.
 const WIDTH_FLOOR_BREAKPOINTS = [
   { minWidth: 1600, floor: 620 },
   { minWidth: 1200, floor: 520 },
   { minWidth: 900, floor: 420 },
+  { minWidth: 640, floor: 300 },
   { minWidth: 0, floor: 0 },
 ];
 const HEIGHT_BREAKPOINTS = [
   { minWidth: 1600, height: 260 },
   { minWidth: 1200, height: 220 },
   { minWidth: 900, height: 190 },
-  { minWidth: 0, height: TABLE_MIN_HEIGHT },
+  { minWidth: 640, height: 150 },
+  { minWidth: PHONE_MAX_WIDTH, height: 130 },
+  { minWidth: 0, height: PHONE_TABLE_HEIGHT },
 ];
 
 function useViewportWidth(): number {
@@ -189,7 +213,10 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
   // are already accent-colored.
   const dimmed = seat.dimmed;
   const isLongLabel = !!seat.voteValue && seat.voteValue.length > LONG_LABEL_THRESHOLD;
-  const cardW = isLongLabel ? sizes.cardW * WIDE_CARD_MULTIPLIER : sizes.cardW;
+  // Never wider than the seat it belongs to: a 3x-widened card used to spill
+  // over the neighbouring seats, which is most obvious in the smaller tiers
+  // where the multiplied width exceeds the whole seat slot.
+  const cardW = isLongLabel ? Math.min(sizes.cardW * WIDE_CARD_MULTIPLIER, sizes.seatW) : sizes.cardW;
   return (
     <div
       className={`flex shrink-0 flex-col items-center gap-2 transition-opacity duration-150 ${reverse ? 'flex-col-reverse' : ''}`}
@@ -240,7 +267,10 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
         {seat.wasted && !seat.vacated && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute font-sp-font text-[10px] font-black tracking-[0.04em] whitespace-nowrap text-[#c81e1e] uppercase [-webkit-text-stroke:1px_#1a0000] [text-shadow:0_1px_0_#1a0000]"
+            // Scaled down with the seat: at the phone tier's 34px avatar the
+            // full-size stamp is wider than the seat itself and would sit on
+            // top of whoever is next to them.
+            className={`pointer-events-none absolute font-sp-font font-black tracking-[0.04em] whitespace-nowrap text-[#c81e1e] uppercase [-webkit-text-stroke:1px_#1a0000] [text-shadow:0_1px_0_#1a0000] ${seat.size < 44 ? 'text-[7px]' : 'text-[10px]'}`}
             style={{
               left: '50%', top: '50%',
               animation: 'sp-gta-wasted-stamp 420ms cubic-bezier(.2,.8,.3,1) 460ms both',
@@ -520,7 +550,17 @@ export default function SeatTable({
   // on narrow viewports so seats keep the full width).
   const wide = useMediaQuery(END_SEAT_BREAKPOINT);
   const viewportWidth = useViewportWidth();
-  const sizes = n >= COMPACT_AT ? COMPACT_SIZES : DEFAULT_SIZES;
+  // Seat size answers to the viewport as well as the headcount, and takes
+  // whichever is more constraining. Headcount alone used to decide it, so a
+  // 4-person room on a phone kept full 96px seats and wrapped every row into
+  // ones and twos -- the "everything crowded together" effect. A big room on
+  // a phone still gets the smallest tier: the two rules agree rather than
+  // fight, because each only ever shrinks.
+  const sizes =
+    viewportWidth > 0 && viewportWidth < PHONE_MAX_WIDTH ? PHONE_SIZES
+    : n >= COMPACT_AT || (viewportWidth > 0 && viewportWidth < COMPACT_MAX_WIDTH) ? COMPACT_SIZES
+    : DEFAULT_SIZES;
+  const isPhone = sizes === PHONE_SIZES;
 
   // seatId -> timestamp of its most recent GTA Mode hit, from any driver
   // (ours or a remote one) -- read by every viewer, not just the one
@@ -752,7 +792,17 @@ export default function SeatTable({
   // Both breakpoint tables always end with a `minWidth: 0` entry, so `find`
   // is guaranteed to match.
   const widthFloor = WIDTH_FLOOR_BREAKPOINTS.find(b => viewportWidth >= b.minWidth)!.floor;
-  const stageMaxWidth = Math.min(STAGE_MAX_CAP, Math.max(360, widthFloor, widestRow * (sizes.seatW + SEAT_GAP) + 48));
+  // The lower floor can't be a flat 360px: the stage's own px-4 leaves 358px
+  // of content on a 390px phone, so a 360px floor asked for more room than
+  // exists and every row wrapped. Cap it to what the viewport can actually
+  // give (0 while the width is still unmeasured, e.g. jsdom).
+  const availableWidth = viewportWidth > 0 ? viewportWidth - STAGE_H_PADDING : Infinity;
+  const baseFloor = Math.min(360, availableWidth);
+  const stageMaxWidth = Math.min(
+    STAGE_MAX_CAP,
+    Math.max(baseFloor, widthFloor, widestRow * (sizes.seatW + SEAT_GAP) + 48),
+    availableWidth,
+  );
   const tableHeight = HEIGHT_BREAKPOINTS.find(b => viewportWidth >= b.minWidth)!.height;
   // Clearance for the fixed VotingBar is the bar's real measured height
   // (plus a small buffer) rather than a guess, so it only ever changes by
@@ -774,7 +824,12 @@ export default function SeatTable({
     // ThrowOverlay's rect math is valid for all targets.
     <div ref={stageRef} className="relative flex min-w-0 flex-1 flex-row">
       <div
-        className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 pt-5 transition-[padding-bottom] duration-250"
+        // justify-center only while there's room to spare: once the content
+        // plus the voting bar's clearance exceeds the viewport, centring
+        // overflows at BOTH ends, so the bottom seat row disappears behind
+        // the bar with no way to scroll to it. Falling back to start-aligned
+        // keeps every seat reachable on a short screen.
+        className={`flex min-w-0 flex-1 flex-col items-center px-4 pt-5 transition-[padding-bottom] duration-250 ${isPhone ? 'justify-start' : 'justify-center'}`}
         style={{ paddingBottom: bottomClearance }}
       >
         <div className="flex w-full flex-col gap-4.5" style={{ maxWidth: stageMaxWidth }}>
@@ -792,7 +847,7 @@ export default function SeatTable({
               className={`relative flex flex-1 items-center justify-center rounded-[28px] transition-[border-color,box-shadow] duration-150 ${
                 tableSplit ? '' : `overflow-hidden bg-sp-table-center ${!isRevealed && allVoted ? 'border-2 border-sp-accent shadow-[0_0_0_3px_var(--sp-accent-glow)]' : 'border border-sp-border'}`
               }`}
-              style={{ minWidth: TABLE_MIN_WIDTH, height: tableHeight }}
+              style={{ minWidth: isPhone ? PHONE_TABLE_MIN_WIDTH : TABLE_MIN_WIDTH, height: tableHeight }}
             >
               {/* GTA Mode: once enough cracks land, the table splits into two
                   separate pieces -- each keeps its own rounded outer corners

@@ -33,7 +33,10 @@ function DistributionBar({
   const showSummary = deck.resultKind === 'average' ? hasAverage : distribution.length > 0;
   return (
     <div className="flex flex-col items-center gap-3.5 py-1">
-      <div className="flex flex-wrap items-end justify-center gap-5.5">
+      {/* Tighter column spacing on narrow screens: at 22px between 38px bars
+          each column costs 60px, so a 13-value deck wrapped to three rows and
+          the bar grew tall enough to bury the seats behind it. */}
+      <div className="flex flex-wrap items-end justify-center gap-x-3 gap-y-4 sm:gap-5.5">
         {distribution.map((d, i) => {
           const dimmed = hoveredValue != null && hoveredValue !== d.value;
           return (
@@ -220,13 +223,23 @@ export default function VotingBar({
   useEffect(() => {
     const node = barRef.current;
     if (!node || !onHeightChange) return;
-    const observer = new ResizeObserver(([entry]) => onHeightChange(entry.contentRect.height));
+    // Border-box height, not contentRect: contentRect excludes this bar's
+    // py-3 and its top border, so it under-reported by ~25px and the table
+    // reserved that much too little clearance.
+    const observer = new ResizeObserver(() => onHeightChange(node.getBoundingClientRect().height));
     observer.observe(node);
     return () => observer.disconnect();
   }, [onHeightChange]);
 
   return (
-    <div ref={barRef} className="fixed right-0 bottom-0 left-0 flex flex-wrap items-center justify-center gap-5 border-t border-sp-border bg-sp-panel px-5 py-3">
+    // Capped and scrollable rather than growing without bound: on a phone the
+    // revealed distribution panel can otherwise fill most of the viewport,
+    // and SeatTable reserves matching clearance, which pushed the table
+    // itself off screen.
+    <div
+      ref={barRef}
+      className="fixed right-0 bottom-0 left-0 flex max-h-[34dvh] flex-wrap items-center justify-center gap-5 overflow-x-hidden overflow-y-auto border-t border-sp-border bg-sp-panel px-5 py-3 sm:max-h-[52dvh]"
+    >
       {isRevealed ? (
         showExitingCards && !isObserver ? (
           <VoteCardRow deck={deck} myVote={myVote} onSelect={onSelect} exiting />

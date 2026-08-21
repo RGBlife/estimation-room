@@ -285,8 +285,19 @@ a:hover {
 }
 
 .sp-app {
+  /* dvh tracks the *visible* viewport as mobile browser chrome shows and
+     hides; plain vh is the tallest-possible height, so the bottom of the
+     layout sat underneath the URL bar while the fixed voting bar stayed
+     pinned to the layout viewport. vh first as the fallback for anything
+     without dvh support. */
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
+  /* A backstop, not a licence to overflow: any single too-wide element would
+     otherwise turn the whole document into a horizontal scroller, which on a
+     phone reads as the layout being broken rather than one element being
+     wrong. Vertical scrolling is untouched. */
+  overflow-x: hidden;
   background: var(--sp-bg);
   font-family: var(--sp-font);
   color: var(--sp-text);

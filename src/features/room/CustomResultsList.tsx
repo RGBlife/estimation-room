@@ -18,10 +18,13 @@ export default function CustomResultsList({ groups, onStartNextRound }: CustomRe
               g.isTop ? 'border-sp-accent-border bg-sp-accent-panel' : 'border-sp-border bg-sp-card-bg'
             }`}
           >
-            <span className={`font-sp-mono text-sm ${g.isTop ? 'font-bold text-sp-text' : 'font-semibold text-sp-text-dim'}`}>
+            {/* min-w-0 lets the answer actually shrink inside the flex row --
+                without it a long free-text answer pushes the count off the
+                end instead of truncating. */}
+            <span className={`min-w-0 truncate font-sp-mono text-sm ${g.isTop ? 'font-bold text-sp-text' : 'font-semibold text-sp-text-dim'}`}>
               &ldquo;{g.display}&rdquo;
             </span>
-            <span className={`text-[11.5px] ${g.isTop ? 'font-bold text-sp-accent-text' : 'text-sp-text-faintest'}`}>×{g.count}</span>
+            <span className={`shrink-0 pl-2 text-[11.5px] ${g.isTop ? 'font-bold text-sp-accent-text' : 'text-sp-text-faintest'}`}>×{g.count}</span>
           </div>
         ))}
       </div>
