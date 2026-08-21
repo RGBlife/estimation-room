@@ -144,6 +144,14 @@ export function markWasted(code: string, targetUid: string): void {
   rtdbSet(rtdbRef(rtdb, `gtaTable/${code}/wasted/${targetUid}`), true).catch(() => {});
 }
 
+// Clears one player's wasted mark. Getting into a car is the one way back:
+// you're evidently no longer lying in the road, and the WASTED stamp would
+// otherwise hang over the empty seat you just left -- and still be there
+// waiting when you return to it.
+export function clearWasted(code: string, targetUid: string): void {
+  rtdbRemove(rtdbRef(rtdb, `gtaTable/${code}/wasted/${targetUid}`)).catch(() => {});
+}
+
 // Clears all table damage for a new round. remove() is idempotent, so it's
 // safe for every client watching the reveal->unrevealed transition to call
 // this independently (see SeatTable.tsx) without coordinating who "owns"

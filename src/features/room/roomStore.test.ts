@@ -37,8 +37,11 @@ vi.mock('./roomStore.presence.ts', () => ({
   teardownPresence: vi.fn(),
 }));
 
+const startDriving = vi.fn();
+const clearWasted = vi.fn();
+
 vi.mock('./roomStore.gta.ts', () => ({
-  startDriving: vi.fn(),
+  startDriving: (...args: unknown[]) => startDriving(...args),
   publishDriverState: vi.fn(),
   stopDriving: vi.fn(),
   subscribeDrivers: vi.fn(),
@@ -47,6 +50,7 @@ vi.mock('./roomStore.gta.ts', () => ({
   subscribeTableCracks: vi.fn(),
   publishTablePieceMove: vi.fn(),
   markWasted: vi.fn(),
+  clearWasted: (...args: unknown[]) => clearWasted(...args),
   subscribeTableDamage: vi.fn(),
   resetTableDamage: vi.fn(),
 }));
@@ -133,6 +137,22 @@ describe('useRoomStore', () => {
     expect(castVoteAction).not.toHaveBeenCalled();
     expect(revealAction).not.toHaveBeenCalled();
     expect(throwWeaponAction).not.toHaveBeenCalled();
+  });
+
+  it('startDrive clears the driver\'s own wasted mark before it starts publishing', () => {
+    // Otherwise the WASTED stamp is stranded over the seat they just left,
+    // and is still there waiting when the drive ends.
+    useRoomStore.setState({ uid: 'u1', roomCode: 'ABCD' });
+    useRoomStore.getState().startDrive();
+    expect(clearWasted).toHaveBeenCalledWith('ABCD', 'u1');
+    expect(startDriving).toHaveBeenCalledWith('ABCD', 'u1');
+  });
+
+  it('startDrive is a no-op without a joined room', () => {
+    useRoomStore.setState({ uid: 'u1', roomCode: null });
+    useRoomStore.getState().startDrive();
+    expect(clearWasted).not.toHaveBeenCalled();
+    expect(startDriving).not.toHaveBeenCalled();
   });
 
   it('castVote forwards to castVoteAction once uid and roomCode are set', async () => {

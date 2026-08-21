@@ -214,7 +214,7 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
               onThrowAt(seat.id);
             }
           } : undefined}
-          className={`block rounded-full border border-sp-border bg-sp-card-bg ${canClick ? 'cursor-crosshair' : 'cursor-default'} ${seat.wasted ? 'grayscale' : ''}`}
+          className={`block rounded-full border border-sp-border bg-sp-card-bg ${canClick ? 'cursor-crosshair' : 'cursor-default'} ${seat.wasted && !seat.vacated ? 'grayscale' : ''}`}
           style={{
             width: seat.size,
             height: seat.size,
@@ -226,11 +226,18 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
             animation:
               seat.hitAnimation === 'squash' ? `sp-gta-squash ${SQUASH_MS}ms cubic-bezier(.2,.8,.3,1)`
               : seat.hitAnimation === 'wobble' ? `sp-gta-wobble ${WOBBLE_MS}ms ease-out`
-              : seat.wasted ? 'sp-gta-wasted-fall 500ms cubic-bezier(.3,.7,.4,1) both'
+              // The fall animation holds its end state (`both`), so it stays
+              // gated on being in the seat too -- otherwise someone who
+              // drove off while wasted would reappear already collapsed.
+              : seat.wasted && !seat.vacated ? 'sp-gta-wasted-fall 500ms cubic-bezier(.3,.7,.4,1) both'
               : undefined,
           }}
         />
-        {seat.wasted && (
+        {/* Tied to the avatar being present, not just to being wasted: the
+            img above hides itself while vacated, and without the same check
+            the stamp would be left floating over an empty seat while its
+            owner is off driving. */}
+        {seat.wasted && !seat.vacated && (
           <span
             aria-hidden="true"
             className="pointer-events-none absolute font-sp-font text-[10px] font-black tracking-[0.04em] whitespace-nowrap text-[#c81e1e] uppercase [-webkit-text-stroke:1px_#1a0000] [text-shadow:0_1px_0_#1a0000]"

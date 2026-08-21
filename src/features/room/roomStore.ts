@@ -16,7 +16,7 @@ import {
 import {
   startDriving, publishDriverState, stopDriving, subscribeDrivers, teardownGta,
   publishTableCrack, subscribeTableCracks, publishTablePieceMove, markWasted,
-  subscribeTableDamage, resetTableDamage,
+  clearWasted, subscribeTableDamage, resetTableDamage,
 } from './roomStore.gta.ts';
 import type { RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
@@ -217,6 +217,11 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   startDrive: () => {
     const { uid, roomCode } = get();
     if (!uid || !roomCode) return;
+    // Getting behind the wheel clears your own wasted mark: you're plainly
+    // not lying in the road any more, and leaving it set would strand the
+    // WASTED stamp over the seat you just vacated -- and have it still
+    // waiting there when the drive ends.
+    clearWasted(roomCode, uid);
     startDriving(roomCode, uid);
   },
 
