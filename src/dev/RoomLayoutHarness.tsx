@@ -3,6 +3,7 @@ import SeatTable from '../features/room/SeatTable.tsx';
 import VotingBar from '../features/room/VotingBar.tsx';
 import RoomHeader from '../features/room/RoomHeader.tsx';
 import Toast from '../features/room/Toast.tsx';
+import WeaponTray from '../features/room/WeaponTray.tsx';
 import { DECKS, ALL_DECK_IDS } from '../features/room/decks.ts';
 import { computeStats, computeDistribution, computeCustomGroups } from '../features/room/stats.ts';
 import { randomAvatar } from '../features/avatar/index.js';
@@ -45,6 +46,18 @@ export default function RoomLayoutHarness() {
   const [revealed, setRevealed] = useState(params.get('revealed') === '1');
   const [toastOpen, setToastOpen] = useState(false);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
+  // Real weapon/driving state rather than no-op stubs, so the interaction
+  // between the two (see RoomScreen.handleStartDriving) can actually be
+  // exercised here instead of only reasoned about.
+  const [isDriving, setIsDriving] = useState(false);
+  const [equippedWeaponId, setEquippedWeaponId] = useState<string | null>(null);
+  const [weaponTrayOpen, setWeaponTrayOpen] = useState(false);
+  const cancelTargeting = useCallback(() => setEquippedWeaponId(null), []);
+  // Mirrors RoomScreen: starting a drive drops any equipped weapon.
+  const handleStartDriving = useCallback(() => {
+    cancelTargeting();
+    setIsDriving(true);
+  }, [cancelTargeting]);
 
   const deck = DECKS[deckId];
   const participants = fixtureParticipants(seats, observers);
@@ -67,18 +80,18 @@ export default function RoomLayoutHarness() {
         roomCode="ABCD"
         copied={false}
         onCopy={() => {}}
-        isCreator
+        isCreator={params.get('host') !== '0'}
         theme="dark"
         onToggleTheme={() => {}}
         isObserver={false}
         deck={deck}
         onSwitchDeck={setDeckId}
-        equippedWeaponId={null}
-        onCancelTargeting={() => {}}
-        onOpenWeaponTray={() => {}}
+        equippedWeaponId={equippedWeaponId}
+        onCancelTargeting={cancelTargeting}
+        onOpenWeaponTray={() => setWeaponTrayOpen(true)}
         isRevealed={revealed}
-        isDriving={false}
-        onStartDriving={() => {}}
+        isDriving={isDriving}
+        onStartDriving={handleStartDriving}
         onSwitchRole={() => {}}
         onLeave={() => {}}
       />
@@ -94,6 +107,23 @@ export default function RoomLayoutHarness() {
           onClick={() => setToastOpen(t => !t)}
           className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
         >Toggle toast</button>
+        {/* Equips directly, bypassing the tray -- lets a test set up the
+            "already targeting, then start driving" order of events. */}
+        <button
+          data-testid="equip-weapon"
+          onClick={() => setEquippedWeaponId(id => (id ? null : 'paper-airplane'))}
+          className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
+        >{equippedWeaponId ? 'Unequip' : 'Equip weapon'}</button>
+        <span data-testid="drive-state" className="font-sp-mono text-[11px] text-sp-text-faint">
+          driving:{isDriving ? 'yes' : 'no'} weapon:{equippedWeaponId ?? 'none'}
+        </span>
+        {isDriving && (
+          <button
+            data-testid="stop-drive"
+            onClick={() => setIsDriving(false)}
+            className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
+          >Stop drive</button>
+        )}
       </div>
 
       <Toast
@@ -103,6 +133,13 @@ export default function RoomLayoutHarness() {
         bottom={(votingBarHeight || 96) + 12}
       />
 
+      <WeaponTray
+        open={weaponTrayOpen}
+        selectedWeaponId={equippedWeaponId}
+        onSelect={id => { setEquippedWeaponId(id); setWeaponTrayOpen(false); }}
+        onClose={() => setWeaponTrayOpen(false)}
+      />
+
       <SeatTable
         participants={participants}
         uid="p0"
@@ -110,7 +147,7 @@ export default function RoomLayoutHarness() {
         anyVote
         allVoted
         onReveal={() => setRevealed(true)}
-        canTarget={false}
+        canTarget={!!equippedWeaponId}
         onThrowAt={() => {}}
         registerSeatNode={registerSeatNode}
         getSeatNode={getSeatNode}
