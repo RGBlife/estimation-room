@@ -79,6 +79,27 @@ describe('RoomHeader', () => {
     expect(props.onCancelTargeting).toHaveBeenCalledOnce();
   });
 
+  it('disables the weapon button while driving', async () => {
+    // Both modes running at once puts a full-screen tray over a live physics
+    // loop, has GTA Mode and the tray reading the same keys, and leaves your
+    // own seat clickable while it's invisible (you're in the car).
+    const user = userEvent.setup();
+    const { props } = renderHeader({ isRevealed: true, isDriving: true });
+    const weaponBtn = screen.getByText(/Choose Your Weapon/);
+    expect(weaponBtn).toBeDisabled();
+    await user.click(weaponBtn);
+    expect(props.onOpenWeaponTray).not.toHaveBeenCalled();
+  });
+
+  it('keeps Cancel enabled while driving so targeting can still be backed out of', async () => {
+    const user = userEvent.setup();
+    const { props } = renderHeader({ isRevealed: true, isDriving: true, equippedWeaponId: 'paper-airplane' });
+    const cancelBtn = screen.getByText(/Cancel throwing Paper Airplane/);
+    expect(cancelBtn).not.toBeDisabled();
+    await user.click(cancelBtn);
+    expect(props.onCancelTargeting).toHaveBeenCalledOnce();
+  });
+
   it('toggles role via onSwitchRole with the opposite of the current isObserver', async () => {
     const user = userEvent.setup();
     const { props } = renderHeader({ isObserver: false });

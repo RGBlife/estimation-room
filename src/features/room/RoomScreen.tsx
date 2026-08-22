@@ -162,9 +162,14 @@ export default function RoomScreen({
   }, [isRevealed, actions]);
 
   const handleStartDriving = useCallback(() => {
+    // Equipping a weapon and then driving would otherwise leave targeting
+    // live for the whole drive -- and your own seat is invisible while you're
+    // in the car (opacity 0) but still a clickable target. Disabling the
+    // weapon button mid-drive only covers the other order of events.
+    cancelTargeting();
     actions.startDrive();
     setIsDriving(true);
-  }, [actions]);
+  }, [actions, cancelTargeting]);
 
   const handleExitDrive = useCallback(() => {
     actions.stopDrive();

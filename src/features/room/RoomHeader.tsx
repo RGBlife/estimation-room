@@ -119,8 +119,11 @@ export default function RoomHeader({
             ) : (
               <button
                 onClick={onOpenWeaponTray}
-                aria-label="Choose Your Weapon"
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-none bg-sp-accent text-base"
+                disabled={isDriving}
+                aria-label={isDriving ? 'Choose Your Weapon (unavailable while driving)' : 'Choose Your Weapon'}
+                className={`flex h-11 w-11 items-center justify-center rounded-md border-none text-base ${
+                  isDriving ? 'cursor-default bg-sp-panel-2 opacity-50' : 'cursor-pointer bg-sp-accent'
+                }`}
               >🎯</button>
             )
           )}
@@ -159,9 +162,20 @@ export default function RoomHeader({
               Cancel throwing {WEAPONS.find(w => w.id === equippedWeaponId)?.label}
             </button>
           ) : (
+            // Not while driving: the tray is a full-screen z-50 scrim over a
+            // board whose physics loop keeps running underneath, both it and
+            // GTA Mode listen for the same keys, and your own seat is
+            // invisible (opacity 0, you're in the car) yet still a clickable
+            // throw target. Mirrors the GTA button, which already disables
+            // itself mid-drive. Cancel stays enabled so anyone already
+            // targeting can still back out.
             <button
               onClick={onOpenWeaponTray}
-              className="cursor-pointer whitespace-nowrap rounded-md border-none bg-sp-accent px-3.5 py-2.5 font-sp-font text-xs font-bold text-sp-bg"
+              disabled={isDriving}
+              title={isDriving ? 'Not available while driving' : undefined}
+              className={`whitespace-nowrap rounded-md border-none px-3.5 py-2.5 font-sp-font text-xs font-bold ${
+                isDriving ? 'cursor-default bg-sp-panel-2 text-sp-text-faint opacity-50' : 'cursor-pointer bg-sp-accent text-sp-bg'
+              }`}
             >🎯 Choose Your Weapon</button>
           )
         )}
