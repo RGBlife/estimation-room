@@ -189,7 +189,10 @@ service cloud.firestore {
           && incomingData().deck in ['fibonacci', 'tshirt', 'powersOf2', 'rom', 'custom']
           && incomingData().code == existingData().code
           && incomingData().creatorId == existingData().creatorId
-          && incomingData().isRevealed == existingData().isRevealed
+          // A deck switch clears every vote, so it also starts a fresh round:
+          // leaving the room revealed would show an empty results panel.
+          // Only ever false after this write -- it can't be used to reveal.
+          && incomingData().isRevealed == false
           && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
         )
       );

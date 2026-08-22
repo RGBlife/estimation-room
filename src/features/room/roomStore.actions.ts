@@ -71,6 +71,10 @@ export async function setDeckAction(roomCode: string, room: RoomDoc, deckId: Dec
   }
   await updateDoc(doc(db, 'rooms', roomCode), {
     deck: deckId,
+    // Switching deck clears every vote, so it starts a fresh round too --
+    // otherwise the room stays "revealed" with nothing left to reveal, and
+    // the results panel renders empty.
+    isRevealed: false,
     ...clearedVotes,
   });
 }
