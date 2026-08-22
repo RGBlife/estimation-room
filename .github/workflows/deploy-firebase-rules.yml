@@ -1,8 +1,12 @@
 name: Deploy Firebase Rules
 
+# Rules follow the branch: push to `staging` and they go to the staging
+# Firebase project; merge to `main` and they go to production. Keeping both
+# on one workflow means the two environments can't drift apart in how they
+# deploy -- only in which project they target.
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
     paths:
       - 'firestore.rules'
       - 'database.rules.json'
@@ -14,6 +18,8 @@ permissions:
 jobs:
   deploy-rules:
     runs-on: ubuntu-latest
+    # Named so the run list shows at a glance which project was touched.
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -23,10 +29,37 @@ jobs:
 
       - run: npm install -g firebase-tools
 
-      - run: |
+      # The staging project ID is written here rather than held as a secret:
+      # a Firebase project ID is an address, not a credential. It already
+      # ships inside the client bundle served to every visitor, so hiding it
+      # here would only hide the branch -> project mapping from us. The
+      # service-account key is the actual secret, and stays one.
+      - name: Pick the target project
+        id: target
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "project=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> "$GITHUB_OUTPUT"
+            echo "label=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "project=scrum-poker-stage" >> "$GITHUB_OUTPUT"
+            echo "label=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy rules
+        run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase-service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-service-account.json
-          firebase deploy --only firestore:rules,database --project "$VITE_FIREBASE_PROJECT_ID" --non-interactive
+
+          # The service-account key is issued per-project. If a single key
+          # can't reach both, this prints exactly which one it is bound to
+          # rather than failing with an opaque permission error -- add a
+          # separate key as FIREBASE_SERVICE_ACCOUNT_STAGING and select it
+          # above if they differ. See .docs/deployments.md.
+          KEY_PROJECT=$(node -e "process.stdout.write(require('/tmp/firebase-service-account.json').project_id || 'unknown')")
+          echo "Deploying to ${{ steps.target.outputs.label }} (${{ steps.target.outputs.project }})"
+          echo "Service-account key is scoped to: $KEY_PROJECT"
+
+          firebase deploy --only firestore:rules,database \
+            --project "${{ steps.target.outputs.project }}" --non-interactive
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
