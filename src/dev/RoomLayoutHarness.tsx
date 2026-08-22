@@ -143,6 +143,7 @@ export default function RoomLayoutHarness() {
       <SeatTable
         participants={participants}
         uid="p0"
+        creatorId={params.get('host') !== '0' ? 'p0' : 'p1'}
         isRevealed={revealed}
         anyVote
         allVoted

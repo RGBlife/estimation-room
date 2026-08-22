@@ -224,6 +224,7 @@ export default function RoomScreen({
       <SeatTable
         participants={participants}
         uid={uid}
+        creatorId={room.creatorId}
         isRevealed={isRevealed}
         anyVote={anyVote}
         allVoted={allVoted}

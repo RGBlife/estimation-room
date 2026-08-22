@@ -41,3 +41,34 @@ test.describe('GTA Mode and weapon targeting', () => {
     await expect(page.getByRole('button', { name: /Choose Your Weapon/ })).toBeEnabled();
   });
 });
+
+// Deck changes are host-only, and the only cue that they're host-only is the
+// deck control itself -- so the seat badge is how everyone else knows who to
+// ask.
+test.describe('host indication', () => {
+  test('the host seat is badged, and only theirs', async ({ page }) => {
+    await page.goto('/?visual-test=room&seats=6');
+    await page.waitForSelector('.sp-app');
+    const badges = page.getByText('Host', { exact: true });
+    await expect(badges).toHaveCount(1);
+  });
+
+  test('the badge sits under the name, not above it', async ({ page }, info) => {
+    // The bottom seat row is flex-col-reverse so vote cards sit nearest the
+    // table, which flipped the badge above the name.
+    test.skip(info.project.name === 'mobile', 'the phone grid has no reversed row');
+    await page.goto('/?visual-test=room&seats=6');
+    await page.waitForSelector('.sp-app');
+    const badge = page.getByText('Host', { exact: true }).first();
+    const name = page.getByText('Player 1 (you)').first();
+    const [b, n] = await Promise.all([badge.boundingBox(), name.boundingBox()]);
+    expect(b!.y, 'the Host badge renders above the name').toBeGreaterThan(n!.y);
+  });
+
+  test('a non-host sees the badge but gets no deck control', async ({ page }) => {
+    await page.goto('/?visual-test=room&seats=6&host=0');
+    await page.waitForSelector('.sp-app');
+    await expect(page.getByText('Host', { exact: true })).toHaveCount(1);
+    expect(await page.getByRole('button', { name: /Change the deck/ }).count()).toBe(0);
+  });
+});

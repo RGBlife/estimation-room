@@ -28,6 +28,15 @@ export default function DeckSwitcher({ currentDeckId, onSwitch }: DeckSwitcherPr
     <div ref={rootRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
+        // This control only renders for the room's creator, so it is also
+        // the one place they learn the deck is theirs to change -- the pill
+        // alone reads as a label rather than a control. The title carries
+        // that on hover; the aria-label makes it explicit to a screen reader,
+        // which previously got only "Deck Fibonacci".
+        title="You're the host — change the estimation deck for everyone"
+        aria-label={`Estimation deck: ${DECKS[currentDeckId].name}. Change the deck for everyone`}
+        aria-expanded={open}
+        aria-haspopup="menu"
         // Sizes to content rather than a fixed min-width: a fixed width sized
         // for the longest deck name ("Powers of 2") left visibly uneven
         // padding after the chevron for short names like "ROM"/"Custom",

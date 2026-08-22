@@ -132,6 +132,10 @@ interface SeatSizes {
 interface SeatData {
   id: string;
   isMe: boolean;
+  // The room's creator. Shown to everyone so it's obvious who to ask for a
+  // deck change -- the deck control only renders for them, so without this
+  // nobody else has any way to know who that is.
+  isHost: boolean;
   avatarUrl: string | undefined;
   size: number;
   displayName: string;
@@ -288,10 +292,22 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
           >WASTED</span>
         )}
       </div>
-      <div
-        className="overflow-hidden text-center text-xs font-semibold text-ellipsis whitespace-nowrap text-sp-text-dim"
-        style={{ maxWidth: sizes.seatW - 6 }}
-      >{seat.displayName}</div>
+      {/* Name and badge share one wrapper so the bottom row's
+          flex-col-reverse (which puts vote cards nearest the table) can't
+          flip them relative to each other -- the badge belongs under the
+          name, not above it. Its own line rather than beside the name, which
+          is already truncated to the seat width. */}
+      <div className="flex flex-col items-center">
+        <div
+          className="overflow-hidden text-center text-xs font-semibold text-ellipsis whitespace-nowrap text-sp-text-dim"
+          style={{ maxWidth: sizes.seatW - 6 }}
+        >{seat.displayName}</div>
+        {seat.isHost && (
+          <div className="font-sp-font text-[9px] font-bold tracking-[0.06em] text-sp-text-faintest uppercase">
+            Host
+          </div>
+        )}
+      </div>
 
       {/* GTA Mode: the car driving over this seat's card kicks it sideways
           and it settles back -- scatterFor derives the direction from the
@@ -373,7 +389,12 @@ function ParticipantGrid({ seats, canTarget, onThrowAt, registerSeatNode }: {
               className={`block shrink-0 rounded-full border border-sp-border bg-sp-card-bg ${canClick ? 'cursor-crosshair' : ''} ${seat.wasted ? 'grayscale' : ''}`}
               style={{ width: 30, height: 30 }}
             />
-            <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-sp-text-dim">{seat.displayName}</span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-[12px] font-semibold text-sp-text-dim">{seat.displayName}</span>
+              {seat.isHost && (
+                <span className="font-sp-font text-[9px] font-bold tracking-[0.06em] text-sp-text-faintest uppercase">Host</span>
+              )}
+            </span>
             {/* Three states, same footprint so rows never reflow as votes
                 land: revealed value, "voted" tick, or waiting. */}
             <span
@@ -579,6 +600,9 @@ const CLEARANCE_BUFFER = 20;
 interface SeatTableProps {
   participants: Record<string, Participant>;
   uid: string | null;
+  // Who created the room, so their seat can be badged. Optional so the
+  // visual-test harness can omit it.
+  creatorId?: string;
   isRevealed: boolean;
   anyVote: boolean;
   allVoted: boolean;
@@ -606,7 +630,7 @@ interface SeatTableProps {
 }
 
 export default function SeatTable({
-  participants, uid, isRevealed, anyVote, allVoted, onReveal,
+  participants, uid, creatorId, isRevealed, anyVote, allVoted, onReveal,
   canTarget, onThrowAt, registerSeatNode, getSeatNode, stageRef, throws, onThrowDone,
   highlightValues = [], bottomClearance: measuredClearance,
   isDriving, forceEndDrive, drivers, tableCracks, tablePieceMove, tableWasted,
@@ -835,6 +859,7 @@ export default function SeatTable({
     const hasVoted = p.vote != null;
     return {
       id, isMe,
+      isHost: !!creatorId && id === creatorId,
       avatarUrl: participantAvatarSrc(p),
       size: isMe ? sizes.meAvatar : sizes.avatar,
       displayName: isMe ? p.name + ' (you)' : p.name,
