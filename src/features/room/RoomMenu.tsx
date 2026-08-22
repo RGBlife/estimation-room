@@ -7,10 +7,22 @@ interface RoomMenuItem {
   // in the room (voter/observer), which is a different kind of action from
   // leaving or toggling a display preference.
   accent?: boolean;
+  // Marks the current value within a group (e.g. the active deck), shown
+  // with a check so the group reads as a choice rather than a list of
+  // actions.
+  selected?: boolean;
+}
+
+interface RoomMenuGroup {
+  // Uppercase heading above the group. Groups exist so a set of related
+  // choices (the decks) doesn't read as more one-shot actions.
+  heading: string;
+  items: RoomMenuItem[];
 }
 
 interface RoomMenuProps {
   items: RoomMenuItem[];
+  groups?: RoomMenuGroup[];
 }
 
 // Phone-only overflow menu for the room's secondary controls. On a narrow
@@ -19,7 +31,7 @@ interface RoomMenuProps {
 // needs, and they still wrapped the header into a tower. Collapsing
 // everything except the room code behind one properly-sized button trades
 // a tap for controls that can actually be tapped.
-export default function RoomMenu({ items }: RoomMenuProps) {
+export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -55,8 +67,29 @@ export default function RoomMenu({ items }: RoomMenuProps) {
       {open && (
         <div
           role="menu"
-          className="sp-vote-card-enter absolute top-[calc(100%+8px)] right-0 z-30 w-[220px] overflow-hidden rounded-lg border border-sp-border-strong bg-sp-panel shadow-[0_10px_28px_rgba(0,0,0,0.35)]"
+          className="sp-vote-card-enter absolute top-[calc(100%+8px)] right-0 z-30 max-h-[70dvh] w-[230px] overflow-x-hidden overflow-y-auto rounded-lg border border-sp-border-strong bg-sp-panel shadow-[0_10px_28px_rgba(0,0,0,0.35)]"
         >
+          {groups.map(group => (
+            <div key={group.heading} className="border-b border-sp-border">
+              <div className="px-3.5 pt-2.5 pb-1 font-sp-font text-[10px] font-bold tracking-[0.06em] text-sp-text-faintest uppercase">
+                {group.heading}
+              </div>
+              {group.items.map(item => (
+                <button
+                  key={item.label}
+                  role="menuitemradio"
+                  aria-checked={!!item.selected}
+                  onClick={() => { setOpen(false); item.onSelect(); }}
+                  className={`flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-2 border-none bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold ${
+                    item.selected ? 'text-sp-accent-text' : 'text-sp-text-dim'
+                  }`}
+                >
+                  <span className="truncate">{item.label}</span>
+                  {item.selected && <span aria-hidden="true" className="shrink-0">✓</span>}
+                </button>
+              ))}
+            </div>
+          ))}
           {items.map(item => (
             <button
               key={item.label}

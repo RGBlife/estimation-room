@@ -62,9 +62,12 @@ const COMPACT_AT = 17;
 // Below this the phone tier applies regardless of headcount -- 96px seats
 // simply do not fit a phone, however few people are in the room.
 const PHONE_MAX_WIDTH = 560;
-// ...and between the two, a mid tier so tablets and small windows aren't
-// forced to choose between phone-sized and full-sized.
-const COMPACT_MAX_WIDTH = 900;
+// ...and between the two, a mid tier for the awkward band between a phone
+// and a tablet. Deliberately well below tablet width: a 768px screen has
+// room for the full-size seats (12 of them need 568px of 736), and forcing
+// compact there just left the seating cluster small and adrift in empty
+// space.
+const COMPACT_MAX_WIDTH = 640;
 const STAGE_MAX_CAP = 1180;
 // Matches the stage column's own px-4, so width math can subtract what the
 // padding actually costs rather than assuming the full viewport is usable.
@@ -88,14 +91,21 @@ const WIDTH_FLOOR_BREAKPOINTS = [
   { minWidth: 1600, floor: 620 },
   { minWidth: 1200, floor: 520 },
   { minWidth: 900, floor: 420 },
-  { minWidth: 640, floor: 300 },
+  // A tablet was landing on the 300 floor and, with a small room, ending up
+  // with the table at its 200px bare minimum inside a 736px stage -- mostly
+  // empty space either side. 380 fills the width sensibly without letting
+  // the table balloon: it stays a step below the 900px band's 420.
+  { minWidth: 640, floor: 380 },
   { minWidth: 0, floor: 0 },
 ];
 const HEIGHT_BREAKPOINTS = [
   { minWidth: 1600, height: 260 },
   { minWidth: 1200, height: 220 },
   { minWidth: 900, height: 190 },
-  { minWidth: 640, height: 150 },
+  // Tablet-ish. Was 150, which left the table looking undersized against a
+  // 1024px-tall portrait screen; 180 keeps it in proportion with the
+  // full-size seats this band now uses without growing it much.
+  { minWidth: 640, height: 180 },
   { minWidth: PHONE_MAX_WIDTH, height: 130 },
   { minWidth: 0, height: PHONE_TABLE_HEIGHT },
 ];

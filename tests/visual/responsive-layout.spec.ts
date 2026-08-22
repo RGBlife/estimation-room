@@ -179,6 +179,27 @@ test('header controls are big enough to tap', async ({ page }) => {
   expect(tooSmall, `controls under 44x44: ${tooSmall.join(', ')}`).toEqual([]);
 });
 
+test('the header sits on a single row', async ({ page }) => {
+  // The decorative "ER" logo plus the room code exceeded the width left
+  // beside the buttons, so the left group wrapped and the room code sat on
+  // its own line, visibly out of line with the controls next to it.
+  test.skip(test.info().project.name === 'chromium', 'desktop has room for the full row');
+  await page.goto('/?visual-test=room&seats=8');
+  await page.waitForSelector('.sp-app');
+
+  const rows = await page.evaluate(() => {
+    const header = document.querySelector('.sp-app > div')!;
+    const tops = new Set<number>();
+    for (const el of Array.from(header.querySelectorAll('button'))) {
+      const box = el.getBoundingClientRect();
+      if (box.width === 0) continue;
+      tops.add(Math.round(box.top / 8) * 8); // absorb sub-pixel drift
+    }
+    return tops.size;
+  });
+  expect(rows, `header controls occupy ${rows} rows`).toBe(1);
+});
+
 test('the room menu opens with full-size rows', async ({ page }) => {
   // Phone-only by design: a tablet has room to show every control at full
   // size, so it keeps them inline rather than behind a menu.

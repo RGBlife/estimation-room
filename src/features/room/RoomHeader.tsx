@@ -4,6 +4,7 @@ import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import { WEAPONS } from './weapons.ts';
 import DeckSwitcher from './DeckSwitcher.tsx';
 import RoomMenu from './RoomMenu.tsx';
+import { DECKS, DECK_ORDER } from './decks.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 import type { DeckDefinition } from './decks.ts';
 import type { DeckId } from '../../types/room.ts';
@@ -77,8 +78,13 @@ export default function RoomHeader({
       {/* The 280px min-width reserved most of a phone's width for the room
           code alone, forcing every control on the right onto its own row and
           stacking the header several rows tall. */}
-      <div className={`flex flex-1 flex-wrap items-center ${narrow ? 'min-w-0 gap-2' : snug ? 'min-w-0 gap-3' : 'min-w-[280px] gap-5'}`}>
-        <div aria-hidden="true" className="flex h-[22px] w-[22px] items-center justify-center rounded-md bg-sp-accent font-sp-mono text-[10px] font-bold text-sp-bg">ER</div>
+      {/* nowrap on a phone: the decorative logo plus the room code exceeded
+          the space left beside the buttons, so the group wrapped to two lines
+          and the room code sat visibly below the row it should align with. */}
+      <div className={`flex flex-1 items-center ${narrow ? 'min-w-0 flex-nowrap gap-2' : snug ? 'min-w-0 flex-wrap gap-3' : 'min-w-[280px] flex-wrap gap-5'}`}>
+        {/* Purely decorative, and the first thing worth spending to keep the
+            room code on one line with the controls beside it. */}
+        {!narrow && <div aria-hidden="true" className="flex h-[22px] w-[22px] items-center justify-center rounded-md bg-sp-accent font-sp-mono text-[10px] font-bold text-sp-bg">ER</div>}
         <button
           onClick={onCopy}
           title="Copy shareable invite link"
@@ -94,14 +100,15 @@ export default function RoomHeader({
       </div>
 
       {/* On a phone only the weapon button stays out in the open -- it's the
-          one control tied to what you're doing right now. Everything else is
-          a preference or a room action, and each was being squeezed under the
-          44px a finger needs; the menu gives them full-size rows instead. */}
+          one control tied to what you're doing right now, and it changes to
+          "Cancel" mid-throw, so burying it would hide the way out of
+          targeting mode. The deck moves into the menu instead: at 133px it
+          was the widest thing in the row, and it's set once a session rather
+          than used repeatedly. Everything else is a preference or a room
+          action, each squeezed under the 44px a finger needs; the menu gives
+          them full-size rows. */}
       {narrow ? (
         <div className="flex items-center gap-2">
-          {/* Stays out of the menu: it's the host's most-used control, and it
-              already opens its own picker rather than acting immediately. */}
-          {isCreator && <DeckSwitcher currentDeckId={deck.id} onSwitch={onSwitchDeck} />}
           {!isObserver && (
             equippedWeaponId ? (
               <button
@@ -118,6 +125,14 @@ export default function RoomHeader({
             )
           )}
           <RoomMenu
+            groups={isCreator ? [{
+              heading: 'Deck',
+              items: DECK_ORDER.map(id => ({
+                label: DECKS[id].name,
+                selected: id === deck.id,
+                onSelect: () => onSwitchDeck(id),
+              })),
+            }] : []}
             items={[
               { label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', onSelect: onToggleTheme },
               ...(!isObserver && isRevealed && !touchPrimary ? [{ label: '🚗 GTA Mode', onSelect: onStartDriving }] : []),
