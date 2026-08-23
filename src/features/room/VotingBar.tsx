@@ -10,6 +10,26 @@ const MIN_BAR_HEIGHT = 18;
 const STAGGER_MS = 45;
 const VOTE_ROW_EXIT_MS = 260;
 
+// On a short screen the results panel is competing with the seats for the same
+// pixels, and the seats lose -- the bottom row ends up behind the panel at the
+// exact moment the reveal makes it worth looking at. Below this height the
+// panel switches to a compact form: shorter bars, tighter gaps, and the
+// divider dropped. Above it nothing changes.
+const COMPACT_RESULTS_BELOW = 820;
+const COMPACT_MAX_BAR_HEIGHT = 40;
+
+function useIsShortViewport(): boolean {
+  const [short, setShort] = useState(
+    () => typeof window !== 'undefined' && window.innerHeight < COMPACT_RESULTS_BELOW,
+  );
+  useEffect(() => {
+    const onResize = () => setShort(window.innerHeight < COMPACT_RESULTS_BELOW);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return short;
+}
+
 interface DistributionBarProps {
   deck: DeckDefinition;
   distribution: DistributionGroup[];
@@ -31,8 +51,10 @@ function DistributionBar({
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
   const totalVotes = distribution.reduce((sum, d) => sum + d.count, 0);
   const showSummary = deck.resultKind === 'average' ? hasAverage : distribution.length > 0;
+  const short = useIsShortViewport();
+  const maxBar = short ? COMPACT_MAX_BAR_HEIGHT : MAX_BAR_HEIGHT;
   return (
-    <div className="flex flex-col items-center gap-3.5 py-1">
+    <div className={`flex flex-col items-center py-1 ${short ? 'gap-2' : 'gap-3.5'}`}>
       {/* Tighter column spacing on narrow screens: at 22px between 38px bars
           each column costs 60px, so a 13-value deck wrapped to three rows and
           the bar grew tall enough to bury the seats behind it. */}
@@ -48,9 +70,9 @@ function DistributionBar({
               style={{ opacity: dimmed ? 0.35 : 1, animationDelay: `${i * STAGGER_MS}ms` }}
             >
               <div
-                className={`sp-dist-bar flex w-[38px] items-center justify-center rounded-tl-md rounded-tr-md ${d.isTop ? 'bg-sp-accent' : 'bg-sp-bar-track'}`}
+                className={`sp-dist-bar flex w-[38px] items-center justify-center rounded-tl-md rounded-tr-md ${d.isTop ? 'sp-dist-bar-top bg-sp-accent' : 'bg-sp-bar-track'}`}
                 style={{
-                  height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT)),
+                  height: Math.round(MIN_BAR_HEIGHT + (d.count / maxCount) * (maxBar - MIN_BAR_HEIGHT)),
                   animationDelay: `${i * STAGGER_MS}ms`,
                 }}
               >
@@ -97,10 +119,12 @@ function DistributionBar({
           : `${flaggedCount} of ${totalVotes} flagged this as needing to be broken down`}</div>
       )}
 
-      <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />
+      {/* Purely a visual separator, and on a short screen its own height plus
+          the gap either side is worth more as seat space. */}
+      {!short && <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />}
 
       <div className="sp-kbd-hint-wrap">
-        <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
+        <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-sp-sm">
           Enter
         </div>
         <button

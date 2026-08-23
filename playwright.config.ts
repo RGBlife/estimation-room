@@ -45,6 +45,18 @@ export default defineConfig({
         hasTouch: true,
       },
     },
+    {
+      // A short laptop -- 1366x768 and scaled 1080p screens land here once
+      // browser chrome is taken off. Wide enough for the full desktop layout
+      // and too short for it: sizing answered only to width, so the bottom
+      // seat row sat behind the results panel at the moment of the reveal.
+      // The three projects above are all >=768 tall and never caught it.
+      name: 'short-laptop',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
+      },
+    },
   ],
   webServer: {
     // Vite's default dev-server binding resolves "localhost" ambiguously

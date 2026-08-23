@@ -43,6 +43,11 @@ const TABLE_HIT_COOLDOWN_MS = 140;
 // Total cracks kept per round. Past this the table is already thoroughly
 // wrecked and further decals only cost DOM and writes.
 const TABLE_CRACK_CAP = 14;
+// How far in from a surface's edge an impact point is nudged before a crack is
+// placed there. Small on purpose: the crack's job is to mark where the car hit,
+// so accuracy to the contact point matters more than keeping the whole decal
+// inside the rounded corners.
+const CRACK_EDGE_MARGIN = 10;
 // How long the one-shot debris/dust burst at the moment of the split stays
 // mounted -- covers the slowest smoke puff (worst case ~1360ms: 1140ms of
 // animation behind a 220ms stagger, see smokePuffs in gtaLifecycle) so it
@@ -110,14 +115,48 @@ const HEIGHT_BREAKPOINTS = [
   { minWidth: 0, height: PHONE_TABLE_HEIGHT },
 ];
 
-function useViewportWidth(): number {
-  const [width, setWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
+// The vertical budget. Everything above picks a size from viewport *width*,
+// which is only half the question: the stage has to fit a seat row, the table,
+// another seat row and the results panel between the header and the bottom of
+// the screen. On a short screen that budget is blown even though the screen is
+// wide, so these scale the width-derived table height down and force the
+// compact seat tier.
+//
+// Thresholds are the common laptop heights: a 900px-tall screen is roomy, 800
+// is the 16:10 13" default, 720 is a 1366x768 or scaled 1080p laptop with
+// browser chrome, and below 660 is a short window someone has resized.
+const SHORT_VIEWPORT_TIERS = [
+  { minHeight: 960, tableScale: 1, compactSeats: false },
+  // A 900px-tall screen is roomy horizontally but not vertically: at 1600px
+  // wide the table's natural 260px plus two seat rows and the results panel
+  // still overshoots, so this band trims the table rather than the seats.
+  { minHeight: 860, tableScale: 0.85, compactSeats: false },
+  { minHeight: 780, tableScale: 0.8, compactSeats: false },
+  { minHeight: 700, tableScale: 0.72, compactSeats: true },
+  { minHeight: 0, tableScale: 0.52, compactSeats: true },
+];
+// Below this a table is doing more harm than good -- it would be a sliver, and
+// the seats around it are what people actually read.
+const MIN_TABLE_HEIGHT = 96;
+// Under this height the row gaps and the stage's top padding tighten too. The
+// table alone can't free enough space once the screen is this short.
+const TIGHT_VIEWPORT_HEIGHT = 700;
+
+// Height matters as much as width here. Sizing on width alone meant a 1280px
+// screen got the same 220px table whether it was 1400px tall or 720px, so on a
+// short laptop the bottom seat row ended up behind the results panel -- three
+// of eight people, including yourself, simply gone at the moment of the reveal.
+function useViewportSize(): { width: number; height: number } {
+  const [size, setSize] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
+  }));
   useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth);
+    const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-  return width;
+  return size;
 }
 
 interface SeatSizes {
@@ -240,7 +279,13 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
           needs to be a real button -- otherwise throwing is mouse-only and
           the avatar is invisible to a screen reader. Outside targeting mode
           it stays decorative (the name below already carries the identity). */}
-      <div className="relative" style={{ width: seat.size, height: seat.size }}>
+      {/* sp-seat-grounded paints a contact shadow under the avatar so it sits
+          on the table rather than floating over it. Dropped while vacated --
+          the seat is empty, so there's nothing to cast one. */}
+      <div
+        className={`relative${seat.vacated ? '' : ' sp-seat-grounded'}`}
+        style={{ width: seat.size, height: seat.size }}
+      >
         <img
           ref={node => registerSeatNode(seat.id, node)}
           src={seat.avatarUrl}
@@ -298,9 +343,13 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
           name, not above it. Its own line rather than beside the name, which
           is already truncated to the seat width. */}
       <div className="flex flex-col items-center">
+        {/* Allowed to spill a little past the seat's own width: names sit
+            above the avatars with horizontal space either side, and clipping
+            "Player 1 (you)" to "Player 1 (y…" costs more than the slight
+            overlap does. Still bounded, so a long name can't shove the row. */}
         <div
           className="overflow-hidden text-center text-xs font-semibold text-ellipsis whitespace-nowrap text-sp-text-dim"
-          style={{ maxWidth: sizes.seatW - 6 }}
+          style={{ maxWidth: sizes.seatW + 22 }}
         >{seat.displayName}</div>
         {seat.isHost && (
           <div className="font-sp-font text-[9px] font-bold tracking-[0.06em] text-sp-text-faintest uppercase">
@@ -644,16 +693,28 @@ export default function SeatTable({
   // short sides, and the vertical observer rail (which drops below the table
   // on narrow viewports so seats keep the full width).
   const wide = useMediaQuery(END_SEAT_BREAKPOINT);
-  const viewportWidth = useViewportWidth();
+  const { width: viewportWidth, height: viewportHeight } = useViewportSize();
+  // How tight the screen is vertically. Phones are excluded: they use a list
+  // layout with no table at all, and squeezing their seats further would fix
+  // a problem they don't have.
+  const shortTier = SHORT_VIEWPORT_TIERS.find(t => viewportHeight >= t.minHeight)!;
+  // The shortest band, where the table has already shrunk as far as it usefully
+  // can and the remaining savings have to come from the gaps between rows.
+  const isTight = viewportHeight > 0 && viewportHeight < TIGHT_VIEWPORT_HEIGHT;
   // Seat size answers to the viewport as well as the headcount, and takes
   // whichever is more constraining. Headcount alone used to decide it, so a
   // 4-person room on a phone kept full 96px seats and wrapped every row into
   // ones and twos -- the "everything crowded together" effect. A big room on
   // a phone still gets the smallest tier: the two rules agree rather than
   // fight, because each only ever shrinks.
+  //
+  // Viewport *height* is the third input: a wide-but-short laptop has room for
+  // full-size seats horizontally and none at all vertically, and the seats are
+  // what get pushed off-screen. Like the other two rules, it only ever shrinks.
   const sizes =
     viewportWidth > 0 && viewportWidth < PHONE_MAX_WIDTH ? PHONE_SIZES
     : n >= COMPACT_AT || (viewportWidth > 0 && viewportWidth < COMPACT_MAX_WIDTH) ? COMPACT_SIZES
+    : viewportHeight > 0 && shortTier.compactSeats ? COMPACT_SIZES
     : DEFAULT_SIZES;
   const isPhone = sizes === PHONE_SIZES;
 
@@ -674,6 +735,24 @@ export default function SeatTable({
   // already retriggers them independently via the `drivers[x].hit` watcher
   // below, the same as it always has.
   const tableSplit = tableCracks.length >= TABLE_SPLIT_THRESHOLD;
+  // Cracks landed on the intact table carry side 'table'; ones landed after
+  // the split carry 'left'/'right'. Each half used to render only its own
+  // side, so at the moment of the break the very cracks that caused it all
+  // vanished -- the table visibly healed as it snapped in two.
+  //
+  // A 'table' crack's fx is a fraction of the whole surface, so which half it
+  // belongs to is just which side of the midline it sits on, and its position
+  // within that half is that fraction rescaled to 0..1. Derived rather than
+  // rewritten into state: the stored events stay exactly as published (every
+  // client re-derives the same thing), and nothing has to be migrated.
+  const cracksFor = (side: 'left' | 'right') =>
+    tableCracks.flatMap(c => {
+      if (c.side === side) return [c];
+      if (c.side !== 'table') return [];
+      const onLeft = c.fx < 0.5;
+      if (onLeft !== (side === 'left')) return [];
+      return [{ ...c, fx: onLeft ? c.fx * 2 : (c.fx - 0.5) * 2 }];
+    });
   // One-shot debris/dust burst the instant the table crosses into split --
   // every viewer derives tableSplit independently from the same synced
   // crack count, so this fires identically everywhere with no extra sync,
@@ -754,7 +833,13 @@ export default function SeatTable({
       // enough that the crack's own radius doesn't clip past the table's
       // rounded corner, rather than pulling every hit toward the center
       // with a percentage clamp.
-      const margin = 15; // px, roughly the crack decal's own radius
+      //
+      // Kept deliberately small. A larger margin (a full decal radius) does
+      // stop the corners clipping, but it drags every hit inward from where
+      // the car actually touched -- and a crack appearing away from the point
+      // of impact reads as broken far more than a decal overhanging a rounded
+      // corner does. The damage marking the contact point is the whole effect.
+      const margin = CRACK_EDGE_MARGIN;
       const px = Math.min(tb.width - margin, Math.max(margin, stageX + sb.left - tb.left));
       const py = Math.min(tb.height - margin, Math.max(margin, stageY + sb.top - tb.top));
       onPublishCrack({ fx: px / tb.width, fy: py / tb.height, rot: Math.round(Math.random() * 360), side: 'table' });
@@ -770,7 +855,7 @@ export default function SeatTable({
     if (pieceNode && !atCrackCap) {
       const pb = pieceNode.getBoundingClientRect();
       if (pb.width > 0 && pb.height > 0) {
-        const margin = 15;
+        const margin = CRACK_EDGE_MARGIN;
         const px = Math.min(pb.width - margin, Math.max(margin, stageX + sb.left - pb.left));
         const py = Math.min(pb.height - margin, Math.max(margin, stageY + sb.top - pb.top));
         onPublishCrack({ fx: px / pb.width, fy: py / pb.height, rot: Math.round(Math.random() * 360), side });
@@ -899,7 +984,14 @@ export default function SeatTable({
     Math.max(baseFloor, widthFloor, widestRow * (sizes.seatW + SEAT_GAP) + 48),
     availableWidth,
   );
-  const tableHeight = HEIGHT_BREAKPOINTS.find(b => viewportWidth >= b.minWidth)!.height;
+  // Width picks the table's natural height; the short-viewport tier then
+  // scales it down so the seat rows below it stay on screen. Phones keep the
+  // width-derived value untouched -- they render no table at all.
+  const baseTableHeight = HEIGHT_BREAKPOINTS.find(b => viewportWidth >= b.minWidth)!.height;
+  const tableHeight =
+    isPhone || viewportHeight === 0
+      ? baseTableHeight
+      : Math.max(MIN_TABLE_HEIGHT, Math.round(baseTableHeight * shortTier.tableScale));
   // Clearance for the fixed VotingBar is the bar's real measured height
   // (plus a small buffer) rather than a guess, so it only ever changes by
   // as much as the bar actually grows/shrinks — and that change transitions
@@ -925,7 +1017,7 @@ export default function SeatTable({
         // overflows at BOTH ends, so the bottom seat row disappears behind
         // the bar with no way to scroll to it. Falling back to start-aligned
         // keeps every seat reachable on a short screen.
-        className={`flex min-w-0 flex-1 flex-col items-center px-4 pt-5 transition-[padding-bottom] duration-250 ${isPhone ? 'justify-start' : 'justify-center'}`}
+        className={`flex min-w-0 flex-1 flex-col items-center px-4 transition-[padding-bottom] duration-250 ${isTight ? 'pt-2' : 'pt-5'} ${isPhone ? 'justify-start' : 'justify-center'}`}
         style={{ paddingBottom: bottomClearance }}
       >
         {isPhone ? (
@@ -959,7 +1051,7 @@ export default function SeatTable({
             </div>
           </div>
         ) : (
-        <div className="flex w-full flex-col gap-4.5" style={{ maxWidth: stageMaxWidth }}>
+        <div className={`flex w-full flex-col ${isTight ? 'gap-2' : 'gap-4.5'}`} style={{ maxWidth: stageMaxWidth }}>
           <SeatRow seats={top} {...seatProps} />
 
           <div className="flex items-center gap-4">
@@ -972,7 +1064,7 @@ export default function SeatTable({
               // sorts ahead of the seats.
               ref={node => registerSeatNode('__table__', tableSplit ? null : node)}
               className={`relative flex flex-1 items-center justify-center rounded-[28px] transition-[border-color,box-shadow] duration-150 ${
-                tableSplit ? '' : `overflow-hidden bg-sp-table-center ${!isRevealed && allVoted ? 'border-2 border-sp-accent shadow-[0_0_0_3px_var(--sp-accent-glow)]' : 'border border-sp-border'}`
+                tableSplit ? '' : `sp-table-surface overflow-hidden bg-sp-table-center ${!isRevealed && allVoted ? 'sp-ready-pulse border-2 border-sp-accent' : 'border border-sp-border'}`
               }`}
               style={{ minWidth: isPhone ? PHONE_TABLE_MIN_WIDTH : TABLE_MIN_WIDTH, height: tableHeight }}
             >
@@ -1028,7 +1120,7 @@ export default function SeatTable({
                       animation: 'sp-gta-table-split-left 520ms cubic-bezier(.34,1.24,.5,1) both',
                     }}
                   >
-                    {tableCracks.filter(c => c.side === 'left').map(c => (
+                    {cracksFor('left').map(c => (
                       <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
@@ -1048,7 +1140,7 @@ export default function SeatTable({
                       animation: 'sp-gta-table-split-right 520ms cubic-bezier(.34,1.24,.5,1) both',
                     }}
                   >
-                    {tableCracks.filter(c => c.side === 'right').map(c => (
+                    {cracksFor('right').map(c => (
                       <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />
                     ))}
                   </div>
@@ -1094,6 +1186,15 @@ export default function SeatTable({
                 tableCracks.filter(c => c.side === 'table').map(c => <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />)
               )}
 
+              {/* A faint centre marking so the table reads as a surface with a
+                  middle rather than an empty box. Fades out on reveal so it
+                  never competes with the results. Decorative only. */}
+              {!tableSplit && (
+                <div aria-hidden="true" className={`sp-table-mark${isRevealed ? ' sp-table-mark-hidden' : ''}`}>
+                  ER
+                </div>
+              )}
+
               {/* The visual vote counter and the reveal are otherwise silent to
                   a screen reader -- this narrates round progress instead. */}
               <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -1106,7 +1207,7 @@ export default function SeatTable({
                 allVoted ? (
                   <div className="sp-kbd-hint-wrap">
                     {anyVote && (
-                      <div aria-hidden="true" className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
+                      <div aria-hidden="true" className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-sp-sm">
                         Enter
                       </div>
                     )}
@@ -1117,7 +1218,7 @@ export default function SeatTable({
                     >Reveal votes</button>
                   </div>
                 ) : (
-                  <div aria-hidden="true" className="font-sp-mono text-[15px] font-bold text-sp-text-dim">
+                  <div aria-hidden="true" className="sp-breathe font-sp-mono text-[15px] font-bold text-sp-text-dim">
                     {votedCount}/{n}
                   </div>
                 )
@@ -1160,6 +1261,10 @@ export default function SeatTable({
           wastedIds={new Set(Object.keys(tableWasted))}
           getSeatNode={getSeatNode}
           stageNode={stageRef.current}
+          // The stage box runs the full height of the column, which extends
+          // underneath the fixed voting bar -- so without this the car's own
+          // bounds let it drive down behind the results panel and vanish.
+          bottomInset={bottomClearance}
           onPublish={onPublishDrive}
           onSeatBump={handleSeatBump}
           onSeatSquash={handleSeatSquash}

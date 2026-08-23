@@ -11,6 +11,10 @@ import { checkOverflow } from './overflow.ts';
 
 const ROOM_SIZES = [4, 8, 12];
 
+// Projects driven by a mouse rather than a finger: the touch-target and
+// header-wrapping assertions below are deliberately narrow-screen concerns.
+const DESKTOP_PROJECTS = ['chromium', 'short-laptop'];
+
 async function documentScrollsHorizontally(page: import('@playwright/test').Page) {
   return page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 }
@@ -85,24 +89,34 @@ for (const seats of ROOM_SIZES) {
       ).toBeLessThan(viewport!.height * 0.6);
     });
 
-    test('revealed: every seat stays reachable behind the results panel', async ({ page }) => {
+    test('revealed: every seat is visible without scrolling', async ({ page }) => {
       await page.getByTestId('toggle-reveal').click();
       await page.waitForTimeout(400);
-      // The stage is justify-center, which overflows at *both* ends once
-      // content plus the bar's clearance exceeds the viewport -- the bottom
-      // seat row vanished behind the bar with no way to scroll to it. Either
-      // the seats clear the bar, or the page scrolls far enough to reach them.
-      const reachable = await page.evaluate(() => {
+      // Reveal is the one moment everyone looks at everyone else's card, so
+      // "you could scroll to it" is not good enough -- nobody scrolls at the
+      // instant the cards flip. This used to accept `scrollable > 0`, which is
+      // exactly why three of eight seats could sit behind the results panel on
+      // a 1280x720 laptop with the suite fully green.
+      //
+      // The layout answers to viewport height as well as width (see
+      // SHORT_VIEWPORT_TIERS in SeatTable.tsx and COMPACT_RESULTS_BELOW in
+      // VotingBar.tsx) precisely so this holds on a short screen.
+      const overlap = await page.evaluate(() => {
         const bar = document.querySelector('div.fixed.right-0.bottom-0.left-0')!.getBoundingClientRect();
         const seats = Array.from(document.querySelectorAll('.sp-app img'))
-          .map(i => i.getBoundingClientRect().bottom)
-          .filter(b => b > 0);
-        if (!seats.length) return true;
-        const lowest = Math.max(...seats);
-        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-        return lowest <= bar.top + 1 || scrollable > 0;
+          .map(i => i.getBoundingClientRect())
+          .filter(b => b.height > 0);
+        if (!seats.length) return { hidden: 0, worst: 0 };
+        const hidden = seats.filter(b => b.bottom > bar.top + 1);
+        return {
+          hidden: hidden.length,
+          worst: hidden.length ? Math.round(Math.max(...hidden.map(b => b.bottom - bar.top))) : 0,
+        };
       });
-      expect(reachable, 'the bottom seat row is hidden behind the voting bar and cannot be scrolled to').toBe(true);
+      expect(
+        overlap.hidden,
+        `${overlap.hidden} seat(s) sit behind the results panel (worst overlaps by ${overlap.worst}px) — they are invisible at the moment of the reveal`,
+      ).toBe(0);
     });
 
     test('revealed: the results panel still leaves the table room', async ({ page }) => {
@@ -163,8 +177,9 @@ test('header controls are big enough to tap', async ({ page }) => {
   // 44x44 is the usual minimum for a finger. The header used to shrink its
   // controls to fit instead: a 28x28 theme toggle and a 32x16 "Leave room".
   // Skipped on desktop, where a cursor is precise and the controls are
-  // deliberately smaller.
-  test.skip(test.info().project.name === 'chromium', 'pointer-precise, not a touch target');
+  // deliberately smaller. Both desktop projects qualify -- short-laptop is a
+  // 1280x720 desktop, not a touch device.
+  test.skip(DESKTOP_PROJECTS.includes(test.info().project.name), 'pointer-precise, not a touch target');
   await page.goto('/?visual-test=room&seats=8');
   await page.waitForSelector('.sp-app');
 
@@ -183,7 +198,7 @@ test('the header sits on a single row', async ({ page }) => {
   // The decorative "ER" logo plus the room code exceeded the width left
   // beside the buttons, so the left group wrapped and the room code sat on
   // its own line, visibly out of line with the controls next to it.
-  test.skip(test.info().project.name === 'chromium', 'desktop has room for the full row');
+  test.skip(DESKTOP_PROJECTS.includes(test.info().project.name), 'desktop has room for the full row');
   await page.goto('/?visual-test=room&seats=8');
   await page.waitForSelector('.sp-app');
 
