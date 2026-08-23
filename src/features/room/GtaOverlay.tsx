@@ -217,6 +217,9 @@ interface GtaOverlayProps {
   wastedIds: Set<string>;
   getSeatNode: (uid: string) => HTMLElement | null;
   stageNode: HTMLElement | null;
+  // Height at the bottom of the stage box that the fixed voting bar covers.
+  // Subtracted from the drivable area so the car stays where it can be seen.
+  bottomInset: number;
   onPublish: (state: Omit<DriverState, 'uid'>) => void;
   // Reports every seat this car bumps/squashes so the caller can animate the
   // seat's own avatar -- this overlay only draws cars, never touches seat
@@ -247,7 +250,7 @@ interface GtaOverlayProps {
 // positions, so cars can ram each other as well as the furniture.
 export default function GtaOverlay({
   active, forceEnd, driverUid, driverAvatarUrl, colorIndex, remoteDrivers, getAvatarForUid, colorIndexForUid,
-  obstacleIds, wastedIds, getSeatNode, stageNode, onPublish, onSeatBump, onSeatSquash, onTableHit,
+  obstacleIds, wastedIds, getSeatNode, stageNode, bottomInset, onPublish, onSeatBump, onSeatSquash, onTableHit,
   onSeatVacatedChange, onExit,
 }: GtaOverlayProps) {
   const inputRef = useRef<DriveInput>({ forward: false, back: false, left: false, right: false });
@@ -268,6 +271,11 @@ export default function GtaOverlay({
   // colliding with the intact table it can no longer see.
   const obstacleIdsRef = useRef<string[]>(obstacleIds);
   obstacleIdsRef.current = obstacleIds;
+  // Same reason as obstacleIdsRef: the rAF loop is set up once, so reading the
+  // prop directly would freeze the inset at its mount-time value (0, before
+  // the voting bar has been measured).
+  const bottomInsetRef = useRef(bottomInset);
+  bottomInsetRef.current = bottomInset;
 
   const [, forceRender] = useState(0);
   const [phase, setPhase] = useState<GtaPhase>('idle');
@@ -291,12 +299,16 @@ export default function GtaOverlay({
     if (!stage) return;
     const sb = stage.getBoundingClientRect();
     const { w: carW, h: carH } = carSize(carScaleFor(sb.width));
+    // Entry has to respect the same drivable area the loop uses, or a driver
+    // whose seat sits low can be dropped in underneath the voting bar and
+    // spend the first moments of their drive invisible.
+    const driveH = Math.max(120, sb.height - bottomInsetRef.current);
     let startX = sb.width / 2;
-    let startY = sb.height / 2;
+    let startY = driveH / 2;
     if (seatNode) {
       const b = seatNode.getBoundingClientRect();
       startX = Math.min(b.left + b.width / 2 - sb.left + 80 * (carW / CAR_W), sb.width - carW);
-      startY = Math.min(Math.max(b.top + b.height / 2 - sb.top + 34 * (carH / CAR_H), carH), sb.height - carH);
+      startY = Math.min(Math.max(b.top + b.height / 2 - sb.top + 34 * (carH / CAR_H), carH), driveH - carH);
     }
     carRef.current = createCar(startX, startY, Math.PI);
     setWreck(null);
@@ -422,7 +434,10 @@ export default function GtaOverlay({
         lastRef.current = now;
         const obstacles = measureObstacles(stageBoxNow);
         const scale = carScaleFor(stageBoxNow.width);
-        const out = stepCar(carRef.current, inputRef.current, dt, { w: stageBoxNow.width, h: stageBoxNow.height }, obstacles, scale);
+        // The drivable area stops where the voting bar starts. A floor keeps
+        // it sane if the bar ever measures taller than the stage itself.
+        const driveH = Math.max(120, stageBoxNow.height - bottomInsetRef.current);
+        const out = stepCar(carRef.current, inputRef.current, dt, { w: stageBoxNow.width, h: driveH }, obstacles, scale);
         carRef.current = out.car;
         for (const id of out.bumpedIds) if (!id.startsWith('driver:')) onSeatBump(id);
         if (out.hitId?.startsWith('driver:')) {
