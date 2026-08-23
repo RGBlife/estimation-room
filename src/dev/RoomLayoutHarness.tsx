@@ -8,6 +8,8 @@ import { DECKS, ALL_DECK_IDS } from '../features/room/decks.ts';
 import { computeStats, computeDistribution, computeCustomGroups } from '../features/room/stats.ts';
 import { randomAvatar } from '../features/avatar/index.js';
 import type { Participant, DeckId } from '../types/room.ts';
+import type { DriverState, TableCrackEvent, WastedMap } from '../types/gta.ts';
+import type { ThrowEvent } from '../types/throws.ts';
 
 // Dev-only, Firestore-free stage for the *whole room layout* -- header, seats,
 // table and voting bar composed the way RoomScreen composes them, but with
@@ -38,6 +40,46 @@ function fixtureParticipants(seats: number, observers: number): Record<string, P
 
 const ZERO_MOVE = { x: 0, y: 0, rot: 0 };
 
+// Deterministic crack positions for `?cracks=N`. Spread across the table
+// rather than random so the same URL always produces the same picture --
+// these get screenshotted, and a shifting layout makes two captures
+// impossible to compare.
+function seededCracks(n: number): TableCrackEvent[] {
+  // Positions sit near the edges, because that is where real ones land: a car
+  // can only ever contact the table's boundary, so handleTableHit clamps every
+  // impact to it. Mid-table spots (which an earlier version of this used)
+  // produce screenshots that misrepresent the feature -- damage floating in
+  // the middle of a surface nothing could have reached.
+  const spots: [number, number][] = [
+    [0.18, 0.08], [0.52, 0.05], [0.86, 0.14], [0.95, 0.52], [0.82, 0.93],
+    [0.46, 0.96], [0.14, 0.88], [0.05, 0.46], [0.68, 0.06], [0.3, 0.94],
+  ];
+  return Array.from({ length: Math.min(n, spots.length) }, (_, i) => ({
+    id: `seed${i}`,
+    fx: spots[i][0],
+    fy: spots[i][1],
+    rot: (i * 67) % 360,
+    side: 'table' as const,
+    fromUid: 'p0',
+    ts: Date.now() + i,
+  }));
+}
+
+// Stand-in remote drivers for `?remotecars=N`, so several cars on the board at
+// once can be seen without a second browser and a real room.
+function seededDrivers(n: number): Record<string, DriverState> {
+  const spots: [number, number, number][] = [
+    [0.24, 0.28, 0.4], [0.74, 0.34, 3.1], [0.34, 0.52, 1.6], [0.68, 0.58, 2.2],
+  ];
+  const out: Record<string, DriverState> = {};
+  for (let i = 0; i < Math.min(n, spots.length); i++) {
+    const [x, y, r] = spots[i];
+    // p1 is the local user's own seat, so remote drivers start at p2.
+    out[`p${i + 1}`] = { uid: `p${i + 1}`, x, y, r, t: Date.now(), phase: 'driving' };
+  }
+  return out;
+}
+
 export default function RoomLayoutHarness() {
   const params = new URLSearchParams(window.location.search);
   const seats = Number(params.get('seats') || 8);
@@ -52,6 +94,21 @@ export default function RoomLayoutHarness() {
   const [isDriving, setIsDriving] = useState(false);
   const [equippedWeaponId, setEquippedWeaponId] = useState<string | null>(null);
   const [weaponTrayOpen, setWeaponTrayOpen] = useState(false);
+  // Crack/wasted state kept locally so the table can actually accumulate
+  // damage and split here, exactly as it does against a real room.
+  //
+  // `?cracks=N` seeds N of them up front. Reaching the 5-crack split threshold
+  // by actually ramming is a matter of luck with the car physics, which makes
+  // the split -- the most geometry-sensitive thing GTA Mode does -- painful to
+  // look at deliberately. Seeded cracks are the same TableCrackEvent shape the
+  // real path publishes, so what renders is what a real room renders.
+  const [tableCracks, setTableCracks] = useState<TableCrackEvent[]>(() =>
+    seededCracks(Number(params.get('cracks') || 0)),
+  );
+  const [tableWasted, setTableWasted] = useState<WastedMap>(() =>
+    params.get('wasted') === '1' ? ({ p2: true } as WastedMap) : {},
+  );
+  const [throws, setThrows] = useState<ThrowEvent[]>([]);
   const cancelTargeting = useCallback(() => setEquippedWeaponId(null), []);
   // Mirrors RoomScreen: starting a drive drops any equipped weapon.
   const handleStartDriving = useCallback(() => {
@@ -75,7 +132,7 @@ export default function RoomLayoutHarness() {
   const handleVotingBarHeightChange = useCallback((h: number) => setVotingBarHeight(h), []);
 
   return (
-    <div className="sp-app">
+    <div className="sp-app relative">
       <RoomHeader
         roomCode="ABCD"
         copied={false}
@@ -96,7 +153,14 @@ export default function RoomLayoutHarness() {
         onLeave={() => {}}
       />
 
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+      {/* The harness's own controls, taken out of flow deliberately. In flow
+          they cost ~30px of column height that the real app doesn't have, so
+          every vertical-fit assertion measured a stage 30px shorter than the
+          one users get -- the harness would report seats behind the results
+          panel that are actually fine in production. Overlaid at the top-left
+          instead, where they stay clickable without distorting the layout
+          under test. */}
+      <div className="pointer-events-none absolute top-0 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
         <button
           data-testid="toggle-reveal"
           onClick={() => setRevealed(r => !r)}
@@ -149,24 +213,48 @@ export default function RoomLayoutHarness() {
         allVoted
         onReveal={() => setRevealed(true)}
         canTarget={!!equippedWeaponId}
-        onThrowAt={() => {}}
+        // Real throws rather than a no-op: ThrowOverlay's flight/impact math
+        // reads the live avatar and stage rects, which are exactly what the
+        // responsive sizing changes, so a stubbed throw would have hidden any
+        // breakage here.
+        onThrowAt={(id, e) => {
+          const el = e?.currentTarget as HTMLElement | undefined;
+          let offsetX = 0;
+          let offsetY = 0;
+          if (el && e) {
+            const r = el.getBoundingClientRect();
+            offsetX = (e.clientX - r.left) / r.width - 0.5;
+            offsetY = (e.clientY - r.top) / r.height - 0.5;
+          }
+          setThrows(t => [...t, {
+            id: `t${t.length}`, fromUid: 'p0', toUid: id,
+            weaponId: equippedWeaponId ?? 'confetti', ts: Date.now(), offsetX, offsetY,
+          }]);
+        }}
         registerSeatNode={registerSeatNode}
         getSeatNode={getSeatNode}
         stageRef={stageNodeRef}
-        throws={[]}
-        onThrowDone={() => {}}
+        throws={throws}
+        onThrowDone={id => setThrows(t => t.filter(x => x.id !== id))}
         bottomClearance={votingBarHeight}
-        isDriving={false}
+        // Real GTA state rather than a hardcoded false. The harness already
+        // owned isDriving for the header's benefit, but passed false here, so
+        // GtaOverlay never mounted and the button appeared to do nothing --
+        // the one feature whose geometry depends on the seat/table sizing this
+        // harness exists to exercise could not be exercised in it at all.
+        isDriving={isDriving}
         forceEndDrive={false}
-        drivers={{}}
-        tableCracks={[]}
+        drivers={seededDrivers(Number(params.get('remotecars') || 0))}
+        tableCracks={tableCracks}
         tablePieceMove={{ left: ZERO_MOVE, right: ZERO_MOVE }}
-        tableWasted={{}}
+        tableWasted={tableWasted}
         onPublishDrive={() => {}}
-        onExitDrive={() => {}}
-        onPublishCrack={() => {}}
+        onExitDrive={() => setIsDriving(false)}
+        onPublishCrack={crack =>
+          setTableCracks(cs => [...cs, { ...crack, id: `c${cs.length}`, fromUid: 'p0', ts: Date.now() }])
+        }
         onPublishPieceMove={() => {}}
-        onMarkWasted={() => {}}
+        onMarkWasted={id => setTableWasted(w => ({ ...w, [id]: true }))}
       />
 
       <VotingBar

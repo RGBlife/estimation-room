@@ -3,6 +3,15 @@ import { createRoot } from 'react-dom/client';
 import './styles/theme.css';
 import './styles/tailwind.css';
 
+// Candidate theme palettes for the design exploration (src/styles/themes.css).
+// Dynamically imported, and only in DEV: it's scaffolding for choosing a
+// direction, and a static import would bundle every unused palette into the
+// production CSS. Loaded after theme.css so its data-theme blocks win on
+// source order at equal specificity.
+if (import.meta.env.DEV) {
+  import('./styles/themes.css');
+}
+
 // Dev-only, Firestore-free component stage (see src/dev/VisualTestHarness.tsx)
 // for visual/layout checks that don't need a real room. import.meta.env.DEV
 // gates it out of production builds entirely.
@@ -19,11 +28,13 @@ import './styles/tailwind.css';
 const visualTest = import.meta.env.DEV
   ? new URLSearchParams(window.location.search).get('visual-test')
   : null;
-const isVisualTestRoute = visualTest === 'cards' || visualTest === 'gta' || visualTest === 'room';
+const isVisualTestRoute =
+  visualTest === 'cards' || visualTest === 'gta' || visualTest === 'room' || visualTest === 'join';
 const App = isVisualTestRoute ? null : lazy(() => import('./app/App.tsx'));
 const VisualTestHarness = visualTest === 'cards' ? lazy(() => import('./dev/VisualTestHarness.tsx')) : null;
 const GtaSandbox = visualTest === 'gta' ? lazy(() => import('./dev/GtaSandbox.tsx')) : null;
 const RoomLayoutHarness = visualTest === 'room' ? lazy(() => import('./dev/RoomLayoutHarness.tsx')) : null;
+const JoinHarness = visualTest === 'join' ? lazy(() => import('./dev/JoinHarness.tsx')) : null;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -31,6 +42,7 @@ createRoot(document.getElementById('root')!).render(
       {GtaSandbox ? <GtaSandbox />
         : RoomLayoutHarness ? <RoomLayoutHarness />
         : VisualTestHarness ? <VisualTestHarness />
+        : JoinHarness ? <JoinHarness />
         : App && <App />}
     </Suspense>
   </StrictMode>,
