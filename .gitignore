@@ -14,5 +14,7 @@ test-results
 playwright-report
 blob-report
 playwright/.cache
-design/screenshots
-design/artifact/theme-review.html
+# Design-exploration working area: captured screenshots, the generated
+# comparison page, and local notes. All scratch, none of it belongs in the
+# repo.
+design/
