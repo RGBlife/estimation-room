@@ -32,7 +32,7 @@ export default function CustomResultsList({ groups, onStartNextRound }: CustomRe
       <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />
 
       <div className="sp-kbd-hint-wrap">
-        <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
+        <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-sp-sm">
           Enter
         </div>
         <button

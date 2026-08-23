@@ -55,7 +55,7 @@ export default function ObserverRail({
               src={participantAvatarSrc(p)}
               alt=""
               onClick={canClick ? (e) => onThrowAt(id, e) : undefined}
-              className={`absolute top-2.5 left-0.5 z-[3] block h-11 w-11 rounded-full border-2 border-sp-panel bg-sp-card-bg shadow-[0_2px_6px_rgba(0,0,0,0.35)] ${canClick ? 'cursor-crosshair' : 'cursor-default'}`}
+              className={`absolute top-2.5 left-0.5 z-[3] block h-11 w-11 rounded-full border-2 border-sp-panel bg-sp-card-bg shadow-sp-sm ${canClick ? 'cursor-crosshair' : 'cursor-default'}`}
             />
             <div className="absolute top-[30px] left-[-8px] z-[3] h-0 w-0 border-t-4 border-b-4 border-r-[7px] border-t-transparent border-b-transparent border-r-sp-text-faint" />
             <div className="absolute top-[92px] left-0 w-[76px] overflow-hidden text-center text-[11px] font-bold text-ellipsis whitespace-nowrap text-sp-text-dim">

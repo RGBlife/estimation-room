@@ -42,7 +42,7 @@ export default function WeaponTray({ open, selectedWeaponId, onSelect, onClose }
         aria-modal="true"
         aria-labelledby="sp-weapon-tray-title"
         onClick={e => e.stopPropagation()}
-        className="rounded-t-2xl border border-sp-border bg-sp-panel px-6.5 pt-5.5 pb-7 shadow-[0_-10px_30px_rgba(0,0,0,0.4)]"
+        className="rounded-t-2xl border border-sp-border bg-sp-panel px-6.5 pt-5.5 pb-7 shadow-sp-up"
         style={{
           width: 'min(560px, 92vw)',
           animation: `${closing ? 'sp-tray-slide-down' : 'sp-tray-slide-up'} ${CLOSE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1) both`,

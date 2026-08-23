@@ -67,7 +67,7 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
       {open && (
         <div
           role="menu"
-          className="sp-vote-card-enter absolute top-[calc(100%+8px)] right-0 z-30 max-h-[70dvh] w-[230px] overflow-x-hidden overflow-y-auto rounded-lg border border-sp-border-strong bg-sp-panel shadow-[0_10px_28px_rgba(0,0,0,0.35)]"
+          className="sp-vote-card-enter absolute top-[calc(100%+8px)] right-0 z-30 max-h-[70dvh] w-[230px] overflow-x-hidden overflow-y-auto rounded-lg border border-sp-border-strong bg-sp-panel shadow-sp-md"
         >
           {groups.map(group => (
             <div key={group.heading} className="border-b border-sp-border">

@@ -39,4 +39,8 @@
   --color-sp-warn-text: var(--sp-warn-text);
   --font-sp-font: var(--sp-font);
   --font-sp-mono: var(--sp-mono);
+  --shadow-sp-sm: var(--sp-shadow-sm);
+  --shadow-sp-md: var(--sp-shadow-md);
+  --shadow-sp-lg: var(--sp-shadow-lg);
+  --shadow-sp-up: var(--sp-shadow-up);
 }

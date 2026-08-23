@@ -30,6 +30,14 @@
   --sp-warn-bg: oklch(0.62 0.11 60 / 0.14);
   --sp-warn-border: oklch(0.62 0.11 60 / 0.4);
   --sp-warn-text: oklch(0.78 0.1 60);
+  /* Elevation. Tokenised rather than hardcoded per component because a
+     pure-black drop shadow is only correct on a dark ground -- on the light
+     theme the same value reads as grey mud around every raised surface.
+     -up is the voting bar / weapon tray, which are lit from below. */
+  --sp-shadow-sm: 0 2px 6px oklch(0 0 0 / 0.25);
+  --sp-shadow-md: 0 10px 28px oklch(0 0 0 / 0.35);
+  --sp-shadow-lg: 0 12px 28px oklch(0 0 0 / 0.4);
+  --sp-shadow-up: 0 -10px 30px oklch(0 0 0 / 0.4);
   --sp-font: 'Manrope', sans-serif;
   --sp-mono: 'JetBrains Mono', monospace;
 }
@@ -66,6 +74,12 @@
   --sp-warn-bg: oklch(0.62 0.11 60 / 0.18);
   --sp-warn-border: oklch(0.55 0.13 60 / 0.5);
   --sp-warn-text: oklch(0.36 0.12 60);
+  /* Lighter and hue-matched to the background rather than neutral black:
+     shadows on paper are the ground colour darkened, not grey added. */
+  --sp-shadow-sm: 0 1px 3px oklch(0.3 0.02 260 / 0.12);
+  --sp-shadow-md: 0 8px 24px oklch(0.3 0.02 260 / 0.16);
+  --sp-shadow-lg: 0 10px 26px oklch(0.3 0.02 260 / 0.18);
+  --sp-shadow-up: 0 -8px 26px oklch(0.3 0.02 260 / 0.14);
 }
 
 body {
@@ -215,12 +229,60 @@ a:hover {
   100% { transform: translate(var(--tx), var(--ty)) scale(1.15) rotate(var(--rot)); opacity: 1; }
 }
 
+/* A thrown paper plane, in four beats: the launch, a climb as the throw's
+   energy converts to lift, a float at the top of the arc where it slows and
+   hangs, then a nose-down dive onto the target.
+ *
+ * Three things the earlier three-waypoint version got wrong, all visible when
+ * you sample the flight frame by frame:
+ *
+ *   - It ended on scale(1.15), so the plane grew ~50% while flying *away*
+ *     from the viewer. It now shrinks slightly into the distance and only
+ *     comes back up as it dives toward the target.
+ *   - Its waypoints were far apart and evenly eased, so the plane visibly
+ *     surged and stalled between them. More stops, unevenly spaced, keep the
+ *     speed reading as continuous -- fast off the hand, slow at the apex,
+ *     quick again in the dive, which is what a real one does.
+ *   - Rotation swung flat, so it slid sideways through the turns. --glide-bank
+ *     leans it into the curve and --glide-dive pitches the nose down at the
+ *     end, so its attitude follows its path.
+ *
+ * All the --glide-* values are computed per throw in ThrowOverlay.tsx from the
+ * actual start/target geometry, so a short lob and a long cross-table throw
+ * both bank by an amount that suits their own path. */
 @keyframes sp-fly-glide {
-  0% { transform: translate(var(--sx), var(--sy)) scale(.5) rotate(var(--glide-start)); opacity: 0; }
-  10% { opacity: 1; }
-  35% { transform: translate(var(--glide-mx), calc(var(--glide-my) - 22px)) scale(.95) rotate(var(--glide-mid)); }
-  70% { transform: translate(var(--glide-mx2), calc(var(--glide-my2) + 8px)) scale(1.05) rotate(var(--glide-mid2)); }
-  100% { transform: translate(var(--tx), var(--ty)) scale(1.15) rotate(var(--rot)); opacity: 1; }
+  0% {
+    transform: translate(var(--sx), var(--sy)) scale(.45) rotate(var(--glide-start));
+    opacity: 0;
+  }
+  8% { opacity: 1; }
+  /* Off the hand: fastest part of the flight, still climbing hard. */
+  22% {
+    transform: translate(var(--glide-ax), var(--glide-ay)) scale(.72) rotate(var(--glide-bank));
+  }
+  /* Approaching the apex, starting to level out. */
+  40% {
+    transform: translate(var(--glide-mx), calc(var(--glide-my) - 26px)) scale(.82) rotate(var(--glide-mid));
+  }
+  /* The hang: barely moving, wings level, the moment that sells "paper". */
+  58% {
+    transform: translate(var(--glide-hx), calc(var(--glide-hy) - 30px)) scale(.86) rotate(var(--glide-level));
+  }
+  /* Tipping over into the dive. */
+  76% {
+    transform: translate(var(--glide-mx2), calc(var(--glide-my2) - 6px)) scale(.95) rotate(var(--glide-mid2));
+  }
+  /* Committed dive, nose down, accelerating in. */
+  90% {
+    transform: translate(var(--glide-dx), var(--glide-dy)) scale(1.04) rotate(var(--glide-dive));
+  }
+  /* Ends on scale(1.15) to match sp-impact-stick's first frame -- the impact
+     animation is shared with the straight-flight weapons, so the handoff has
+     to land on its starting scale or the plane visibly pops on impact. */
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(1.15) rotate(var(--rot));
+    opacity: 1;
+  }
 }
 
 @keyframes sp-impact-stick {
@@ -523,4 +585,132 @@ a:hover {
   55%  { transform: translate(-50%, -50%) scale(0.92); opacity: 1; }
   75%  { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* ==========================================================================
+   SURFACE AND MOTION
+   ==========================================================================
+   The app read as mute: the table was an empty rounded rectangle, avatars
+   floated in dead space, and the revealed distribution had no focal point.
+   That is a *material* problem more than a palette one -- recolouring a flat
+   slab yields a differently coloured flat slab.
+
+   Everything below is opt-in via a class and changes no layout geometry (no
+   width/height/margin/padding/position), so the geometry specs in
+   tests/visual/ are unaffected. Each rule is driven by the same --sp-* tokens,
+   so it follows whichever theme is active.
+
+   Motion here is decorative, so all of it is disabled under
+   prefers-reduced-motion.
+   ========================================================================== */
+
+/* A table is a flat matte surface seen from above, so it gets almost no
+   shading: just a barely-there vignette to stop a large flat fill looking
+   like dead space, and a hairline inner edge to give the rim thickness.
+
+   An earlier version lit it like a glossy button -- a bright top edge and a
+   dark pool at the bottom, which is the standard convex-control treatment.
+   Against a rounded rectangle with a primary-coloured button in the middle it
+   read as an enormous pill, not furniture. Top-lit gloss implies a surface
+   tilted toward you; a table you are looking down at has no such highlight. */
+.sp-table-surface {
+  position: relative;
+}
+
+.sp-table-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(115% 115% at 50% 45%, transparent 55%, oklch(0 0 0 / 0.07) 100%);
+  box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.05);
+}
+
+/* A faint centre marking, the way a real card table has one. Sits under the
+   counter/reveal button and fades out entirely once votes are revealed, so it
+   never competes with the results. */
+.sp-table-mark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-family: var(--sp-mono);
+  /* vw rather than cqw: the table isn't a container-query context, and cqw
+     would silently fall back to the viewport anyway. */
+  font-size: clamp(44px, 7vw, 120px);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--sp-text);
+  opacity: 0.035;
+  user-select: none;
+  transition: opacity 0.5s ease;
+}
+
+.sp-table-mark-hidden {
+  opacity: 0;
+}
+
+/* Avatars that sit on the table rather than hover over it. */
+.sp-seat-grounded {
+  position: relative;
+}
+
+.sp-seat-grounded::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 62%;
+  height: 7px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, oklch(0 0 0 / 0.34), transparent);
+  pointer-events: none;
+}
+
+/* Waiting is a state, not a freeze: the vote counter breathes while the room
+   waits, so a stalled round looks alive rather than hung. Opacity only -- no
+   transform, so it can't fight the positioning of anything it's applied to. */
+@keyframes sp-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}
+
+.sp-breathe {
+  animation: sp-breathe 2.6s ease-in-out infinite;
+}
+
+/* "Everyone has voted, someone press reveal." Breathes the glow's opacity
+   rather than its radius: a ring that grows and shrinks on a shape this large
+   is a lot of motion in the middle of the screen, and it was half of what made
+   the table read as a giant button. The ring holds its size and just softens,
+   which catches the eye without pulsing at you. */
+@keyframes sp-ready-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--sp-accent-glow); }
+  50% { box-shadow: 0 0 0 3px color-mix(in oklch, var(--sp-accent-glow), transparent 55%); }
+}
+
+.sp-ready-pulse {
+  animation: sp-ready-pulse 2.8s ease-in-out infinite;
+}
+
+/* The winning column should actually win. */
+.sp-dist-bar-top {
+  background-image: linear-gradient(
+    to top,
+    var(--sp-accent),
+    color-mix(in oklch, var(--sp-accent), var(--sp-accent-text) 55%)
+  );
+  box-shadow: 0 0 18px -2px var(--sp-accent-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-breathe,
+  .sp-ready-pulse {
+    animation: none;
+  }
 }

@@ -65,7 +65,7 @@ export default function DeckSwitcher({ currentDeckId, onSwitch }: DeckSwitcherPr
       </button>
       {open && (
         <div
-          className="sp-vote-card-enter absolute top-[calc(100%+8px)] right-0 z-30 w-[200px] overflow-hidden rounded-lg border border-sp-border-strong bg-sp-panel-2 py-1.5 shadow-[0_12px_28px_rgba(0,0,0,0.4)]"
+          className="sp-vote-card-enter absolute top-[calc(100%+8px)] right-0 z-30 w-[200px] overflow-hidden rounded-lg border border-sp-border-strong bg-sp-panel-2 py-1.5 shadow-sp-lg"
         >
           {otherDecks.map((id) => (
             <button
