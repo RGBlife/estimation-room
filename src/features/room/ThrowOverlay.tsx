@@ -55,25 +55,63 @@ function ThrowVisual({ t, geometry, onDone }: ThrowVisualProps) {
 
   const vars: StyleWithVars = { '--sx': `${geometry.sx}px`, '--sy': `${geometry.sy}px`, '--tx': `${geometry.tx}px`, '--ty': `${geometry.ty}px`, '--rot': rot };
   if (isGlide) {
-    // A gentle S-curve bank: swing wide past the midpoint, then curl back in
-    // to the target, so the plane reads as gliding rather than flying dead-straight.
-    const mx1 = geometry.sx + (geometry.tx - geometry.sx) * 0.4 + (geometry.ty - geometry.sy) * 0.18;
-    const my1 = geometry.sy + (geometry.ty - geometry.sy) * 0.4 - (geometry.tx - geometry.sx) * 0.18;
-    const mx2 = geometry.sx + (geometry.tx - geometry.sx) * 0.75 - (geometry.ty - geometry.sy) * 0.1;
-    const my2 = geometry.sy + (geometry.ty - geometry.sy) * 0.75 + (geometry.tx - geometry.sx) * 0.1;
-    const baseAngle = Math.atan2(geometry.ty - geometry.sy, geometry.tx - geometry.sx) * 180 / Math.PI;
-    vars['--glide-start'] = `${baseAngle - 10}deg`;
-    vars['--glide-mid'] = `${baseAngle + 14}deg`;
-    vars['--glide-mid2'] = `${baseAngle - 8}deg`;
-    vars['--rot'] = `${baseAngle}deg`;
+    // Six waypoints along the flight, each offset sideways from the straight
+    // line by a fraction of the throw's own length -- so the S-curve is
+    // proportional to the distance thrown rather than a fixed number of
+    // pixels that looks enormous on a short lob and invisible on a long one.
+    const dx = geometry.tx - geometry.sx;
+    const dy = geometry.ty - geometry.sy;
+    const dist = Math.hypot(dx, dy) || 1;
+    // Unit vector perpendicular to the flight path: the axis the plane
+    // swings out along and curls back from.
+    const px = -dy / dist;
+    const py = dx / dist;
+    // Swing amplitude, capped so a very long throw doesn't arc absurdly wide.
+    const swing = Math.min(58, dist * 0.16);
+    // A point `f` of the way along the path, pushed `s` px to one side.
+    const at = (f: number, s: number): [number, number] => [
+      geometry.sx + dx * f + px * s,
+      geometry.sy + dy * f + py * s,
+    ];
+    // Progress values match the keyframe stops in sp-fly-glide. Deliberately
+    // uneven: bunched early (fast off the hand), spread around the apex
+    // (the hang), bunched again at the end (the dive).
+    const [ax, ay] = at(0.2, swing * 0.55);
+    const [mx1, my1] = at(0.4, swing);
+    const [hx, hy] = at(0.58, swing * 0.78);
+    const [mx2, my2] = at(0.78, -swing * 0.35);
+    const [ddx, ddy] = at(0.92, -swing * 0.14);
+
+    const baseAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    // Attitude through the flight: banked into the initial turn, levelling at
+    // the apex, then pitched nose-down through the dive and pulling out flat
+    // as it strikes. Sign follows the swing so it always leans *into* the arc.
+    vars['--glide-start'] = `${baseAngle - 16}deg`;
+    vars['--glide-bank'] = `${baseAngle - 24}deg`;
+    vars['--glide-mid'] = `${baseAngle - 12}deg`;
+    vars['--glide-level'] = `${baseAngle - 2}deg`;
+    vars['--glide-mid2'] = `${baseAngle + 10}deg`;
+    vars['--glide-dive'] = `${baseAngle + 20}deg`;
+    vars['--rot'] = `${baseAngle + 6}deg`;
+    vars['--glide-ax'] = `${ax}px`;
+    vars['--glide-ay'] = `${ay}px`;
     vars['--glide-mx'] = `${mx1}px`;
     vars['--glide-my'] = `${my1}px`;
+    vars['--glide-hx'] = `${hx}px`;
+    vars['--glide-hy'] = `${hy}px`;
     vars['--glide-mx2'] = `${mx2}px`;
     vars['--glide-my2'] = `${my2}px`;
+    vars['--glide-dx'] = `${ddx}px`;
+    vars['--glide-dy'] = `${ddy}px`;
   }
   const flyMs = isGlide ? GLIDE_MS : FLY_MS;
   const wrapStyle: StyleWithVars = phase === 'fly'
-    ? { position: 'absolute', left: 0, top: 0, ...vars, animation: `${isGlide ? 'sp-fly-glide' : 'sp-fly-to'} ${flyMs / 1000}s cubic-bezier(.3,.6,.3,1) forwards` }
+    // The glide's own keyframes already carry its speed changes (fast launch,
+    // slow apex, fast dive), so it wants near-linear timing between them --
+    // the old shared ease-out decelerated it into the target on top of that,
+    // flattening exactly the acceleration the dive is supposed to have.
+    // Everything else keeps the original ease.
+    ? { position: 'absolute', left: 0, top: 0, ...vars, animation: `${isGlide ? 'sp-fly-glide' : 'sp-fly-to'} ${flyMs / 1000}s ${isGlide ? 'cubic-bezier(.42,.03,.58,.98)' : 'cubic-bezier(.3,.6,.3,1)'} forwards` }
     : { position: 'absolute', left: 0, top: 0, ...vars, animation: `${meta.impact} ${IMPACT_MS / 1000}s ease-out forwards` };
 
   // Weapons with an afterEffect (currently just Bob Ross's tree) get a third
