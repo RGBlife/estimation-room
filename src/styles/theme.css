@@ -250,38 +250,26 @@ a:hover {
  * All the --glide-* values are computed per throw in ThrowOverlay.tsx from the
  * actual start/target geometry, so a short lob and a long cross-table throw
  * both bank by an amount that suits their own path. */
-@keyframes sp-fly-glide {
+/* The paper aeroplane's impact. Opens on the pose its dive actually ended in
+   (--glide-end-rot / --glide-end-scale, both written by ThrowOverlay from the
+   flight's final frame) rather than on the scale(1.15) the other weapons'
+   impacts share, so there's no pop at the handoff. The flight itself is
+   driven per-frame from JS -- see glideFlight.ts for why it can't be
+   keyframes. */
+@keyframes sp-impact-plane {
   0% {
-    transform: translate(var(--sx), var(--sy)) scale(.45) rotate(var(--glide-start));
-    opacity: 0;
-  }
-  8% { opacity: 1; }
-  /* Off the hand: fastest part of the flight, still climbing hard. */
-  22% {
-    transform: translate(var(--glide-ax), var(--glide-ay)) scale(.72) rotate(var(--glide-bank));
-  }
-  /* Approaching the apex, starting to level out. */
-  40% {
-    transform: translate(var(--glide-mx), calc(var(--glide-my) - 26px)) scale(.82) rotate(var(--glide-mid));
-  }
-  /* The hang: barely moving, wings level, the moment that sells "paper". */
-  58% {
-    transform: translate(var(--glide-hx), calc(var(--glide-hy) - 30px)) scale(.86) rotate(var(--glide-level));
-  }
-  /* Tipping over into the dive. */
-  76% {
-    transform: translate(var(--glide-mx2), calc(var(--glide-my2) - 6px)) scale(.95) rotate(var(--glide-mid2));
-  }
-  /* Committed dive, nose down, accelerating in. */
-  90% {
-    transform: translate(var(--glide-dx), var(--glide-dy)) scale(1.04) rotate(var(--glide-dive));
-  }
-  /* Ends on scale(1.15) to match sp-impact-stick's first frame -- the impact
-     animation is shared with the straight-flight weapons, so the handoff has
-     to land on its starting scale or the plane visibly pops on impact. */
-  100% {
-    transform: translate(var(--tx), var(--ty)) scale(1.15) rotate(var(--rot));
+    transform: translate(var(--glide-end-x), var(--glide-end-y)) scale(var(--glide-end-scale)) rotate(var(--glide-end-rot));
     opacity: 1;
+  }
+  /* Nose crumples against the target and the tail kicks up. */
+  22% {
+    transform: translate(var(--glide-end-x), var(--glide-end-y)) scale(calc(var(--glide-end-scale) * .92)) rotate(calc(var(--glide-end-rot) + 12deg));
+  }
+  70% { opacity: 1; }
+  /* Slides down the target and fades, still nose-down. */
+  100% {
+    transform: translate(var(--glide-end-x), calc(var(--glide-end-y) + 14px)) scale(calc(var(--glide-end-scale) * .8)) rotate(calc(var(--glide-end-rot) + 4deg));
+    opacity: 0;
   }
 }
 

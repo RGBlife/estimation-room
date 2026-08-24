@@ -1,7 +1,9 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { WEAPONS, FRAG_ANGLES } from './weapons.ts';
 import WeaponShape from './WeaponShape.tsx';
 import TreeShape from './TreeShape.tsx';
+import { glidePose } from './glideFlight.ts';
+import { flightTimeScale } from './flightTimeScale.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 
 const FLY_MS = 550;
@@ -34,6 +36,89 @@ function fragmentOffsets() {
   });
 }
 
+// The flying element is a 28x28 sprite pinned at left:0/top:0, so a bare
+// translate() puts its top-left corner on the path and the plane rides about
+// 14px down and to the right of where it should be -- most visible at the
+// target, where it lands off-centre on the avatar.
+const SPRITE_HALF = 14;
+
+function flightTransform(pose: { x: number; y: number; scale: number; angle: number }) {
+  return `translate(${pose.x - SPRITE_HALF}px, ${pose.y - SPRITE_HALF}px) scale(${pose.scale}) rotate(${pose.angle}deg)`;
+}
+
+function prefersReducedMotion() {
+  // matchMedia is missing in jsdom, and the flight is decorative either way,
+  // so treat an unanswerable query as "no preference expressed".
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+}
+
+/**
+ * Drives the glide frame by frame.
+ *
+ * The other weapons are pure CSS keyframes, which stay on the compositor and
+ * need no JavaScript. The plane can't be: its path is a bezier, and keyframes
+ * can only interpolate in straight lines between stops (see glideFlight.ts).
+ * So this writes the transform itself, once per frame, straight to the node --
+ * no React state per frame, since re-rendering sixty times a second to move
+ * one element would be far more expensive than the animation it replaces.
+ *
+ * Returns a ref to attach to the flying element. `onDone` fires on the frame
+ * the flight completes, taking the place of the onAnimationEnd that CSS
+ * animations get for free.
+ */
+function useGlideFlight(
+  geometry: Geometry | null,
+  active: boolean,
+  durationMs: number,
+  onDone: () => void,
+) {
+  const nodeRef = useRef<HTMLDivElement>(null);
+  // Held in a ref so a re-render mid-flight doesn't restart the animation
+  // through the effect's dependency list.
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node || !geometry || !active) return;
+    const from = { x: geometry.sx, y: geometry.sy };
+    const to = { x: geometry.tx, y: geometry.ty };
+
+    // Reduced motion: no flight at all. The CSS media query that covers the
+    // ambient animations can't reach a transform written from JS, so the
+    // preference has to be honoured here instead. Park it at the target and
+    // hand straight over to the impact.
+    if (prefersReducedMotion()) {
+      const pose = glidePose(from, to, 1);
+      node.style.transform = flightTransform(pose);
+      node.style.opacity = '1';
+      const id = window.setTimeout(() => doneRef.current(), 80);
+      return () => window.clearTimeout(id);
+    }
+
+    const scaled = durationMs * flightTimeScale();
+    let raf = 0;
+    let start = 0;
+    const step = (now: number) => {
+      if (!start) start = now;
+      const t = Math.min(1, (now - start) / scaled);
+      const pose = glidePose(from, to, t);
+      node.style.transform = flightTransform(pose);
+      // Fade in over the first fraction of the flight rather than popping into
+      // existence at full opacity, matching what the keyframes did at 8%.
+      node.style.opacity = t < 0.08 ? String(t / 0.08) : '1';
+      if (t < 1) raf = requestAnimationFrame(step);
+      else doneRef.current();
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [geometry, active, durationMs]);
+
+  return nodeRef;
+}
+
 interface ThrowVisualProps {
   t: ThrowEvent;
   geometry: Geometry | null;
@@ -45,78 +130,57 @@ function ThrowVisual({ t, geometry, onDone }: ThrowVisualProps) {
   const rot = useMemo(randomRotation, []);
   const fragments = useMemo(fragmentOffsets, []);
   const meta = WEAPONS.find(w => w.id === t.weaponId);
+
+  const isGlide = meta?.flight === 'sp-fly-glide';
+  // Hooks can't sit behind the early return below, so the flight is always
+  // declared and simply inert unless this is a glide that's currently flying.
+  const glideRef = useGlideFlight(
+    geometry,
+    isGlide && phase === 'fly',
+    GLIDE_MS,
+    () => setPhase('impact'),
+  );
+
   if (!meta || !geometry) return null;
 
   const isSnowball = t.weaponId === 'snowball';
-  const isGlide = meta.flight === 'sp-fly-glide';
   const showBall = phase === 'fly' || (phase === 'impact' && !isSnowball);
   const showFragments = phase === 'impact' && isSnowball;
   const showTree = phase === 'tree';
 
   const vars: StyleWithVars = { '--sx': `${geometry.sx}px`, '--sy': `${geometry.sy}px`, '--tx': `${geometry.tx}px`, '--ty': `${geometry.ty}px`, '--rot': rot };
   if (isGlide) {
-    // Six waypoints along the flight, each offset sideways from the straight
-    // line by a fraction of the throw's own length -- so the S-curve is
-    // proportional to the distance thrown rather than a fixed number of
-    // pixels that looks enormous on a short lob and invisible on a long one.
-    const dx = geometry.tx - geometry.sx;
-    const dy = geometry.ty - geometry.sy;
-    const dist = Math.hypot(dx, dy) || 1;
-    // Unit vector perpendicular to the flight path: the axis the plane
-    // swings out along and curls back from.
-    const px = -dy / dist;
-    const py = dx / dist;
-    // Swing amplitude, capped so a very long throw doesn't arc absurdly wide.
-    const swing = Math.min(58, dist * 0.16);
-    // A point `f` of the way along the path, pushed `s` px to one side.
-    const at = (f: number, s: number): [number, number] => [
-      geometry.sx + dx * f + px * s,
-      geometry.sy + dy * f + py * s,
-    ];
-    // Progress values match the keyframe stops in sp-fly-glide. Deliberately
-    // uneven: bunched early (fast off the hand), spread around the apex
-    // (the hang), bunched again at the end (the dive).
-    const [ax, ay] = at(0.2, swing * 0.55);
-    const [mx1, my1] = at(0.4, swing);
-    const [hx, hy] = at(0.58, swing * 0.78);
-    const [mx2, my2] = at(0.78, -swing * 0.35);
-    const [ddx, ddy] = at(0.92, -swing * 0.14);
-
-    const baseAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
-    // Attitude through the flight: banked into the initial turn, levelling at
-    // the apex, then pitched nose-down through the dive and pulling out flat
-    // as it strikes. Sign follows the swing so it always leans *into* the arc.
-    vars['--glide-start'] = `${baseAngle - 16}deg`;
-    vars['--glide-bank'] = `${baseAngle - 24}deg`;
-    vars['--glide-mid'] = `${baseAngle - 12}deg`;
-    vars['--glide-level'] = `${baseAngle - 2}deg`;
-    vars['--glide-mid2'] = `${baseAngle + 10}deg`;
-    vars['--glide-dive'] = `${baseAngle + 20}deg`;
-    vars['--rot'] = `${baseAngle + 6}deg`;
-    vars['--glide-ax'] = `${ax}px`;
-    vars['--glide-ay'] = `${ay}px`;
-    vars['--glide-mx'] = `${mx1}px`;
-    vars['--glide-my'] = `${my1}px`;
-    vars['--glide-hx'] = `${hx}px`;
-    vars['--glide-hy'] = `${hy}px`;
-    vars['--glide-mx2'] = `${mx2}px`;
-    vars['--glide-my2'] = `${my2}px`;
-    vars['--glide-dx'] = `${ddx}px`;
-    vars['--glide-dy'] = `${ddy}px`;
+    // The plane's impact starts from wherever the dive actually ended, so the
+    // handoff needs the flight's final pose rather than the shared scale(1.15)
+    // the other weapons' impacts open on.
+    const end = glidePose({ x: geometry.sx, y: geometry.sy }, { x: geometry.tx, y: geometry.ty }, 1);
+    vars['--glide-end-rot'] = `${end.angle}deg`;
+    vars['--glide-end-scale'] = String(end.scale);
+    // The impact keyframes position the plane themselves, so they need the
+    // same centring offset the flight applies -- otherwise it jumps 14px on
+    // the handoff.
+    vars['--glide-end-x'] = `${geometry.tx - SPRITE_HALF}px`;
+    vars['--glide-end-y'] = `${geometry.ty - SPRITE_HALF}px`;
   }
-  const flyMs = isGlide ? GLIDE_MS : FLY_MS;
+
+  const impactName = isGlide ? 'sp-impact-plane' : meta.impact;
   const wrapStyle: StyleWithVars = phase === 'fly'
-    // The glide's own keyframes already carry its speed changes (fast launch,
-    // slow apex, fast dive), so it wants near-linear timing between them --
-    // the old shared ease-out decelerated it into the target on top of that,
-    // flattening exactly the acceleration the dive is supposed to have.
-    // Everything else keeps the original ease.
-    ? { position: 'absolute', left: 0, top: 0, ...vars, animation: `${isGlide ? 'sp-fly-glide' : 'sp-fly-to'} ${flyMs / 1000}s ${isGlide ? 'cubic-bezier(.42,.03,.58,.98)' : 'cubic-bezier(.3,.6,.3,1)'} forwards` }
-    : { position: 'absolute', left: 0, top: 0, ...vars, animation: `${meta.impact} ${IMPACT_MS / 1000}s ease-out forwards` };
+    ? isGlide
+      // Driven per-frame from JS (see useGlideFlight): no CSS animation, and
+      // opacity starts at 0 because the first frame hasn't been written yet.
+      ? { position: 'absolute', left: 0, top: 0, ...vars, opacity: 0 }
+      : { position: 'absolute', left: 0, top: 0, ...vars, animation: `sp-fly-to ${FLY_MS / 1000}s cubic-bezier(.3,.6,.3,1) forwards` }
+    : { position: 'absolute', left: 0, top: 0, ...vars, animation: `${impactName} ${IMPACT_MS / 1000}s ease-out forwards` };
 
   // Weapons with an afterEffect (currently just Bob Ross's tree) get a third
   // phase once the impact animation finishes, instead of finishing the throw
   // right away.
+  //
+  // The glide reaches 'impact' from its own rAF loop rather than from an
+  // animationend event, so its fly->impact leg never passes through here --
+  // hence the impact-phase branch below, which retires the throw once the
+  // impact animation itself ends. Every other weapon still lands in the
+  // 'fly' branch first, exactly as before.
   const handleAnimEnd = () => {
     if (phase === 'fly') {
       setPhase('impact');
@@ -124,13 +188,15 @@ function ThrowVisual({ t, geometry, onDone }: ThrowVisualProps) {
     } else if (phase === 'impact' && meta.afterEffect === 'tree') {
       setPhase('tree');
       setTimeout(onDone, TREE_MS + 50);
+    } else if (phase === 'impact' && isGlide) {
+      onDone();
     }
   };
 
   return (
     <>
       {showBall && (
-        <div style={wrapStyle} onAnimationEnd={handleAnimEnd}>
+        <div ref={isGlide ? glideRef : undefined} style={wrapStyle} onAnimationEnd={handleAnimEnd}>
           {meta.shape ? <WeaponShape shape={meta.shape} /> : null}
           {meta.hasEmoji && <span className="text-[30px] leading-none">{meta.glyph}</span>}
         </div>
@@ -203,7 +269,7 @@ export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDo
   }
 
   return (
-    <div className="absolute inset-0 z-10 pointer-events-none">
+    <div data-testid="throw-layer" className="absolute inset-0 z-10 pointer-events-none">
       {throws.map(t => (
         <ThrowVisual key={t.id} t={t} geometry={getGeometry(t)} onDone={() => onThrowDone(t.id)} />
       ))}
