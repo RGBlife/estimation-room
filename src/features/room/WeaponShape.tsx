@@ -23,10 +23,20 @@ export default function WeaponShape({ shape }: WeaponShapeProps) {
     );
   }
   if (shape === 'paper-airplane') {
+    // Drawn nose-right, so that an unrotated sprite reads as heading 0deg --
+    // the same convention atan2 uses, and therefore the same one the flight
+    // code rotates it by. The original artwork pointed up and to the right,
+    // baking in a 45deg offset: every heading the flight computed was applied
+    // 45deg out, and because the shape is close to symmetric about that
+    // diagonal the plane looked like it was holding one fixed attitude no
+    // matter which way it was actually travelling.
+    //
+    // Nose at (27,14) on the centre line; the swept-back wing tips and the
+    // notch between them trail to the left.
     return (
       <svg width="28" height="28" viewBox="0 0 28 28" className="block">
-        <path d="M2 15 L26 3 L15 26 L12.5 16.5 Z" fill="#e8ecf1" stroke="#8b95a3" strokeWidth="1.2" strokeLinejoin="round" />
-        <path d="M12.5 16.5 L26 3 L14.5 19.5 Z" fill="#c7cfd9" stroke="#8b95a3" strokeWidth="1" strokeLinejoin="round" />
+        <path d="M27 14 L3 25 L9 14 L3 3 Z" fill="#e8ecf1" stroke="#8b95a3" strokeWidth="1.2" strokeLinejoin="round" />
+        <path d="M27 14 L9 14 L3 25 Z" fill="#c7cfd9" stroke="#8b95a3" strokeWidth="1" strokeLinejoin="round" />
       </svg>
     );
   }
