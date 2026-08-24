@@ -628,32 +628,6 @@ a:hover {
   box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.05);
 }
 
-/* A faint centre marking, the way a real card table has one. Sits under the
-   counter/reveal button and fades out entirely once votes are revealed, so it
-   never competes with the results. */
-.sp-table-mark {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  font-family: var(--sp-mono);
-  /* vw rather than cqw: the table isn't a container-query context, and cqw
-     would silently fall back to the viewport anyway. */
-  font-size: clamp(44px, 7vw, 120px);
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: var(--sp-text);
-  opacity: 0.035;
-  user-select: none;
-  transition: opacity 0.5s ease;
-}
-
-.sp-table-mark-hidden {
-  opacity: 0;
-}
-
 /* Avatars that sit on the table rather than hover over it. */
 .sp-seat-grounded {
   position: relative;

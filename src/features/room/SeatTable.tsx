@@ -1186,15 +1186,6 @@ export default function SeatTable({
                 tableCracks.filter(c => c.side === 'table').map(c => <TableCrack key={c.id} id={c.id} fx={c.fx} fy={c.fy} rot={c.rot} />)
               )}
 
-              {/* A faint centre marking so the table reads as a surface with a
-                  middle rather than an empty box. Fades out on reveal so it
-                  never competes with the results. Decorative only. */}
-              {!tableSplit && (
-                <div aria-hidden="true" className={`sp-table-mark${isRevealed ? ' sp-table-mark-hidden' : ''}`}>
-                  ER
-                </div>
-              )}
-
               {/* The visual vote counter and the reveal are otherwise silent to
                   a screen reader -- this narrates round progress instead. */}
               <div aria-live="polite" aria-atomic="true" className="sr-only">
