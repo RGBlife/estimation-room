@@ -4,6 +4,7 @@ import VotingBar from '../features/room/VotingBar.tsx';
 import RoomHeader from '../features/room/RoomHeader.tsx';
 import Toast from '../features/room/Toast.tsx';
 import WeaponTray from '../features/room/WeaponTray.tsx';
+import { setFlightTimeScale } from '../features/room/flightTimeScale.ts';
 import { DECKS, ALL_DECK_IDS } from '../features/room/decks.ts';
 import { computeStats, computeDistribution, computeCustomGroups } from '../features/room/stats.ts';
 import { randomAvatar } from '../features/avatar/index.js';
@@ -109,6 +110,7 @@ export default function RoomLayoutHarness() {
     params.get('wasted') === '1' ? ({ p2: true } as WastedMap) : {},
   );
   const [throws, setThrows] = useState<ThrowEvent[]>([]);
+  const [slowMo, setSlowMo] = useState(1);
   const cancelTargeting = useCallback(() => setEquippedWeaponId(null), []);
   // Mirrors RoomScreen: starting a drive drops any equipped weapon.
   const handleStartDriving = useCallback(() => {
@@ -188,6 +190,57 @@ export default function RoomLayoutHarness() {
             className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
           >Stop drive</button>
         )}
+      </div>
+
+      {/* Plane-flight controls, in their own cluster at the bottom-left rather
+          than alongside the others at the top. Two more buttons up there wrap
+          onto a second row on a phone, and that row lands on top of the room
+          menu -- which a test opens, and which real users need. Down here they
+          sit clear of both the header and the voting bar. */}
+      <div className="pointer-events-none absolute bottom-0 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
+        {/* Throws a paper aeroplane at every seat at once, without having to
+            equip and click each one -- the flight is the thing being judged,
+            and seeing it run to several targets at different distances and
+            angles in one go is how you tell whether the arc holds up.
+
+            Deliberately not labelled "Throw at ...": the real seat targets use
+            that phrasing for their aria-labels, and a test counts those to
+            check no seat is targetable mid-drive. */}
+        <button
+          data-testid="throw-all"
+          onClick={() => {
+            // Everyone but the thrower, observers included -- an observer seat
+            // sits in a different part of the layout, so it's a useful target.
+            const targets = Object.keys(participants).filter(id => id !== 'p0');
+            const stamp = Date.now();
+            setThrows(t => [
+              ...t,
+              ...targets.map((toUid, i) => ({
+                id: `demo${stamp}-${i}`,
+                fromUid: 'p0',
+                toUid,
+                weaponId: 'paper-airplane',
+                ts: stamp,
+                offsetX: 0,
+                offsetY: 0,
+              })),
+            ]);
+          }}
+          className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
+        >Plane demo</button>
+        {/* Slow motion, because at 950ms a hitch is over before you can see
+            where it was. Stretches the flight's own duration rather than the
+            CSS clock, so what slows down is exactly the per-frame path this
+            exists to inspect. */}
+        <button
+          data-testid="toggle-slowmo"
+          onClick={() => {
+            const next = slowMo === 1 ? 4 : slowMo === 4 ? 10 : 1;
+            setSlowMo(next);
+            setFlightTimeScale(next);
+          }}
+          className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
+        >{slowMo === 1 ? 'Slow-mo: off' : `Slow-mo: ${slowMo}x`}</button>
       </div>
 
       <Toast
