@@ -8,8 +8,14 @@ import './styles/tailwind.css';
 // direction, and a static import would bundle every unused palette into the
 // production CSS. Loaded after theme.css so its data-theme blocks win on
 // source order at equal specificity.
+//
+// The file is an untracked local working area, so it is absent on a fresh
+// clone -- CI included. import.meta.glob resolves at build time against the
+// files that actually exist, which keeps a missing file a no-op instead of an
+// unresolved-import error that takes the whole dev server down.
 if (import.meta.env.DEV) {
-  import('./styles/themes.css');
+  const themes = import.meta.glob('./styles/themes.css');
+  themes['./styles/themes.css']?.();
 }
 
 // Dev-only, Firestore-free component stage (see src/dev/VisualTestHarness.tsx)

@@ -18,3 +18,9 @@ playwright/.cache
 # comparison page, and local notes. All scratch, none of it belongs in the
 # repo.
 design/
+
+# Candidate theme palettes, loaded by main.tsx in dev only. Scaffolding for
+# choosing a direction -- it pulls in webfonts none of the shipping theme
+# uses, and the winning palette gets promoted into theme.css by hand. The
+# import tolerates its absence, so a clone without it builds and tests fine.
+src/styles/themes.css
