@@ -118,3 +118,40 @@ describe('SeatTable', () => {
     expect(props.onThrowAt).toHaveBeenCalledOnce();
   });
 });
+
+describe('early reveal and nudging', () => {
+  it('reveals partial votes while keeping the vote count visible', async () => {
+    const { props } = renderSeatTable({
+      participants: { a: participant({ vote: '5' }), b: participant({ name: 'Bo' }) },
+      anyVote: true, allVoted: false,
+    });
+    expect(screen.getByText('1/2')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Reveal votes' }));
+    expect(props.onReveal).toHaveBeenCalledOnce();
+  });
+  it('only offers other active players who have not voted for nudging', async () => {
+    const onNudge = vi.fn();
+    renderSeatTable({
+      participants: {
+        a: participant(), b: participant({ name: 'Bo' }),
+        c: participant({ name: 'Cy', vote: '3' }), d: participant({ name: 'Di', isObserver: true }),
+      }, onNudge,
+    });
+    const picker = screen.getByRole('combobox', { name: 'Nudge a player who has not voted' });
+    expect(screen.queryByRole('option', { name: 'Cy' })).toBeNull();
+    expect(screen.queryByRole('option', { name: 'Di' })).toBeNull();
+    expect(screen.queryByRole('option', { name: 'Ada' })).toBeNull();
+    await userEvent.selectOptions(picker, 'b');
+    expect(onNudge).toHaveBeenCalledWith('b');
+  });
+});
+
+it('does not republish a remote collision from every viewer', () => {
+  const onMarkWasted = vi.fn();
+  renderSeatTable({
+    participants: { a: participant(), b: participant({ name: 'Bo' }) },
+    drivers: { b: { uid: 'b', x: .5, y: .5, r: 0, t: 1, phase: 'driving', hit: 'a' } },
+    onMarkWasted,
+  });
+  expect(onMarkWasted).not.toHaveBeenCalled();
+});

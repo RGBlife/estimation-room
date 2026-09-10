@@ -1,6 +1,6 @@
 import {
   ref as rtdbRef, onValue, onDisconnect, set as rtdbSet, remove as rtdbRemove,
-  push, type Unsubscribe,
+  push, onChildAdded, onChildChanged, onChildRemoved, type DataSnapshot, type Unsubscribe,
 } from 'firebase/database';
 import { rtdb } from '../../shared/lib/firebase.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
@@ -23,6 +23,7 @@ const PUBLISH_INTERVAL_MS = 50;
 let driversUnsubscribe: Unsubscribe | null = null;
 let lastPublishAt = 0;
 let lastPublishedPhase: string | null = null;
+let lastPublishedState: Omit<DriverState, 'uid'> | null = null;
 let myDriverRef: ReturnType<typeof rtdbRef> | null = null;
 
 // Starts publishing this client's car position, and registers disconnect
@@ -32,6 +33,7 @@ export function startDriving(code: string, uid: string): void {
   onDisconnect(myDriverRef).remove().catch(() => {});
   lastPublishAt = 0;
   lastPublishedPhase = null;
+  lastPublishedState = null;
 }
 
 // Publishes one pose sample, throttled to PUBLISH_INTERVAL_MS. Safe to call
@@ -47,9 +49,14 @@ export function publishDriverState(state: Omit<DriverState, 'uid'>): void {
   // throttle window would visibly lag behind the local driver's own
   // transition instead of starting the matching animation in step.
   const phaseChanged = state.phase !== lastPublishedPhase;
-  if (now - lastPublishAt < PUBLISH_INTERVAL_MS && !state.hit && !phaseChanged) return;
+  const hitChanged = state.hit !== lastPublishedState?.hit;
+  if (now - lastPublishAt < PUBLISH_INTERVAL_MS && !hitChanged && !phaseChanged) return;
+  if (lastPublishedState && !phaseChanged && !hitChanged
+    && state.x === lastPublishedState.x && state.y === lastPublishedState.y
+    && state.r === lastPublishedState.r && now - lastPublishAt < 1000) return;
   lastPublishAt = now;
   lastPublishedPhase = state.phase;
+  lastPublishedState = state;
   rtdbSet(myDriverRef, state).catch(() => {});
 }
 
@@ -70,14 +77,40 @@ export function subscribeDrivers(code: string, set: (fn: (state: { drivers: Reco
   if (driversUnsubscribe) { driversUnsubscribe(); driversUnsubscribe = null; }
   set(() => ({ drivers: {} }));
   const driversRef = rtdbRef(rtdb, `gta/${code}`);
-  driversUnsubscribe = onValue(driversRef, snap => {
-    const val = snap.val() as Record<string, Omit<DriverState, 'uid'>> | null;
-    const drivers: Record<string, DriverState> = {};
-    if (val) {
-      for (const [uid, d] of Object.entries(val)) drivers[uid] = { uid, ...d };
-    }
-    set(() => ({ drivers }));
-  });
+  let drivers: Record<string, DriverState> = {};
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let closed = false;
+  const flush = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (!closed) set(() => ({ drivers: { ...drivers } }));
+  };
+  const receive = (snap: DataSnapshot) => {
+    if (closed || !snap.key) return;
+    const previous = drivers[snap.key];
+    const driver = { ...snap.val(), uid: snap.key } as DriverState;
+    drivers = { ...drivers, [snap.key]: driver };
+    // Phase transitions and impacts remain immediate. Ordinary position
+    // bursts from seven drivers cause one room render, not seven.
+    if (previous && (previous.phase !== driver.phase || previous.hit !== driver.hit)) flush();
+    else if (!timer) timer = setTimeout(flush, PUBLISH_INTERVAL_MS);
+  };
+  const unsubscribers = [
+    onChildAdded(driversRef, receive),
+    onChildChanged(driversRef, receive),
+    onChildRemoved(driversRef, snap => {
+      if (closed || !snap.key) return;
+      const next = { ...drivers };
+      delete next[snap.key];
+      drivers = next;
+      flush();
+    }),
+  ];
+  driversUnsubscribe = () => {
+    closed = true;
+    if (timer) clearTimeout(timer);
+    unsubscribers.forEach(unsubscribe => unsubscribe());
+  };
 }
 
 // Live table-damage sync, under the RTDB `gtaTable` path -- cracks
@@ -152,10 +185,8 @@ export function clearWasted(code: string, targetUid: string): void {
   rtdbRemove(rtdbRef(rtdb, `gtaTable/${code}/wasted/${targetUid}`)).catch(() => {});
 }
 
-// Clears all table damage for a new round. remove() is idempotent, so it's
-// safe for every client watching the reveal->unrevealed transition to call
-// this independently (see SeatTable.tsx) without coordinating who "owns"
-// the reset -- whichever write lands first wins, and the rest are no-ops.
+// Called only by the client starting a new round. Remote snapshot observers
+// must never enqueue deletes that can arrive late and erase newer damage.
 export function resetTableDamage(code: string): void {
   rtdbRemove(rtdbRef(rtdb, `gtaTable/${code}`)).catch(() => {});
 }
@@ -190,4 +221,5 @@ export function teardownGta(): void {
   stopDriving();
   lastPublishAt = 0;
   lastPublishedPhase = null;
+  lastPublishedState = null;
 }

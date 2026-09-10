@@ -3,7 +3,7 @@ import OptionTile from './OptionTile.tsx';
 import type { Breakpoint } from './useViewportBreakpoint.ts';
 
 function railBtnClass(active: boolean): string {
-  const base = 'flex w-full items-center justify-between rounded-lg border-none p-2 text-left font-sp-font text-[11px] font-bold tracking-[0.05em] uppercase cursor-pointer';
+  const base = 'flex w-full items-center justify-between rounded-lg border-none p-2 text-left font-sp-font text-xs font-semibold cursor-pointer';
   return active
     ? `${base} bg-sp-accent-panel-3 text-sp-accent-text-strong`
     : `${base} bg-transparent text-sp-text-dim`;

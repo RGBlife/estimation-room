@@ -30,12 +30,14 @@ export default function AvatarPreviewHeader({ avatarUrl, bgIdx, onShuffle, onSel
       </div>
 
       <div>
-        <div className="mb-1.5 text-center text-[10px] font-bold tracking-[0.05em] text-sp-text-faintest uppercase">Background</div>
+        <div className="mb-1.5 text-center text-xs font-medium text-sp-text-faint">Background</div>
         <div className="flex flex-wrap justify-center gap-[7px]">
           {AVATAR_BG.map((hex, i) => (
             <button
               key={hex}
               onClick={() => onSelectBg(i)}
+              aria-label={`Avatar background ${i + 1}`}
+              aria-pressed={bgIdx === i}
               className="relative h-6 w-6 cursor-pointer rounded-full border-2 border-transparent p-0"
               style={{ background: '#' + hex }}
             >

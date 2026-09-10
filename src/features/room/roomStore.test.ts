@@ -190,3 +190,18 @@ describe('useRoomStore', () => {
     expect(useRoomStore.getState().roomCode).toBeNull();
   });
 });
+
+it('clears table damage only after a successful round transition, never after a rejected write', async () => {
+  const { resetTableDamage } = await import('./roomStore.gta.ts');
+  vi.clearAllMocks();
+  const room = { code: 'ABCD', isRevealed: true, participants: {} } as never;
+  useRoomStore.setState({ uid: 'u1', roomCode: 'ABCD', room });
+  startNextRoundAction.mockRejectedValueOnce(new Error('permission-denied'));
+  await expect(useRoomStore.getState().startNextRound()).rejects.toThrow('permission-denied');
+  expect(resetTableDamage).not.toHaveBeenCalled();
+  startNextRoundAction.mockImplementationOnce(async () => {
+    useRoomStore.setState({ room: { code: 'ABCD', isRevealed: false, participants: {} } as never });
+  });
+  await useRoomStore.getState().startNextRound();
+  expect(resetTableDamage).toHaveBeenCalledExactlyOnceWith('ABCD');
+});

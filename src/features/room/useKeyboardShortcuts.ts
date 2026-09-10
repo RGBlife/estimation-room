@@ -21,14 +21,17 @@ interface UseKeyboardShortcutsArgs {
 // set. Both ignored while typing (e.g. the Custom vote input) so they don't
 // hijack normal text entry.
 export function useKeyboardShortcuts({
-  isRevealed, allVoted, anyVote, isObserver, deckValues, onReveal, onStartNextRound, onCastVote,
+  isRevealed, anyVote, isObserver, deckValues, onReveal, onStartNextRound, onCastVote,
 }: UseKeyboardShortcutsArgs): void {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (e.defaultPrevented || e.repeat || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const target = e.target;
+      if (target instanceof Element && target.closest(
+        'input, textarea, select, button, a[href], summary, [contenteditable]:not([contenteditable="false"]), [role="dialog"], [role="button"], [role="menu"]',
+      )) return;
       if (e.key === 'Enter') {
-        if (!isRevealed && allVoted && anyVote) {
+        if (!isRevealed && anyVote) {
           e.preventDefault();
           onReveal();
         } else if (isRevealed) {
@@ -48,5 +51,5 @@ export function useKeyboardShortcuts({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isRevealed, allVoted, anyVote, isObserver, deckValues, onReveal, onStartNextRound, onCastVote]);
+  }, [isRevealed, anyVote, isObserver, deckValues, onReveal, onStartNextRound, onCastVote]);
 }

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { CAR_W, CAR_H } from './gtaPhysics.ts';
 
 // The kart, drawn inline like WeaponShape/TreeShape rather than shipped as
@@ -98,7 +99,7 @@ interface CarWithRiderProps extends CarShapeProps {
 // than a panel occluding them. Rigidly part of the chassis (no
 // counter-rotation), so they turn with the kart exactly like someone
 // actually sitting in it would.
-export default function CarWithRider({ color, avatarUrl, w = CAR_W, h = CAR_H }: CarWithRiderProps) {
+function CarWithRider({ color, avatarUrl, w = CAR_W, h = CAR_H }: CarWithRiderProps) {
   const scale = w / 96; // viewBox units -> px
   // Sized to fill the well, since nothing crops it -- the full disc is
   // visible, not just the head-and-shoulders.
@@ -129,3 +130,5 @@ export default function CarWithRider({ color, avatarUrl, w = CAR_W, h = CAR_H }:
     </div>
   );
 }
+
+export default memo(CarWithRider);

@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
+import { loadTheme, saveTheme, type Theme } from '../shared/lib/theme.ts';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import SeatTable from '../features/room/SeatTable.tsx';
 import VotingBar from '../features/room/VotingBar.tsx';
 import RoomHeader from '../features/room/RoomHeader.tsx';
@@ -83,6 +84,13 @@ function seededDrivers(n: number): Record<string, DriverState> {
 
 export default function RoomLayoutHarness() {
   const params = new URLSearchParams(window.location.search);
+  const [theme, setTheme] = useState<Theme>(() => (document.documentElement.getAttribute('data-theme') as Theme) || loadTheme());
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    saveTheme(next);
+    setTheme(next);
+  };
   const seats = Number(params.get('seats') || 8);
   const observers = Number(params.get('observers') || 0);
   const [deckId, setDeckId] = useState<DeckId>((params.get('deck') as DeckId) || ALL_DECK_IDS[0]);
@@ -119,7 +127,7 @@ export default function RoomLayoutHarness() {
   }, [cancelTargeting]);
 
   const deck = DECKS[deckId];
-  const participants = fixtureParticipants(seats, observers);
+  const participants = useMemo(() => fixtureParticipants(seats, observers), [seats, observers]);
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];
   const customGroups = revealed && deck.resultKind === 'freeText' ? computeCustomGroups(participants) : [];
@@ -140,8 +148,8 @@ export default function RoomLayoutHarness() {
         copied={false}
         onCopy={() => {}}
         isCreator={params.get('host') !== '0'}
-        theme="dark"
-        onToggleTheme={() => {}}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         isObserver={false}
         deck={deck}
         onSwitchDeck={setDeckId}

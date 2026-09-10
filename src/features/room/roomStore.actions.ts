@@ -5,6 +5,7 @@ import {
   ref as rtdbRef, onDisconnect, set as rtdbSet, remove as rtdbRemove, push,
 } from 'firebase/database';
 import { db, rtdb } from '../../shared/lib/firebase.ts';
+import { normalizeAvatar } from '../avatar/avatar.ts';
 import { randomRoomCode } from '../join/roomCode.ts';
 import type { JoinPayload, CardValue, RoomDoc, DeckId } from '../../types/room.ts';
 
@@ -13,6 +14,7 @@ const MAX_CREATE_ATTEMPTS = 3;
 // Longest flight (the paper airplane's 0.95s glide) + impact (0.85s), plus
 // margin, before the thrower cleans up their own throw node.
 const THROW_CLEANUP_MS = 2200;
+const lastNudgeBySender = new Map<string, number>();
 
 export async function createRoomAction(uid: string, { name, avatar, isObserver, deck }: JoinPayload): Promise<string> {
   for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
@@ -27,7 +29,7 @@ export async function createRoomAction(uid: string, { name, avatar, isObserver, 
       deck,
       createdAt: serverTimestamp(),
       participants: {
-        [uid]: { name, avatar, isObserver, vote: null, joinedAt: Date.now() },
+        [uid]: { name, avatar: normalizeAvatar(avatar), isObserver, vote: null, joinedAt: Date.now() },
       },
     };
     await setDoc(ref, data);
@@ -43,7 +45,7 @@ export async function joinRoomAction(uid: string, code: string, { name, avatar, 
     throw new Error('Room not found');
   }
   await updateDoc(ref, {
-    [`participants.${uid}`]: { name, avatar, isObserver, vote: null, joinedAt: Date.now() },
+    [`participants.${uid}`]: { name, avatar: normalizeAvatar(avatar), isObserver, vote: null, joinedAt: Date.now() },
   });
 }
 
@@ -109,6 +111,15 @@ export async function throwWeaponAction(
 ): Promise<void> {
   const me = room?.participants?.[uid];
   if (!me || me.isObserver) return;
+  if (weaponId === 'nudge') {
+    const target = room?.participants[targetUid];
+    if (!target || targetUid === uid || target.isObserver || target.vote != null || room?.isRevealed) {
+      throw new Error('Only a player still waiting to vote can be nudged');
+    }
+    const key = `${roomCode}/${uid}`;
+    if (Date.now() - (lastNudgeBySender.get(key) ?? -Infinity) < 10000) throw new Error('Please wait before nudging again');
+    lastNudgeBySender.set(key, Date.now());
+  }
   const throwsListRef = rtdbRef(rtdb, `throws/${roomCode}`);
   const newThrowRef = push(throwsListRef);
   onDisconnect(newThrowRef).remove().catch(() => {});
@@ -116,7 +127,7 @@ export async function throwWeaponAction(
   setTimeout(() => {
     onDisconnect(newThrowRef).cancel().catch(() => {});
     rtdbRemove(newThrowRef).catch(() => {});
-  }, THROW_CLEANUP_MS);
+  }, weaponId === 'nudge' ? 10000 : THROW_CLEANUP_MS);
 }
 
 export async function leaveAction(uid: string, code: string): Promise<void> {

@@ -135,3 +135,19 @@ describe('computeCustomGroups', () => {
     expect(groups.map((g) => g.key)).toEqual(['b', 'a']);
   });
 });
+
+describe('arbitrary custom vote text', () => {
+  it('counts object property names as ordinary votes', () => {
+    const participants = byId([
+      participant('__proto__'), participant('constructor'), participant('constructor'),
+      participant('toString'), participant(' CONSTRUCTOR '),
+    ]);
+    expect(computeCustomGroups(participants)).toEqual([
+      { key: 'constructor', display: 'constructor', count: 3, isTop: true },
+      { key: '__proto__', display: '__proto__', count: 1, isTop: false },
+      { key: 'tostring', display: 'toString', count: 1, isTop: false },
+    ]);
+    expect(computeStats(participants, DECKS.custom).mode).toBe('constructor');
+    expect(() => computeDistribution(participants, DECKS.custom)).not.toThrow();
+  });
+});

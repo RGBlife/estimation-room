@@ -78,28 +78,44 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   };
 
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
-      <div
-        className="w-full transition-[max-width] duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-        style={{ maxWidth: cardMaxWidth, animation: 'sp-fade-in 0.4s ease' }}
-      >
-
-        <div className="mb-1.5 flex justify-end">
+    <div className="sp-join flex flex-1 items-center justify-center">
+      <div className="sp-join-layout" data-expanded={avatarExpanded} style={{ maxWidth: avatarExpanded ? cardMaxWidth + 370 : 1000 }}>
+        <header className="sp-join-header">
+          <div className="sp-wordmark">
+            <span className="sp-brand-cards" aria-hidden="true"><i /><i /></span>
+            <span>Estimation Room</span>
+          </div>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-        </div>
-        <div className="mb-7 flex items-center justify-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sp-accent font-sp-mono text-[13px] font-bold text-sp-bg">ER</div>
-          <span className="text-lg font-bold tracking-[-0.02em]">Estimation Room</span>
-        </div>
+        </header>
 
-        <div onKeyDown={handleKeyDown} className="rounded-2xl border border-sp-border bg-sp-panel p-7">
+        <div className="sp-join-workspace">
+          <div className="sp-join-intro">
+            <h1>What’s your <br />estimate?</h1>
+            <p>Planning poker for your team. Vote privately, reveal together, and talk through the differences.</p>
+            <div className="sp-card-hand" aria-hidden="true">
+              {[3, 5, 8].map(value => (
+                <div className="sp-intro-card" key={value}>
+                  <span>{value}</span><strong>{value}</strong><span>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+          <div onKeyDown={handleKeyDown} className="sp-join-card">
+          <div className="sp-join-card-heading">
+            <h2>{mode === 'create' ? 'Start a session' : 'Take a seat'}</h2>
+            <p>{mode === 'create' ? 'Choose a deck. Share the room code.' : 'Set your name and enter your room code.'}</p>
+          </div>
 
           <AvatarBuilder avatar={avatar} onChange={setAvatar} onExpandedChange={setAvatarExpanded} />
 
-          <div className="flex flex-col gap-3.5">
+          <div className="sp-join-fields flex flex-col gap-3.5">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Your name</label>
+              <label htmlFor="join-name" className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Your name</label>
               <input
+                id="join-name"
+                autoComplete="name"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Sam Rivera"
@@ -117,10 +133,12 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
                 />
                 <button
                   onClick={() => setRole('participant')}
+                  aria-pressed={role === 'participant'}
                   className={`relative flex-1 rounded-md border-none bg-transparent p-2 font-sp-font text-[13px] cursor-pointer transition-colors duration-150 ${role === 'participant' ? 'font-bold text-sp-bg' : 'font-semibold text-sp-text-dimmer'}`}
                 >Participant</button>
                 <button
                   onClick={() => setRole('observer')}
+                  aria-pressed={role === 'observer'}
                   className={`relative flex-1 rounded-md border-none bg-transparent p-2 font-sp-font text-[13px] cursor-pointer transition-colors duration-150 ${role === 'observer' ? 'font-bold text-sp-bg' : 'font-semibold text-sp-text-dimmer'}`}
                 >Observer</button>
               </div>
@@ -152,6 +170,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
                       <button
                         key={id}
                         onClick={() => setDeck(id)}
+                        aria-pressed={isSelected}
                         className={`relative cursor-pointer rounded-md border-none p-2 font-sp-font text-[13px] transition-[background-color,color,transform] duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isLastOdd ? 'col-span-2' : ''} ${
                           isSelected ? 'scale-[1.03] bg-sp-accent font-bold text-sp-bg' : 'scale-100 bg-transparent font-semibold text-sp-text-dimmer'
                         } ${showDivider ? 'before:absolute before:top-1/2 before:left-0 before:h-[60%] before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:bg-sp-border' : ''}`}
@@ -171,8 +190,11 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
               </div>
             ) : (
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Room code</label>
+                <label htmlFor="join-code" className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Room code</label>
                 <input
+                  id="join-code"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={roomCodeInput}
                   onChange={handleRoomCodeChange}
                   placeholder="Enter your room code"
@@ -195,7 +217,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
             )}
 
             {joinError && (
-              <div className="text-center text-[13px] text-sp-warn-text">{joinError}</div>
+              <div role="alert" className="text-center text-[13px] text-sp-warn-text">{joinError}</div>
             )}
 
             {!joinError && notice && (
@@ -204,7 +226,14 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
           </div>
         </div>
 
-        <div className="mt-[18px] text-center text-xs text-sp-text-placeholder">No account needed — just enter a name</div>
+          <p className="sp-join-footnote">No account needed. Your avatar is saved on this device.</p>
+          {import.meta.env.DEV && (
+            <p className="sp-join-footnote">
+              <a href="?visual-test=room&seats=10&observers=4">Preview 10 players and 4 observers</a>
+            </p>
+          )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -174,12 +174,12 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
     <div
       className="absolute"
       style={{
-        left: x, top: y, width: carW, height: carH,
-        transform: `translate(-50%, -50%) rotate(${driver.r}rad)`,
+        left: 0, top: 0, width: carW, height: carH,
+        transform: `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${driver.r}rad)`,
         // Interpolates smoothly between throttled position samples while
         // driving; harmless during arriving/boarding since the car barely
         // moves in those phases anyway.
-        transition: 'left 60ms linear, top 60ms linear, transform 60ms linear',
+        transition: 'transform 80ms linear',
         animation: phase === 'arriving' ? 'sp-gta-remote-arrive 200ms ease both' : undefined,
       }}
     >
@@ -277,7 +277,7 @@ export default function GtaOverlay({
   const bottomInsetRef = useRef(bottomInset);
   bottomInsetRef.current = bottomInset;
 
-  const [, forceRender] = useState(0);
+  const localCarNode = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<GtaPhase>('idle');
   const [hintVisible, setHintVisible] = useState(false);
   const [hintClosing, setHintClosing] = useState(false);
@@ -377,9 +377,12 @@ export default function GtaOverlay({
     };
     const down = (e: KeyboardEvent) => set(e, true);
     const up = (e: KeyboardEvent) => set(e, false);
+    const release = () => { inputRef.current = { forward: false, back: false, left: false, right: false }; };
+    window.addEventListener('blur', release);
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     return () => {
+      window.removeEventListener('blur', release);
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
       inputRef.current = { forward: false, back: false, left: false, right: false };
@@ -390,10 +393,12 @@ export default function GtaOverlay({
     if (!stageNode) return [];
     const sb = stageNode.getBoundingClientRect();
     const out: SeatBox[] = [];
+    const vacantSeats = new Set(remoteDriversRef.current
+      .filter(driver => seatVacated(driver.phase as GtaPhase)).map(driver => driver.uid));
     for (const id of obstacleIdsRef.current) {
       // The driver isn't in their seat while driving, so it stops being an
       // obstacle -- otherwise the car collides with the chair it came from.
-      if (id === driverUid && seatVacated(phaseRef.current)) continue;
+      if ((id === driverUid && seatVacated(phaseRef.current)) || vacantSeats.has(id)) continue;
       const node = getSeatNode(id);
       if (!node) continue;
       const b = node.getBoundingClientRect();
@@ -458,7 +463,12 @@ export default function GtaOverlay({
         } else if (out.hitId) {
           onSeatSquash(out.hitId);
         }
-        forceRender(n => (n + 1) % 1000000);
+        // Physics stays at display refresh rate without reconciling every
+        // remote car and SVG on each local frame.
+        if (localCarNode.current) {
+          const car = out.car;
+          localCarNode.current.style.transform = `translate3d(${car.x}px, ${car.y}px, 0) translate(-50%, -50%) rotate(${car.r}rad)`;
+        }
       } else {
         lastRef.current = now;
       }
@@ -562,10 +572,11 @@ export default function GtaOverlay({
         <>
           {hasCar(phase) && (
             <div
+              ref={localCarNode}
               className="absolute"
               style={{
-                left: car.x, top: car.y, width: carW, height: carH,
-                transform: `translate(-50%, -50%) rotate(${car.r}rad)`,
+                left: 0, top: 0, width: carW, height: carH,
+                transform: `translate3d(${car.x}px, ${car.y}px, 0) translate(-50%, -50%) rotate(${car.r}rad)`,
               }}
             >
               <div

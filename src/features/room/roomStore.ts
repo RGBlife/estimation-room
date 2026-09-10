@@ -190,6 +190,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     const { roomCode, room } = get();
     if (!roomCode || !room) return;
     await setDeckAction(roomCode, room, deckId);
+    if (get().roomCode === roomCode && !get().room?.isRevealed) resetTableDamage(roomCode);
   },
 
   reveal: async () => {
@@ -202,6 +203,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     const { roomCode, room } = get();
     if (!roomCode || !room) return;
     await startNextRoundAction(roomCode, room);
+    if (get().roomCode === roomCode && !get().room?.isRevealed) resetTableDamage(roomCode);
   },
 
   throwWeapon: async (targetUid, weaponId, offsetX = 0, offsetY = 0) => {

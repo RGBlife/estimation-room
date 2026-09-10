@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:visual": "playwright test",
+    "test:multiplayer": "playwright test --config playwright.multiplayer.config.ts",
     "typecheck": "tsc",
     "lint": "eslint .",
     "format": "prettier --write .",

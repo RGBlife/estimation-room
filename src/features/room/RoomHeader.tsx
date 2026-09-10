@@ -73,7 +73,7 @@ export default function RoomHeader({
   return (
     <div
       ref={headerRef}
-      className={`flex flex-wrap items-center justify-between border-b border-sp-border ${narrow ? 'gap-2 px-3 py-2.5' : snug ? 'gap-3 px-4 py-3' : 'gap-5 px-7 py-4'}`}
+      className={`sp-room-header flex flex-wrap items-center justify-between border-b border-sp-border ${narrow ? 'gap-2 px-3 py-2.5' : snug ? 'gap-3 px-4 py-3' : 'gap-5 px-7 py-4'}`}
     >
       {/* The 280px min-width reserved most of a phone's width for the room
           code alone, forcing every control on the right onto its own row and

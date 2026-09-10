@@ -78,6 +78,27 @@ export function randomAvatar(): AvatarOptions {
   return avatar as unknown as AvatarOptions;
 }
 
+// Persist only the current schema. Old profiles can contain legacy booleans,
+// and editing one field previously produced a hybrid rejected by Firebase.
+export function normalizeAvatar(value: unknown): AvatarOptions {
+  const a = value && typeof value === 'object' ? value as LooseAvatar : {};
+  const normalized: Record<string, string | number | boolean> = {
+    seed: typeof a.seed === 'string' ? a.seed.slice(0, 32) : randomSeed(),
+    bgIdx: idx(a, 'bgIdx', AVATAR_BG.length),
+  };
+  const legacy: Record<string, unknown> = {
+    glassesIdx: a.glasses, earringsIdx: a.earrings, featureIdx: a.flair,
+  };
+  for (const category of AVATAR_CATEGORIES) {
+    normalized[category.key] = idx(a, category.key, category.values.length);
+    if (category.optional) {
+      const enabled = a[`${category.key}On`] ?? legacy[category.key];
+      normalized[`${category.key}On`] = enabled === true;
+    }
+  }
+  return normalized as unknown as AvatarOptions;
+}
+
 // Avatars are generated locally and participants store just the options
 // (seed/bgIdx/category indices), so rendering never depends on the dicebear
 // API being reachable. Cached because seat/preview renders repeat the same

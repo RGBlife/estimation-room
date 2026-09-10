@@ -11,7 +11,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:4175',
     trace: 'retain-on-failure',
   },
   projects: [
@@ -59,15 +59,17 @@ export default defineConfig({
     },
   ],
   webServer: {
+    // Own a dedicated port so another app's dev server cannot be mistaken
+    // for this test harness. Fail explicitly if that port is already in use.
     // Vite's default dev-server binding resolves "localhost" ambiguously
     // between IPv6 (::1) and IPv4 (127.0.0.1) depending on the host's
     // resolver order -- this passed locally (macOS resolves to ::1 first,
     // matching Vite's default bind) but failed in CI (Ubuntu runners
     // resolve "localhost" to 127.0.0.1 first, which nothing was listening
     // on). Binding explicitly to 127.0.0.1 removes the ambiguity everywhere.
-    command: 'npm run dev -- --host 127.0.0.1',
-    url: 'http://127.0.0.1:5173',
-    reuseExistingServer: !process.env.CI,
+    command: 'npm run dev -- --host 127.0.0.1 --port 4175 --strictPort',
+    url: 'http://127.0.0.1:4175',
+    reuseExistingServer: false,
     timeout: 30000,
   },
 });

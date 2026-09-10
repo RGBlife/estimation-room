@@ -1,3 +1,4 @@
+import NudgePicker from './NudgePicker.tsx';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
@@ -656,6 +657,8 @@ interface SeatTableProps {
   anyVote: boolean;
   allVoted: boolean;
   onReveal: () => void;
+  onNudge?: (uid: string) => void;
+  nudgeDisabled?: boolean;
   canTarget: boolean;
   onThrowAt: (id: string, e?: React.MouseEvent) => void;
   registerSeatNode: (id: string, node: HTMLElement | null) => void;
@@ -679,7 +682,7 @@ interface SeatTableProps {
 }
 
 export default function SeatTable({
-  participants, uid, creatorId, isRevealed, anyVote, allVoted, onReveal,
+  participants, uid, creatorId, isRevealed, anyVote, allVoted, onReveal, onNudge, nudgeDisabled,
   canTarget, onThrowAt, registerSeatNode, getSeatNode, stageRef, throws, onThrowDone,
   highlightValues = [], bottomClearance: measuredClearance,
   isDriving, forceEndDrive, drivers, tableCracks, tablePieceMove, tableWasted,
@@ -884,18 +887,9 @@ export default function SeatTable({
       return rest;
     }), WOBBLE_MS);
   };
-  // Whether a remote uid currently reads as "off driving" -- keyed off their
-  // streamed phase (see seatVacated in gtaLifecycle.ts), not merely having a
-  // live entry in `drivers`. Position/phase now publish continuously from
-  // the moment a drive starts arriving (not just once actually driving), so
-  // `id in drivers` alone would vacate a remote seat far too early --
-  // while they're still visibly sitting there, wobbling through boarding.
-  const remoteVacated = (id: string): boolean => {
-    const d = drivers[id];
-    return !!d && seatVacated(d.phase as GtaPhase);
-  };
-
-  const handleSeatSquash = (seatId: string) => {
+  const occupancyRef = useRef({ myVacated, drivers });
+  occupancyRef.current = { myVacated, drivers };
+  const handleSeatSquash = (seatId: string, publish = true) => {
     const stamp = performance.now();
     setSquashed(s => ({ ...s, [seatId]: stamp }));
     setTimeout(() => setSquashed(s => {
@@ -906,8 +900,10 @@ export default function SeatTable({
     }), SQUASH_MS);
     // A driver can't be wasted by getting squashed -- they're in a car, not
     // sitting in the seat that just got hit.
-    const targetVacated = seatId === uid ? myVacated : remoteVacated(seatId);
-    if (!targetVacated) onMarkWasted(seatId);
+    const current = occupancyRef.current;
+    const targetVacated = seatId === uid ? current.myVacated
+      : !!current.drivers[seatId] && current.drivers[seatId].phase !== 'idle';
+    if (publish && !targetVacated) onMarkWasted(seatId);
   };
 
   // Remote drivers report their hit target on the streamed position payload
@@ -917,7 +913,7 @@ export default function SeatTable({
   const lastRemoteHitRef = useRef<Record<string, string | null | undefined>>({});
   useEffect(() => {
     for (const d of Object.values(drivers)) {
-      if (d.hit && d.hit !== lastRemoteHitRef.current[d.uid]) handleSeatSquash(d.hit);
+      if (d.hit && d.hit !== lastRemoteHitRef.current[d.uid]) handleSeatSquash(d.hit, false);
       lastRemoteHitRef.current[d.uid] = d.hit ?? null;
     }
     // handleSeatSquash is intentionally omitted -- it's redefined every
@@ -954,7 +950,7 @@ export default function SeatTable({
       voteValue: p.vote,
       // Our own seat uses GtaOverlay's direct local signal (instant, no
       // network round-trip); everyone else's uses their streamed phase.
-      vacated: isMe ? myVacated : remoteVacated(id),
+      vacated: isMe ? myVacated : !!drivers[id] && seatVacated(drivers[id].phase as GtaPhase),
       hitAnimation: hitAnimationFor(id),
       squashAt: squashAtFor(id),
       wasted: id in tableWasted,
@@ -1038,6 +1034,7 @@ export default function SeatTable({
                 >Reveal votes</button>
               )}
             </div>
+            {!isRevealed && <NudgePicker participants={participants} uid={uid} onNudge={onNudge} disabled={nudgeDisabled} />}
             <ParticipantGrid
               seats={seats}
               canTarget={canTarget}
@@ -1096,6 +1093,7 @@ export default function SeatTable({
                       piece as pieceMove shoves it around. */}
                   <div
                     ref={node => { pieceNodesRef.current.left = node; }}
+                    data-table-piece="left"
                     aria-hidden="true"
                     className="absolute top-0 bottom-0 left-0 overflow-hidden border border-sp-border"
                     style={{
@@ -1126,6 +1124,7 @@ export default function SeatTable({
                   </div>
                   <div
                     ref={node => { pieceNodesRef.current.right = node; }}
+                    data-table-piece="right"
                     aria-hidden="true"
                     className="absolute top-0 right-0 bottom-0 overflow-hidden border border-sp-border"
                     style={{
@@ -1195,24 +1194,15 @@ export default function SeatTable({
               </div>
 
               {!isRevealed && (
-                allVoted ? (
-                  <div className="sp-kbd-hint-wrap">
-                    {anyVote && (
-                      <div aria-hidden="true" className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-sp-sm">
-                        Enter
-                      </div>
-                    )}
-                    <button
-                      onClick={onReveal}
-                      disabled={!anyVote}
-                      className={`rounded-lg border-none bg-sp-accent px-5 py-2.5 font-sp-font text-sm font-bold text-sp-bg ${anyVote ? 'cursor-pointer opacity-100' : 'cursor-default opacity-45'}`}
-                    >Reveal votes</button>
-                  </div>
-                ) : (
-                  <div aria-hidden="true" className="sp-breathe font-sp-mono text-[15px] font-bold text-sp-text-dim">
-                    {votedCount}/{n}
-                  </div>
-                )
+                <div className="relative flex flex-col items-center gap-2">
+                  <div aria-hidden="true" className="font-sp-mono text-[13px] font-bold text-sp-text-dim">{votedCount}/{n}</div>
+                  <button
+                    onClick={onReveal}
+                    disabled={!anyVote}
+                    className={`rounded-lg border-none bg-sp-accent px-5 py-2.5 font-sp-font text-sm font-bold text-sp-bg ${anyVote ? 'cursor-pointer' : 'cursor-default opacity-45'}`}
+                  >Reveal votes</button>
+                  <NudgePicker participants={participants} uid={uid} onNudge={onNudge} disabled={nudgeDisabled} />
+                </div>
               )}
             </div>
             {rightEnd && <Seat seat={rightEnd} {...seatProps} />}

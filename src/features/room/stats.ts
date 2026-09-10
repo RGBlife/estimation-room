@@ -25,7 +25,7 @@ export function computeStats(participants: Record<string, Participant>, deck: De
 
   const flaggedCount = deck.flagValue != null ? votes.filter((v) => v === deck.flagValue).length : 0;
 
-  const modeCounts: Partial<Record<CardValue, number>> = {};
+  const modeCounts: Partial<Record<CardValue, number>> = Object.create(null);
   for (const v of votes) {
     if (deck.flagValue != null && v === deck.flagValue) continue;
     modeCounts[v] = (modeCounts[v] ?? 0) + 1;
@@ -47,7 +47,7 @@ export interface DistributionGroup {
 }
 
 export function computeDistribution(participants: Record<string, Participant>, deck: DeckDefinition): DistributionGroup[] {
-  const groups: Partial<Record<CardValue, Participant[]>> = {};
+  const groups: Partial<Record<CardValue, Participant[]>> = Object.create(null);
   Object.values(participants).forEach((p) => {
     if (!p.isObserver && p.vote != null) {
       (groups[p.vote] = groups[p.vote] || []).push(p);
@@ -74,7 +74,7 @@ export interface CustomVoteGroup {
 }
 
 export function computeCustomGroups(participants: Record<string, Participant>): CustomVoteGroup[] {
-  const groups: Record<string, { display: string; count: number }> = {};
+  const groups: Record<string, { display: string; count: number }> = Object.create(null);
   Object.values(participants).forEach((p) => {
     if (p.isObserver || p.vote == null) return;
     const key = p.vote.trim().toLowerCase();

@@ -8,7 +8,6 @@ import CustomResultsList from './CustomResultsList.tsx';
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
 const STAGGER_MS = 45;
-const VOTE_ROW_EXIT_MS = 260;
 
 // On a short screen the results panel is competing with the seats for the same
 // pixels, and the seats lose -- the bottom row ends up behind the panel at the
@@ -152,7 +151,7 @@ function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowPr
   const values = deck.values ?? [];
   return (
     <>
-      <span id="sp-vote-label" className="text-[11px] font-bold tracking-[0.05em] whitespace-nowrap text-sp-text-faintest uppercase">Your vote</span>
+      <span id="sp-vote-label" className="text-xs font-semibold whitespace-nowrap text-sp-text-faint">Your vote</span>
       <div role="group" aria-labelledby="sp-vote-label" className="flex flex-wrap justify-center gap-2">
         {values.map((spec, i) => {
           const { value, wide, warn } = spec;
@@ -173,7 +172,8 @@ function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowPr
               key={value}
               onClick={() => onSelect(value)}
               aria-pressed={selected}
-              className={`cursor-pointer rounded-lg font-sp-mono font-bold transition-[transform,border-color] duration-150 ${shapeClass} ${colorClass} ${animClass}`}
+              data-card-value={value}
+              className={`sp-vote-card ${/^[0-9]+$/.test(value) ? 'sp-number-card' : ''} cursor-pointer rounded-lg font-sp-mono font-bold transition-[transform,border-color] duration-150 ${shapeClass} ${colorClass} ${animClass}`}
               style={{
                 transform: selected && !exiting ? 'translateY(-6px)' : undefined,
                 animationDelay: animate ? `${(exiting ? values.length - 1 - i : i) * 20}ms` : undefined,
@@ -227,19 +227,6 @@ export default function VotingBar({
     if (!isRevealed) hasAnimatedRef.current = false;
   }, [isRevealed]);
 
-  // The vote-card row stays mounted briefly after reveal so it can animate
-  // out instead of being swapped for the distribution bar instantly. Not
-  // applicable to Custom's text input, which has no card grid to animate.
-  const [showExitingCards, setShowExitingCards] = useState(false);
-  useEffect(() => {
-    if (isRevealed && !isCustom) {
-      setShowExitingCards(true);
-      const t = setTimeout(() => setShowExitingCards(false), VOTE_ROW_EXIT_MS);
-      return () => clearTimeout(t);
-    }
-    setShowExitingCards(false);
-  }, [isRevealed, isCustom]);
-
   // Reports this bar's real height so SeatTable can reserve exactly enough
   // clearance above it — the bar grows a lot taller once the distribution
   // panel replaces the vote-card row, and measuring beats guessing.
@@ -262,12 +249,10 @@ export default function VotingBar({
     // itself off screen.
     <div
       ref={barRef}
-      className="fixed right-0 bottom-0 left-0 flex max-h-[34dvh] flex-wrap items-center justify-center gap-5 overflow-x-hidden overflow-y-auto border-t border-sp-border bg-sp-panel px-5 py-3 sm:max-h-[52dvh]"
+      className="sp-voting-dock fixed right-0 bottom-0 left-0 flex max-h-[34dvh] flex-wrap items-center justify-center gap-5 overflow-x-hidden overflow-y-auto border-t border-sp-border bg-sp-panel px-5 py-3 sm:max-h-[52dvh]"
     >
       {isRevealed ? (
-        showExitingCards && !isObserver ? (
-          <VoteCardRow deck={deck} myVote={myVote} onSelect={onSelect} exiting />
-        ) : deck.resultKind === 'freeText' ? (
+        deck.resultKind === 'freeText' ? (
           <CustomResultsList groups={customGroups} onStartNextRound={onStartNextRound} />
         ) : (
           <DistributionBar

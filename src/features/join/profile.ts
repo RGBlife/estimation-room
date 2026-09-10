@@ -1,3 +1,4 @@
+import { normalizeAvatar } from '../avatar/avatar.ts';
 import type { AvatarOptions } from '../../types/room.ts';
 
 const PROFILE_KEY = 'sp_profile';
@@ -13,8 +14,9 @@ export function loadProfile(): Profile | null {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || !parsed.avatar) return null;
-    return parsed;
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.name !== 'string' || !parsed.avatar) return null;
+    return { name: parsed.name.slice(0, 40), avatar: normalizeAvatar(parsed.avatar),
+      ...(parsed.isObserver !== undefined ? { isObserver: parsed.isObserver === true } : {}) };
   } catch {
     return null;
   }
