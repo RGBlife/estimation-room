@@ -19,7 +19,7 @@ function renderVotingBar(overrides: Partial<React.ComponentProps<typeof VotingBa
   const props: React.ComponentProps<typeof VotingBar> = {
     deck: DECKS.fibonacci,
     isObserver: false,
-    myVote: null,
+    myVote: overrides.isRevealed ? '5' : null,
     isRevealed: false,
     onSelect: vi.fn(),
     onJoinVoting: vi.fn(),
@@ -162,4 +162,22 @@ describe('VotingBar', () => {
     expect(screen.getByText('“2 weeks”')).toBeInTheDocument();
     expect(screen.getByText('×2')).toBeInTheDocument();
   });
+});
+
+it('keeps cards open for an unvoted player after early reveal, then shows results after submission', async () => {
+  const { props, rerender } = renderVotingBar({ isRevealed: true, myVote: null });
+  expect(screen.getByText('Still time for your estimate')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: '8' }));
+  expect(props.onSelect).toHaveBeenCalledWith('8');
+  rerender(<VotingBar {...props} myVote="8" />);
+  expect(screen.queryByText('Still time for your estimate')).toBeNull();
+  expect(screen.getByText('Start next round')).toBeVisible();
+});
+
+it('accepts a late custom estimate but offers no late input to observers', async () => {
+  const { props, rerender } = renderVotingBar({ deck: DECKS.custom, isRevealed: true, myVote: null });
+  await userEvent.type(screen.getByPlaceholderText(/^enter/i), 'two days{Enter}');
+  expect(props.onSelect).toHaveBeenCalledWith('two days');
+  rerender(<VotingBar {...props} isObserver />);
+  expect(screen.queryByPlaceholderText(/^enter/i)).toBeNull();
 });

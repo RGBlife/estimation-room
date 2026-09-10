@@ -1,4 +1,4 @@
-import NudgePicker from './NudgePicker.tsx';
+import NudgeButton from './NudgeButton.tsx';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
@@ -219,6 +219,8 @@ function distributeSeats(seats: SeatData[], useEnds: boolean) {
 }
 
 interface SeatProps {
+  onNudge?: (uid: string) => void;
+  nudgeDisabled?: boolean;
   seat: SeatData;
   reverse?: boolean;
   canTarget: boolean;
@@ -259,7 +261,7 @@ function cardScatterStyle(squashAt: number | null): React.CSSProperties | undefi
   } as StyleVars;
 }
 
-function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: SeatProps) {
+function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes, onNudge, nudgeDisabled }: SeatProps) {
   const canClick = canTarget && !seat.isMe;
   // Dimmed, not the highlighted ones themselves, is what carries the contrast:
   // fading every other seat makes the highlighted group unmissable regardless
@@ -364,7 +366,13 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
           hit's own timestamp so repeated hits don't always kick the same way. */}
       <div style={cardScatterStyle(seat.squashAt)}>
         {seat.showBlank && (
-          <div className="rounded-[5px] border-[1.5px] border-sp-border-strong bg-sp-card-bg" style={{ width: sizes.cardW, height: sizes.cardH }} />
+          <div style={{ width: Math.max(36, sizes.cardW), height: sizes.cardH }}>
+            {!seat.isMe && onNudge ? (
+              <NudgeButton name={seat.displayName} onClick={() => onNudge(seat.id)} disabled={nudgeDisabled} />
+            ) : (
+              <div className="h-full w-full rounded-[5px] border border-dashed border-sp-border-strong bg-sp-card-bg" />
+            )}
+          </div>
         )}
         {(seat.showPlaced || seat.showValue) && (
           <div style={{ width: cardW, height: sizes.cardH, perspective: 300 }}>
@@ -374,11 +382,11 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
                 style={{ animationDelay: `${seat.flipDelay}ms` }}
               >
                 <div
-                  className="sp-flip-face rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel font-sp-mono font-bold text-sp-accent-text"
+                  className="sp-flip-face rounded-[5px] border border-sp-border-strong bg-sp-card-bg font-sp-mono font-bold text-sp-text-dim"
                   style={{ width: cardW, height: sizes.cardH, fontSize: sizes.cardFont }}
-                >?</div>
+                >✓</div>
                 <div
-                  className="sp-flip-face sp-flip-face-back overflow-hidden rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel px-1.5 text-center leading-[1.15] font-sp-mono font-bold text-sp-accent-on-card"
+                  className="sp-flip-face sp-flip-face-back overflow-hidden rounded-[5px] border border-sp-border-strong bg-sp-card-bg px-1.5 text-center leading-[1.15] font-sp-mono font-bold text-sp-text"
                   style={{
                     width: cardW,
                     height: sizes.cardH,
@@ -390,9 +398,9 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
               </div>
             ) : (
               <div
-                className="flex h-full w-full items-center justify-center rounded-[5px] border-2 border-sp-accent bg-sp-accent-panel font-sp-mono font-bold text-sp-accent-text"
+                className="flex h-full w-full items-center justify-center rounded-[5px] border border-sp-border-strong bg-sp-card-bg font-sp-mono font-bold text-sp-text-dim"
                 style={{ fontSize: sizes.cardFont }}
-              >?</div>
+              >✓</div>
             )}
           </div>
         )}
@@ -407,7 +415,9 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes }: 
 // fragmented rows either side of it -- the metaphor stops paying for the space
 // it costs. A row per person reads immediately, fits far more people before
 // scrolling, and gives each vote somewhere unambiguous to sit.
-function ParticipantGrid({ seats, canTarget, onThrowAt, registerSeatNode }: {
+function ParticipantGrid({ seats, canTarget, onThrowAt, registerSeatNode, onNudge, nudgeDisabled }: {
+  onNudge?: (uid: string) => void;
+  nudgeDisabled?: boolean;
   seats: SeatData[];
   canTarget: boolean;
   onThrowAt: (id: string, e?: React.MouseEvent) => void;
@@ -447,19 +457,23 @@ function ParticipantGrid({ seats, canTarget, onThrowAt, registerSeatNode }: {
             </span>
             {/* Three states, same footprint so rows never reflow as votes
                 land: revealed value, "voted" tick, or waiting. */}
-            <span
+            {seat.showBlank && !seat.isMe && onNudge ? (
+              <div className="h-9 w-9 shrink-0">
+                <NudgeButton name={seat.displayName} onClick={() => onNudge(seat.id)} disabled={nudgeDisabled} />
+              </div>
+            ) : <span
               aria-hidden="true"
-              className={`flex h-7 shrink-0 items-center justify-center rounded-[5px] font-sp-mono text-[12px] font-bold ${
+              className={`flex h-9 shrink-0 items-center justify-center rounded-[5px] font-sp-mono text-[12px] font-bold ${
                 seat.showValue && seat.voteValue != null
-                  ? 'border-2 border-sp-accent bg-sp-accent-panel px-1.5 text-sp-accent-on-card'
+                  ? 'border border-sp-border-strong bg-sp-card-bg px-1.5 text-sp-text'
                   : seat.showPlaced
-                    ? 'border-2 border-sp-accent bg-sp-accent-panel px-2 text-sp-accent-text'
+                    ? 'border border-sp-border-strong bg-sp-card-bg px-2 text-sp-text-dim'
                     : 'border border-dashed border-sp-border-strong px-2 text-sp-text-faintest'
               }`}
-              style={{ minWidth: 30 }}
+              style={{ minWidth: 36 }}
             >
               {seat.showValue && seat.voteValue != null ? seat.voteValue : seat.showPlaced ? '✓' : '·'}
-            </span>
+            </span>}
           </div>
         );
       })}
@@ -944,9 +958,9 @@ export default function SeatTable({
       avatarUrl: participantAvatarSrc(p),
       size: isMe ? sizes.meAvatar : sizes.avatar,
       displayName: isMe ? p.name + ' (you)' : p.name,
-      showBlank: !isRevealed && !hasVoted,
+      showBlank: !hasVoted,
       showPlaced: !isRevealed && hasVoted,
-      showValue: isRevealed,
+      showValue: isRevealed && hasVoted,
       voteValue: p.vote,
       // Our own seat uses GtaOverlay's direct local signal (instant, no
       // network round-trip); everyone else's uses their streamed phase.
@@ -994,7 +1008,7 @@ export default function SeatTable({
   // smoothly (see padding-bottom transition below) instead of snapping,
   // so the table doesn't visibly jump when the distribution panel appears.
   const bottomClearance = (measuredClearance || CLEARANCE_FALLBACK) + CLEARANCE_BUFFER;
-  const seatProps = { canTarget, onThrowAt, registerSeatNode, sizes };
+  const seatProps = { canTarget, onThrowAt, registerSeatNode, sizes, onNudge: isRevealed ? undefined : onNudge, nudgeDisabled };
 
   // Stable per-driver color assignment (join order), and every avatar on the
   // board GTA Mode can collide with -- active seats, observers, and the
@@ -1024,7 +1038,7 @@ export default function SeatTable({
           <div className="flex w-full flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <span aria-hidden="true" className="font-sp-mono text-[13px] font-bold text-sp-text-dim">
-                {isRevealed ? 'Votes revealed' : `${votedCount}/${n} voted`}
+                {isRevealed ? `Votes revealed · ${votedCount}/${n} voted` : `${votedCount}/${n} voted`}
               </span>
               {!isRevealed && (
                 <button
@@ -1034,9 +1048,10 @@ export default function SeatTable({
                 >Reveal votes</button>
               )}
             </div>
-            {!isRevealed && <NudgePicker participants={participants} uid={uid} onNudge={onNudge} disabled={nudgeDisabled} />}
             <ParticipantGrid
               seats={seats}
+              onNudge={isRevealed ? undefined : onNudge}
+              nudgeDisabled={nudgeDisabled}
               canTarget={canTarget}
               onThrowAt={onThrowAt}
               registerSeatNode={registerSeatNode}
@@ -1044,7 +1059,7 @@ export default function SeatTable({
             {/* The visual counter above is aria-hidden, so round progress is
                 narrated here instead. */}
             <div aria-live="polite" aria-atomic="true" className="sr-only">
-              {isRevealed ? 'Votes revealed' : `${votedCount} of ${n} ${n === 1 ? 'person has' : 'people have'} voted`}
+              {isRevealed ? `Votes revealed · ${votedCount}/${n} voted` : `${votedCount} of ${n} ${n === 1 ? 'person has' : 'people have'} voted`}
             </div>
           </div>
         ) : (
@@ -1189,10 +1204,16 @@ export default function SeatTable({
                   a screen reader -- this narrates round progress instead. */}
               <div aria-live="polite" aria-atomic="true" className="sr-only">
                 {isRevealed
-                  ? 'Votes revealed'
+                  ? `Votes revealed · ${votedCount}/${n} voted`
                   : `${votedCount} of ${n} ${n === 1 ? 'person has' : 'people have'} voted`}
               </div>
 
+              {isRevealed && (
+                <div className="relative text-center text-xs text-sp-text-dim">
+                  <div className="font-semibold">{votedCount}/{n} voted</div>
+                  {votedCount < n && <div className="mt-1">Still accepting votes</div>}
+                </div>
+              )}
               {!isRevealed && (
                 <div className="relative flex flex-col items-center gap-2">
                   <div aria-hidden="true" className="font-sp-mono text-[13px] font-bold text-sp-text-dim">{votedCount}/{n}</div>
@@ -1201,7 +1222,6 @@ export default function SeatTable({
                     disabled={!anyVote}
                     className={`rounded-lg border-none bg-sp-accent px-5 py-2.5 font-sp-font text-sm font-bold text-sp-bg ${anyVote ? 'cursor-pointer' : 'cursor-default opacity-45'}`}
                   >Reveal votes</button>
-                  <NudgePicker participants={participants} uid={uid} onNudge={onNudge} disabled={nudgeDisabled} />
                 </div>
               )}
             </div>

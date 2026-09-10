@@ -56,9 +56,9 @@ describe('RoomHeader', () => {
     expect(screen.getByText('link copied')).toBeInTheDocument();
   });
 
-  it('hides weapon controls for observers', () => {
+  it('offers weapon controls for observers', () => {
     renderHeader({ isObserver: true });
-    expect(screen.queryByText(/Choose Your Weapon/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Choose Your Weapon/)).toBeInTheDocument();
     expect(screen.queryByText(/Cancel throwing/)).not.toBeInTheDocument();
   });
 

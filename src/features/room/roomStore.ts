@@ -10,7 +10,7 @@ import { db, rtdb, auth } from '../../shared/lib/firebase.ts';
 import { saveLastRoomCode } from '../join/profile.ts';
 import { clearMyPresence, trackPresence, teardownPresence } from './roomStore.presence.ts';
 import {
-  createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setDeckAction,
+  updateAvatarAction, createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setDeckAction,
   revealAction, startNextRoundAction, throwWeaponAction, leaveAction,
 } from './roomStore.actions.ts';
 import {
@@ -18,7 +18,7 @@ import {
   publishTableCrack, subscribeTableCracks, publishTablePieceMove, markWasted,
   clearWasted, subscribeTableDamage, resetTableDamage,
 } from './roomStore.gta.ts';
-import type { RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
+import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 
@@ -37,6 +37,7 @@ interface RoomState {
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
   joinRoom: (code: string, payload: JoinPayload) => Promise<void>;
+  updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
@@ -172,6 +173,12 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     subscribeDrivers(code, set);
     subscribeTableCracks(code, set);
     subscribeTableDamage(code, set);
+  },
+
+  updateAvatar: async avatar => {
+    const { uid, roomCode, room } = get();
+    if (!uid || !roomCode) throw new Error('You are no longer in the room');
+    await updateAvatarAction(uid, roomCode, room, avatar);
   },
 
   setRole: async (isObserver) => {

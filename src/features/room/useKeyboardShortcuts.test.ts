@@ -65,3 +65,11 @@ it('supports early reveal from the keyboard after the first vote', () => {
   fireEvent.keyDown(window, { key: 'Enter' });
   expect(actions.onReveal).toHaveBeenCalledOnce();
 });
+
+it('allows a missing vote after reveal without Enter accidentally starting a new round', () => {
+  const actions = setup({ isRevealed: true, canVoteAfterReveal: true });
+  fireEvent.keyDown(window, { key: '6' });
+  expect(actions.onCastVote).toHaveBeenCalledWith('8');
+  fireEvent.keyDown(window, { key: 'Enter' });
+  expect(actions.onStartNextRound).not.toHaveBeenCalled();
+});

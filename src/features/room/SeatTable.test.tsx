@@ -137,11 +137,8 @@ describe('early reveal and nudging', () => {
         c: participant({ name: 'Cy', vote: '3' }), d: participant({ name: 'Di', isObserver: true }),
       }, onNudge,
     });
-    const picker = screen.getByRole('combobox', { name: 'Nudge a player who has not voted' });
-    expect(screen.queryByRole('option', { name: 'Cy' })).toBeNull();
-    expect(screen.queryByRole('option', { name: 'Di' })).toBeNull();
-    expect(screen.queryByRole('option', { name: 'Ada' })).toBeNull();
-    await userEvent.selectOptions(picker, 'b');
+    expect(screen.getAllByRole('button', { name: /^Nudge / })).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Nudge Bo to vote' }));
     expect(onNudge).toHaveBeenCalledWith('b');
   });
 });

@@ -1,3 +1,5 @@
+import RoomAvatarEditor from './RoomAvatarEditor.tsx';
+import { participantAvatarSrc } from '../avatar/index.js';
 import { useNudge } from './useNudge.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SeatTable from './SeatTable.tsx';
@@ -12,7 +14,7 @@ import { useDeckSwitchToast } from './useDeckSwitchToast.ts';
 import { FAKE_PARTICIPANTS } from './useDevFakeParticipants.ts';
 import { computeStats, computeDistribution, computeCustomGroups } from './stats.ts';
 import { DECKS, DEFAULT_DECK } from './decks.ts';
-import type { RoomDoc, Participant, CardValue, DeckId } from '../../types/room.ts';
+import type { AvatarOptions, RoomDoc, Participant, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
@@ -26,6 +28,7 @@ const HEADER_FALLBACK = 64;
 const OVERLAY_GAP = 12;
 
 interface RoomActions {
+  updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
@@ -80,6 +83,7 @@ export default function RoomScreen({
     : room.participants, [room.participants]);
   const me = participants[uid ?? ''] || ({} as Partial<Participant>);
   const isCreator = room.creatorId === uid;
+  const [editingAvatar, setEditingAvatar] = useState(false);
   const isObserver = !!me.isObserver;
   const isRevealed = room.isRevealed;
   const deck = DECKS[room.deck ?? DEFAULT_DECK];
@@ -164,6 +168,7 @@ export default function RoomScreen({
 
   useKeyboardShortcuts({
     isRevealed, allVoted, anyVote, isObserver,
+    canVoteAfterReveal: isRevealed && !isObserver && me.vote == null,
     deckValues: deck.values?.map((v) => v.value) ?? null,
     onReveal: handleReveal, onStartNextRound: handleStartNextRound, onCastVote: handleCastVote,
   });
@@ -215,7 +220,10 @@ export default function RoomScreen({
 
   return (
     <>
+      {editingAvatar && <RoomAvatarEditor participant={me} onSave={actions.updateAvatar} onClose={() => setEditingAvatar(false)} />}
       <RoomHeader
+        avatarUrl={participantAvatarSrc(me)}
+        onEditAvatar={() => { cancelTargeting(); if (isDriving) actions.stopDrive(); setEditingAvatar(true); }}
         roomCode={roomCode}
         copied={copied}
         onCopy={handleCopy}
@@ -246,7 +254,7 @@ export default function RoomScreen({
         top={(headerHeight || HEADER_FALLBACK) + OVERLAY_GAP}
       />
 
-      <WeaponTray open={weaponTrayOpen} selectedWeaponId={equippedWeaponId} onSelect={selectWeapon} onClose={closeTray} />
+      <WeaponTray isObserver={isObserver} open={weaponTrayOpen} selectedWeaponId={equippedWeaponId} onSelect={selectWeapon} onClose={closeTray} />
 
       <SeatTable
         participants={participants}

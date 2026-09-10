@@ -7,6 +7,14 @@ interface WeaponShapeProps {
 // Small hand-drawn (non-emoji) weapon glyphs, shared by the weapon tray
 // preview and the in-flight throw overlay so both stay visually identical.
 export default function WeaponShape({ shape }: WeaponShapeProps) {
+  if (shape === 'rubber-chicken') {
+    return <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <path d="M12 12V6q0-4 4-4t4 4v8q5 8-2 10l-1 3h-3l-1-3q-8-2-4-8z" fill="#f5ce4f" stroke="#a57a28" />
+      <path d="m19 6 6 2-6 2M12 2l1-2 2 2 2-2 2 3" fill="#dc5546" stroke="#b54139" />
+      <circle cx="16.5" cy="5.5" r="1" fill="#213754" />
+      <path d="m10 17 5 4 3-5" stroke="#a57a28" />
+    </svg>;
+  }
   if (shape === 'custom-image') {
     return <CustomImageShape />;
   }

@@ -6,6 +6,7 @@ interface UseKeyboardShortcutsArgs {
   allVoted: boolean;
   anyVote: boolean;
   isObserver: boolean;
+  canVoteAfterReveal?: boolean;
   // Active deck's card values in display order, or null for a deck with no
   // fixed cards (Custom) — digit-key vote casting is disabled in that case.
   deckValues: CardValue[] | null;
@@ -21,7 +22,7 @@ interface UseKeyboardShortcutsArgs {
 // set. Both ignored while typing (e.g. the Custom vote input) so they don't
 // hijack normal text entry.
 export function useKeyboardShortcuts({
-  isRevealed, anyVote, isObserver, deckValues, onReveal, onStartNextRound, onCastVote,
+  isRevealed, anyVote, isObserver, canVoteAfterReveal = false, deckValues, onReveal, onStartNextRound, onCastVote,
 }: UseKeyboardShortcutsArgs): void {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -34,13 +35,13 @@ export function useKeyboardShortcuts({
         if (!isRevealed && anyVote) {
           e.preventDefault();
           onReveal();
-        } else if (isRevealed) {
+        } else if (isRevealed && !canVoteAfterReveal) {
           e.preventDefault();
           onStartNextRound();
         }
         return;
       }
-      if (!isRevealed && !isObserver && deckValues && /^[0-9]$/.test(e.key)) {
+      if ((!isRevealed || canVoteAfterReveal) && !isObserver && deckValues && /^[0-9]$/.test(e.key)) {
         const cardIdx = (Number(e.key) + 9) % 10; // '1'->0, '2'->1, ..., '9'->8, '0'->9
         const value = deckValues[cardIdx];
         if (value != null) {
@@ -51,5 +52,5 @@ export function useKeyboardShortcuts({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isRevealed, anyVote, isObserver, deckValues, onReveal, onStartNextRound, onCastVote]);
+  }, [isRevealed, anyVote, isObserver, canVoteAfterReveal, deckValues, onReveal, onStartNextRound, onCastVote]);
 }

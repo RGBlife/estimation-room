@@ -5,9 +5,10 @@ import {
   ref as rtdbRef, onDisconnect, set as rtdbSet, remove as rtdbRemove, push,
 } from 'firebase/database';
 import { db, rtdb } from '../../shared/lib/firebase.ts';
+import { saveProfile } from '../join/profile.ts';
 import { normalizeAvatar } from '../avatar/avatar.ts';
 import { randomRoomCode } from '../join/roomCode.ts';
-import type { JoinPayload, CardValue, RoomDoc, DeckId } from '../../types/room.ts';
+import type { JoinPayload, CardValue, RoomDoc, DeckId, AvatarOptions } from '../../types/room.ts';
 
 const MAX_CREATE_ATTEMPTS = 3;
 
@@ -110,8 +111,9 @@ export async function throwWeaponAction(
   offsetY = 0,
 ): Promise<void> {
   const me = room?.participants?.[uid];
-  if (!me || me.isObserver) return;
+  if (!me) return;
   if (weaponId === 'nudge') {
+    if (me.isObserver) throw new Error('Observers cannot nudge voters');
     const target = room?.participants[targetUid];
     if (!target || targetUid === uid || target.isObserver || target.vote != null || room?.isRevealed) {
       throw new Error('Only a player still waiting to vote can be nudged');
@@ -152,4 +154,15 @@ export async function leaveAction(uid: string, code: string): Promise<void> {
     // Best-effort: if this fails (e.g. offline), other clients' disconnect
     // cleanup removes us once our presence entry drops.
   }
+}
+
+export async function updateAvatarAction(uid: string, code: string, room: RoomDoc | null, avatar: AvatarOptions): Promise<void> {
+  const me = room?.participants[uid];
+  if (!me) throw new Error('Join the room before editing your avatar');
+  const normalized = normalizeAvatar(avatar);
+  await updateDoc(doc(db, 'rooms', code), {
+    [`participants.${uid}.avatar`]: normalized,
+    ...(me.avatarUrl ? { [`participants.${uid}.avatarUrl`]: deleteField() } : {}),
+  });
+  saveProfile({ name: me.name, avatar: normalized, isObserver: me.isObserver });
 }

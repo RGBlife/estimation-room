@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<rect width="1200" height="630" fill="#E8EDF5"/>
+<g font-family="Arial, sans-serif" fill="#213754">
+<svg x="72" y="64" width="60" height="60" viewBox="0 0 64 64">
+<rect width="64" height="64" rx="14" fill="#315CBC"/>
+<rect x="12" y="14" width="29" height="38" rx="4" transform="rotate(-14 26 33)" fill="#FFFFFF"/>
+<rect x="25" y="12" width="28" height="39" rx="4" transform="rotate(9 39 31)" fill="#F4D579" stroke="#213754" stroke-width="2"/>
+<path d="m33 32 5 5 9-12" fill="none" stroke="#213754" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<text x="151" y="104" font-size="28" font-weight="700">Estimation Room</text>
+<text x="72" y="263" font-size="66" font-weight="700">Planning poker.</text>
+<text x="72" y="340" font-size="66" font-weight="700">Around one table.</text>
+<text x="74" y="417" font-size="26">Share a room. Vote. Reveal together.</text>
+<path d="M74 481h70" stroke="#315CBC" stroke-width="5" stroke-linecap="round"/>
+<text x="74" y="538" font-size="21" fill="#526782">Real-time estimates for your team</text>
+<g transform="translate(748 208) rotate(-16 90 126)">
+<rect y="8" width="180" height="252" rx="16" fill="#213754" opacity=".12"/>
+<rect width="180" height="252" rx="16" fill="#FFFFFF" stroke="#B7C5D9" stroke-width="3"/>
+<text x="20" y="37" font-size="22">3</text><text x="90" y="153" text-anchor="middle" font-size="92" font-weight="700">3</text>
+<text x="160" y="228" text-anchor="end" font-size="22">3</text></g><g transform="translate(928 218) rotate(14 90 126)">
+<rect y="8" width="180" height="252" rx="16" fill="#213754" opacity=".12"/>
+<rect width="180" height="252" rx="16" fill="#FFFFFF" stroke="#B7C5D9" stroke-width="3"/>
+<text x="20" y="37" font-size="22">8</text><text x="90" y="153" text-anchor="middle" font-size="92" font-weight="700">8</text>
+<text x="160" y="228" text-anchor="end" font-size="22">8</text></g><g transform="translate(838 166) rotate(-1 90 126)">
+<rect y="8" width="180" height="252" rx="16" fill="#213754" opacity=".12"/>
+<rect width="180" height="252" rx="16" fill="#F4D579" stroke="#315CBC" stroke-width="3"/>
+<text x="20" y="37" font-size="22">5</text><text x="90" y="153" text-anchor="middle" font-size="92" font-weight="700">5</text>
+<text x="160" y="228" text-anchor="end" font-size="22">5</text></g>
+</g></svg>

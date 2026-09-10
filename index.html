@@ -3,28 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" href="%BASE_URL%favicon.ico?v=2" sizes="16x16 32x32 48x48" />
+  <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%icon-32.png?v=2" />
+  <link rel="icon" type="image/svg+xml" sizes="any" href="%BASE_URL%favicon.svg?v=2" />
+  <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%apple-touch-icon.png?v=2" />
+  <link rel="manifest" href="%BASE_URL%site.webmanifest" />
+  <meta name="application-name" content="Estimation Room" />
+  <meta name="apple-mobile-web-app-title" content="Estimation Room" />
+  <meta name="theme-color" content="#315CBC" />
+  <link rel="canonical" href="https://rgblife.github.io/estimation-room/" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
   <title>Estimation Room</title>
-  <meta name="description" content="Real-time collaborative estimation for agile teams — join a room, vote, and reveal together." />
-  <!-- Link previews (Teams/Slack/iMessage). og:image and og:url must be
-       absolute URLs -- relative paths don't resolve when a remote crawler
-       fetches the page, which is why a shared link previewed without an image
-       before these were added. Keep in sync with the deployed Pages URL. -->
+  <meta name="description" content="Planning poker for your team. Share a room, vote on estimates, and reveal together." />
+  <!-- Static metadata for Teams, Messages, Slack and Discord crawlers.
+       Keep absolute social URLs in sync with the deployed GitHub Pages URL. -->
   <meta property="og:title" content="Estimation Room" />
-  <meta property="og:description" content="Real-time collaborative estimation for agile teams — join a room, vote, and reveal together." />
+  <meta property="og:description" content="Planning poker for your team. Share a room, vote on estimates, and reveal together." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://rgblife.github.io/estimation-room/" />
-  <meta property="og:image" content="https://rgblife.github.io/estimation-room/og.png" />
+  <meta property="og:image" content="https://rgblife.github.io/estimation-room/estimation-room-preview-v2.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:secure_url" content="https://rgblife.github.io/estimation-room/estimation-room-preview-v2.png" />
+  <meta property="og:locale" content="en_GB" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Estimation Room — real-time planning poker" />
+  <meta property="og:image:alt" content="Estimation Room — planning poker cards showing 3, 5 and 8" />
   <meta property="og:site_name" content="Estimation Room" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Estimation Room" />
-  <meta name="twitter:description" content="Real-time collaborative estimation for agile teams — join a room, vote, and reveal together." />
-  <meta name="twitter:image" content="https://rgblife.github.io/estimation-room/og.png" />
+  <meta name="twitter:description" content="Planning poker for your team. Share a room, vote on estimates, and reveal together." />
+  <meta name="twitter:image" content="https://rgblife.github.io/estimation-room/estimation-room-preview-v2.png" />
+  <meta name="twitter:image:alt" content="Estimation Room — planning poker cards showing 3, 5 and 8" />
   <script>
     (function () {
       try {

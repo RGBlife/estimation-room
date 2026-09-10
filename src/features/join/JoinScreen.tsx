@@ -82,7 +82,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
       <div className="sp-join-layout" data-expanded={avatarExpanded} style={{ maxWidth: avatarExpanded ? cardMaxWidth + 370 : 1000 }}>
         <header className="sp-join-header">
           <div className="sp-wordmark">
-            <span className="sp-brand-cards" aria-hidden="true"><i /><i /></span>
+            <img src={`${import.meta.env.BASE_URL}favicon.svg?v=2`} alt="" width="28" height="28" />
             <span>Estimation Room</span>
           </div>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />

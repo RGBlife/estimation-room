@@ -204,3 +204,23 @@ properly costs more than the problem currently justifies.
 - **Orphaned room documents.** If the last participant crashes (rather than leaving), no client remains to delete the room doc, so it lingers until someone reuses the code. A scheduled Cloud Function (Blaze) or a TTL policy on `createdAt` could garbage-collect these.
 - **Votes are readable pre-reveal.** Votes live in plaintext on the room document, so anyone with the room code can technically read them from the network tab before "Reveal". Fine for a trusting team; hiding them for real would need per-participant vote docs with read rules, revealed by a server-side step.
 - **Bundle size.** The production build is ~1.2MB minified / ~380KB gzipped (mostly the Firebase SDK plus the local dicebear avatar collection). Could reduce with code-splitting if load time becomes a concern.
+
+## Preview images and app icons
+
+The public app name is **Estimation Room**. Static Open Graph and Twitter Card
+metadata lives in `index.html`, with absolute URLs for the GitHub Pages site.
+The preview is a 1200 × 630 PNG; browser icons include SVG, PNG and a multi-size
+ICO, plus an Apple touch icon and web manifest. Local icon links use Vite's base
+path so the GitHub Pages subdirectory works.
+
+Regenerate the original card artwork and all raster exports with:
+
+```sh
+node scripts/generate-brand-assets.mjs
+```
+
+This uses the project's Playwright Chromium installation. When changing the
+artwork again, bump the preview filename and icon version references to avoid
+reusing old cached image URLs. Deploy the Pages build before testing links in
+Teams, Messages, Slack and Discord; local metadata checks cannot validate those
+services' live rendering or clear their preview caches.

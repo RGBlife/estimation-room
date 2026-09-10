@@ -1,3 +1,4 @@
+import { useThrowAudio, squeakChicken } from './chickenSound.ts';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { WEAPONS, FRAG_ANGLES } from './weapons.ts';
 import WeaponShape from './WeaponShape.tsx';
@@ -127,6 +128,13 @@ interface ThrowVisualProps {
 
 function ThrowVisual({ t, geometry, onDone }: ThrowVisualProps) {
   const [phase, setPhase] = useState<'fly' | 'impact' | 'tree'>('fly');
+  const sounded = useRef(false);
+  useEffect(() => {
+    if (phase === 'impact' && t.weaponId === 'rubber-chicken' && !sounded.current) {
+      sounded.current = true;
+      squeakChicken();
+    }
+  }, [phase, t.weaponId]);
   const rot = useMemo(randomRotation, []);
   const fragments = useMemo(fragmentOffsets, []);
   const meta = WEAPONS.find(w => w.id === t.weaponId);
@@ -239,6 +247,7 @@ interface ThrowOverlayProps {
 }
 
 export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDone }: ThrowOverlayProps) {
+  useThrowAudio();
   const geometryCacheRef = useRef(new Map<string, Geometry>());
 
   const getGeometry = (t: ThrowEvent): Geometry | null => {

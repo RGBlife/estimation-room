@@ -1,3 +1,6 @@
+import RoomAvatarEditor from '../features/room/RoomAvatarEditor.tsx';
+import { participantAvatarSrc } from '../features/avatar/index.js';
+import type { AvatarOptions } from '../types/room.ts';
 import { loadTheme, saveTheme, type Theme } from '../shared/lib/theme.ts';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import SeatTable from '../features/room/SeatTable.tsx';
@@ -25,7 +28,7 @@ import type { ThrowEvent } from '../types/throws.ts';
 
 const VOTE_VALUES = DECKS.fibonacci.values!.map(v => v.value);
 
-function fixtureParticipants(seats: number, observers: number): Record<string, Participant> {
+function fixtureParticipants(seats: number, observers: number, voted: number): Record<string, Participant> {
   const out: Record<string, Participant> = {};
   for (let i = 0; i < seats + observers; i++) {
     const isObserver = i >= seats;
@@ -34,7 +37,7 @@ function fixtureParticipants(seats: number, observers: number): Record<string, P
       avatar: randomAvatar(),
       joinedAt: i,
       isObserver,
-      vote: isObserver ? null : VOTE_VALUES[i % VOTE_VALUES.length],
+      vote: isObserver || i >= voted ? null : VOTE_VALUES[i % VOTE_VALUES.length],
     };
   }
   return out;
@@ -93,6 +96,8 @@ export default function RoomLayoutHarness() {
   };
   const seats = Number(params.get('seats') || 8);
   const observers = Number(params.get('observers') || 0);
+  const voted = Number(params.get('voted') ?? seats);
+  const [nudgedName, setNudgedName] = useState<string | null>(null);
   const [deckId, setDeckId] = useState<DeckId>((params.get('deck') as DeckId) || ALL_DECK_IDS[0]);
   const [revealed, setRevealed] = useState(params.get('revealed') === '1');
   const [toastOpen, setToastOpen] = useState(false);
@@ -126,8 +131,19 @@ export default function RoomLayoutHarness() {
     setIsDriving(true);
   }, [cancelTargeting]);
 
+  const [editingAvatar, setEditingAvatar] = useState(false);
+  const [editedAvatar, setEditedAvatar] = useState<AvatarOptions | null>(null);
+  const isObserver = params.get('observer') === '1';
+  const myUid = isObserver ? `p${seats}` : (params.get('me') || 'p0');
+  const [localVote, setLocalVote] = useState<string | null>(null);
   const deck = DECKS[deckId];
-  const participants = useMemo(() => fixtureParticipants(seats, observers), [seats, observers]);
+  const participants = useMemo(() => {
+    const fixtures = fixtureParticipants(seats, observers, voted);
+    if (editedAvatar && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], avatar: editedAvatar };
+    if (localVote != null && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], vote: localVote };
+    return fixtures;
+  }, [seats, observers, voted, editedAvatar, myUid, localVote]);
+  const me = participants[myUid];
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];
   const customGroups = revealed && deck.resultKind === 'freeText' ? computeCustomGroups(participants) : [];
@@ -143,14 +159,17 @@ export default function RoomLayoutHarness() {
 
   return (
     <div className="sp-app relative">
+      {editingAvatar && <RoomAvatarEditor participant={me} onSave={async avatar => setEditedAvatar(avatar)} onClose={() => setEditingAvatar(false)} />}
       <RoomHeader
+        avatarUrl={participantAvatarSrc(me)}
+        onEditAvatar={() => setEditingAvatar(true)}
         roomCode="ABCD"
         copied={false}
         onCopy={() => {}}
         isCreator={params.get('host') !== '0'}
         theme={theme}
         onToggleTheme={toggleTheme}
-        isObserver={false}
+        isObserver={isObserver}
         deck={deck}
         onSwitchDeck={setDeckId}
         equippedWeaponId={equippedWeaponId}
@@ -170,7 +189,7 @@ export default function RoomLayoutHarness() {
           panel that are actually fine in production. Overlaid at the top-left
           instead, where they stay clickable without distorting the layout
           under test. */}
-      <div className="pointer-events-none absolute top-0 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
+      <div className="pointer-events-none absolute top-16 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
         <button
           data-testid="toggle-reveal"
           onClick={() => setRevealed(r => !r)}
@@ -251,6 +270,7 @@ export default function RoomLayoutHarness() {
         >{slowMo === 1 ? 'Slow-mo: off' : `Slow-mo: ${slowMo}x`}</button>
       </div>
 
+      {nudgedName && <p role="status" className="text-center text-sm text-sp-text-dim">Preview: nudged {nudgedName}</p>}
       <Toast
         message="Deck switched to Powers of 2 — everyone's vote was reset"
         rendered={toastOpen}
@@ -259,6 +279,7 @@ export default function RoomLayoutHarness() {
       />
 
       <WeaponTray
+        isObserver={isObserver}
         open={weaponTrayOpen}
         selectedWeaponId={equippedWeaponId}
         onSelect={id => { setEquippedWeaponId(id); setWeaponTrayOpen(false); }}
@@ -267,11 +288,12 @@ export default function RoomLayoutHarness() {
 
       <SeatTable
         participants={participants}
-        uid="p0"
+        uid={myUid}
         creatorId={params.get('host') !== '0' ? 'p0' : 'p1'}
         isRevealed={revealed}
-        anyVote
-        allVoted
+        anyVote={voted > 0}
+        allVoted={voted >= seats}
+        onNudge={id => setNudgedName(participants[id].name)}
         onReveal={() => setRevealed(true)}
         canTarget={!!equippedWeaponId}
         // Real throws rather than a no-op: ThrowOverlay's flight/impact math
@@ -288,7 +310,7 @@ export default function RoomLayoutHarness() {
             offsetY = (e.clientY - r.top) / r.height - 0.5;
           }
           setThrows(t => [...t, {
-            id: `t${t.length}`, fromUid: 'p0', toUid: id,
+            id: `t${t.length}`, fromUid: myUid, toUid: id,
             weaponId: equippedWeaponId ?? 'confetti', ts: Date.now(), offsetX, offsetY,
           }]);
         }}
@@ -320,10 +342,10 @@ export default function RoomLayoutHarness() {
 
       <VotingBar
         deck={deck}
-        isObserver={false}
-        myVote={VOTE_VALUES[0]}
+        isObserver={isObserver}
+        myVote={me?.vote ?? null}
         isRevealed={revealed}
-        onSelect={() => {}}
+        onSelect={setLocalVote}
         onJoinVoting={() => {}}
         distribution={distribution}
         customGroups={customGroups}

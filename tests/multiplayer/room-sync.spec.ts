@@ -29,11 +29,7 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
       const path = '/src/features/room/roomStore.ts';
       return Object.keys((await import(path)).useRoomStore.getState().room?.participants ?? {}).length === 7;
     })));
-    const targetUid = await pages[1].evaluate(async () => {
-      const path = '/src/features/room/roomStore.ts';
-      return (await import(path)).useRoomStore.getState().uid;
-    });
-    await pages[0].getByRole('combobox', { name: 'Nudge a player who has not voted' }).selectOption(targetUid);
+    await pages[0].getByRole('button', { name: 'Nudge Player 2 to vote' }).click();
     await expect(pages[1].getByRole('status')).toContainText('Player 1 nudged you');
     await pages[0].evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
@@ -42,12 +38,18 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
     await expect(pages[0].getByRole('button', { name: 'Reveal votes', exact: true })).toBeEnabled();
     const revealStarted = Date.now();
     await pages[0].getByRole('button', { name: 'Reveal votes', exact: true }).click();
-    const revealTimes = await Promise.all(pages.map(async page => {
-      await expect(page.getByRole('button', { name: 'Start next round', exact: true })).toBeVisible();
+    const revealTimes = await Promise.all(pages.map(async (page, i) => {
+      await expect(i === 0 ? page.getByRole('button', { name: 'Start next round', exact: true })
+        : page.getByText('Still time for your estimate', { exact: true })).toBeVisible();
       return Date.now() - revealStarted;
     }));
     console.info('Reveal visible on seven local clients (ms after click):', revealTimes);
     await testInfo.attach('reveal-latency-ms', { body: JSON.stringify(revealTimes), contentType: 'application/json' });
+    await pages[1].getByRole('group', { name: 'Your vote' }).getByRole('button', { name: '8', exact: true }).click();
+    await expect(pages[1].getByText('Still time for your estimate')).toHaveCount(0);
+    await expect(pages[0].getByText('2/7 voted', { exact: true })).toBeVisible();
+    await expect(pages[0].getByText('6.5', { exact: true })).toBeVisible();
+    await expect(pages[0].getByRole('button', { name: 'Reveal votes', exact: true })).toHaveCount(0);
     await Promise.all(pages.map(page => page.getByRole('button', { name: '🚗 GTA Mode', exact: true }).click()));
     await Promise.all(pages.map(page => expect(page.getByRole('button', { name: 'End drive', exact: true })).toBeVisible()));
     await Promise.all(pages.map(page => page.keyboard.down('w')));
@@ -114,5 +116,57 @@ test('legacy avatar customisation no longer causes a permission-denied join', as
     await expect(guest.getByText('Guest (you)', { exact: true })).toBeVisible();
   } finally {
     await Promise.all(contexts.map(context => context.close()));
+  }
+});
+
+test('observer throws and avatar edits reach another participant', async ({ browser }) => {
+  const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
+  try {
+    const [host, observer] = await Promise.all(contexts.map(c => c.newPage()));
+    await Promise.all([ready(host), ready(observer)]);
+    await host.getByLabel('Your name', { exact: true }).fill('Host');
+    await host.getByRole('button', { name: 'or create a new room' }).click();
+    await host.getByRole('button', { name: 'Create room', exact: true }).click();
+    await expect(host.getByRole('button', { name: 'Customise your avatar' })).toBeVisible();
+    const code = new URL(host.url()).searchParams.get('room')!;
+    await observer.getByLabel('Your name', { exact: true }).fill('Observer');
+    await observer.getByRole('button', { name: 'Observer', exact: true }).click();
+    await observer.getByLabel('Room code', { exact: true }).fill(code);
+    await observer.getByRole('button', { name: 'Join room', exact: true }).click();
+    await expect(observer.getByText('Observer (you)', { exact: true })).toBeVisible();
+    await host.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts';
+      const store = (await import(path)).useRoomStore;
+      const seen = new Set<string>();
+      (window as unknown as { received: string[] }).received = [];
+      store.subscribe((state: { throws: { id: string; weaponId: string }[] }) => {
+        for (const event of state.throws) if (!seen.has(event.id)) {
+          seen.add(event.id);
+          (window as unknown as { received: string[] }).received.push(event.weaponId);
+        }
+      });
+    });
+    for (const label of ['Peanut', 'Tomato', 'Spec document', 'Rubber chicken', 'Cheese', 'Stale pastry']) {
+      await observer.getByRole('button', { name: /Choose Your Weapon/ }).click();
+      await observer.getByRole('button', { name: label, exact: true }).click();
+      await observer.getByRole('button', { name: 'Throw at Host', exact: true }).click();
+      await observer.getByRole('button', { name: /Cancel throwing/ }).click();
+    }
+    await expect.poll(() => host.evaluate(() => (window as unknown as { received: string[] }).received)).toEqual([
+      'peanut', 'tomato', 'spec-doc', 'rubber-chicken', 'cheese', 'stale-pastry',
+    ]);
+    await observer.getByRole('button', { name: 'Customise your avatar' }).click();
+    const dialog = observer.getByRole('dialog', { name: 'Your look at the table' });
+    await dialog.getByRole('button', { name: /Randomise/i }).click();
+    await dialog.getByRole('button', { name: 'Save avatar' }).click();
+    await expect(dialog).toHaveCount(0);
+    const saved = await observer.evaluate(() => JSON.parse(localStorage.getItem('sp_profile')!).avatar);
+    await expect.poll(() => host.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts';
+      const participants = (await import(path)).useRoomStore.getState().room.participants;
+      return Object.values(participants as Record<string, { name: string }>).find(p => p.name === 'Observer');
+    })).toMatchObject({ avatar: saved, isObserver: true, vote: null });
+  } finally {
+    await Promise.all(contexts.map(c => c.close()));
   }
 });

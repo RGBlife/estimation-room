@@ -171,6 +171,7 @@ function VoteCardRow({ deck, myVote, onSelect, exiting, animate }: VoteCardRowPr
             <button
               key={value}
               onClick={() => onSelect(value)}
+              aria-label={value}
               aria-pressed={selected}
               data-card-value={value}
               className={`sp-vote-card ${/^[0-9]+$/.test(value) ? 'sp-number-card' : ''} cursor-pointer rounded-lg font-sp-mono font-bold transition-[transform,border-color] duration-150 ${shapeClass} ${colorClass} ${animClass}`}
@@ -242,6 +243,27 @@ export default function VotingBar({
     return () => observer.disconnect();
   }, [onHeightChange]);
 
+  const awaitingLateVote = isRevealed && !isObserver && myVote == null;
+  const results = (
+    deck.resultKind === 'freeText' ? (
+      <CustomResultsList groups={customGroups} onStartNextRound={onStartNextRound} />
+    ) : (
+      <DistributionBar
+        deck={deck}
+        distribution={distribution}
+        hasAverage={hasAverage}
+        average={average}
+        isWideSpread={isWideSpread}
+        mode={mode}
+        modeIsTie={modeIsTie}
+        flaggedCount={flaggedCount}
+        onStartNextRound={onStartNextRound}
+        hoveredValue={hoveredValue}
+        onHoverValue={onHoverValue}
+      />
+    )
+  );
+
   return (
     // Capped and scrollable rather than growing without bound: on a phone the
     // revealed distribution panel can otherwise fill most of the viewport,
@@ -252,23 +274,22 @@ export default function VotingBar({
       className="sp-voting-dock fixed right-0 bottom-0 left-0 flex max-h-[34dvh] flex-wrap items-center justify-center gap-5 overflow-x-hidden overflow-y-auto border-t border-sp-border bg-sp-panel px-5 py-3 sm:max-h-[52dvh]"
     >
       {isRevealed ? (
-        deck.resultKind === 'freeText' ? (
-          <CustomResultsList groups={customGroups} onStartNextRound={onStartNextRound} />
-        ) : (
-          <DistributionBar
-            deck={deck}
-            distribution={distribution}
-            hasAverage={hasAverage}
-            average={average}
-            isWideSpread={isWideSpread}
-            mode={mode}
-            modeIsTie={modeIsTie}
-            flaggedCount={flaggedCount}
-            onStartNextRound={onStartNextRound}
-            hoveredValue={hoveredValue}
-            onHoverValue={onHoverValue}
-          />
-        )
+        awaitingLateVote ? (
+          <div className="flex w-full flex-col items-center gap-3">
+            <div className="text-center" role="status">
+              <p className="text-sm font-semibold text-sp-text">Still time for your estimate</p>
+              <p className="mt-1 text-xs text-sp-text-faint">Your vote will appear straight away.</p>
+            </div>
+            <div className="flex w-full flex-wrap items-center justify-center gap-3">
+              {isCustom ? <CustomVoteInput myVote={null} onSubmit={onSelect} />
+                : <VoteCardRow deck={deck} myVote={null} onSelect={onSelect} />}
+            </div>
+            <details className="w-full text-center">
+              <summary className="cursor-pointer py-1 text-xs font-semibold text-sp-text-dim">Current results</summary>
+              {results}
+            </details>
+          </div>
+        ) : results
       ) : !isObserver ? (
         isCustom ? (
           <CustomVoteInput myVote={myVote} onSubmit={onSelect} />

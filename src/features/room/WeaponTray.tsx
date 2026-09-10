@@ -1,3 +1,4 @@
+import { chickenMuted, setChickenMuted } from './chickenSound.ts';
 import { useEffect, useState } from 'react';
 import { WEAPONS } from './weapons.ts';
 import WeaponShape from './WeaponShape.tsx';
@@ -6,6 +7,7 @@ const CLOSE_MS = 220;
 
 interface WeaponTrayProps {
   open: boolean;
+  isObserver?: boolean;
   selectedWeaponId?: string | null;
   onSelect: (weaponId: string) => void;
   onClose: () => void;
@@ -14,7 +16,8 @@ interface WeaponTrayProps {
 // Stays mounted for CLOSE_MS after `open` goes false so the sheet can slide
 // down instead of vanishing instantly — picking a weapon or clicking the
 // scrim both go through this same closing animation.
-export default function WeaponTray({ open, selectedWeaponId, onSelect, onClose }: WeaponTrayProps) {
+export default function WeaponTray({ isObserver = false, open, selectedWeaponId, onSelect, onClose }: WeaponTrayProps) {
+  const [muted, setMuted] = useState(chickenMuted);
   const [rendered, setRendered] = useState(open);
   const [closing, setClosing] = useState(false);
 
@@ -42,15 +45,19 @@ export default function WeaponTray({ open, selectedWeaponId, onSelect, onClose }
         aria-modal="true"
         aria-labelledby="sp-weapon-tray-title"
         onClick={e => e.stopPropagation()}
-        className="rounded-t-2xl border border-sp-border bg-sp-panel px-6.5 pt-5.5 pb-7 shadow-sp-up"
+        className="max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-sp-border bg-sp-panel px-6.5 pt-5.5 pb-7 shadow-sp-up"
         style={{
           width: 'min(560px, 92vw)',
           animation: `${closing ? 'sp-tray-slide-down' : 'sp-tray-slide-up'} ${CLOSE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1) both`,
         }}
       >
-        <div id="sp-weapon-tray-title" className="mb-3.5 text-[17px] font-extrabold text-sp-text">Choose your weapon</div>
-        <div className="grid grid-cols-4 gap-3">
-          {WEAPONS.map(w => (
+        <div id="sp-weapon-tray-title" className="mb-3.5 text-[17px] font-extrabold text-sp-text">{isObserver ? 'From the observer rail' : 'Choose your weapon'}</div>
+        <label className="mb-4 flex min-h-9 cursor-pointer items-center gap-2 text-xs text-sp-text-dim">
+          <input type="checkbox" checked={muted} onChange={event => { setMuted(event.target.checked); setChickenMuted(event.target.checked); }} />
+          Mute chicken squeaks on this device
+        </label>
+        <div className={`grid gap-3 ${isObserver ? 'grid-cols-3' : 'grid-cols-4'}`}>
+          {WEAPONS.filter(w => !!w.observer === isObserver).map(w => (
             <button
               key={w.id}
               onClick={() => onSelect(w.id)}

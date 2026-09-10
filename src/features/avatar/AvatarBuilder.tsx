@@ -8,13 +8,14 @@ import AvatarCategoryPicker from './AvatarCategoryPicker.tsx';
 import type { AvatarOptions } from '../../types/room.ts';
 
 interface AvatarBuilderProps {
+  initiallyExpanded?: boolean;
   avatar: AvatarOptions;
   onChange: (avatar: AvatarOptions) => void;
   onExpandedChange?: (expanded: boolean) => void;
 }
 
-export default function AvatarBuilder({ avatar, onChange, onExpandedChange }: AvatarBuilderProps) {
-  const [expanded, setExpandedState] = useState(false);
+export default function AvatarBuilder({ initiallyExpanded = false, avatar, onChange, onExpandedChange }: AvatarBuilderProps) {
+  const [expanded, setExpandedState] = useState(initiallyExpanded);
   const [activeIdx, setActiveIdx] = useState(0);
   const [page, setPage] = useState(0);
   const { pro, showProModal, requestProGate, closeProModal, subscribe } = useProAccess();
