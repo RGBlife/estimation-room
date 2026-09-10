@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AVATAR_CATEGORIES, avatarDataUri, randomAvatar, type LooseAvatar } from './avatar.ts';
-import { useViewportBreakpoint } from './useViewportBreakpoint.ts';
+import { useContainerBreakpoint } from './useViewportBreakpoint.ts';
 import { useProAccess } from './useProAccess.ts';
 import ProUpsellModal from './ProUpsellModal.tsx';
 import AvatarPreviewHeader from './AvatarPreviewHeader.tsx';
@@ -19,7 +19,10 @@ export default function AvatarBuilder({ initiallyExpanded = false, avatar, onCha
   const [activeIdx, setActiveIdx] = useState(0);
   const [page, setPage] = useState(0);
   const { pro, showProModal, requestProGate, closeProModal, subscribe } = useProAccess();
-  const breakpoint = useViewportBreakpoint();
+  // Sized to the builder's own box: the join card and the room dialog give
+  // it different widths, and the tile grid has to fit whichever it's in.
+  const root = useRef<HTMLDivElement>(null);
+  const breakpoint = useContainerBreakpoint(root);
 
   const setExpanded = (value: boolean) => {
     setExpandedState(value);
@@ -70,7 +73,7 @@ export default function AvatarBuilder({ initiallyExpanded = false, avatar, onCha
   const isOn = !category.optional || !!avatarLoose[`${category.key}On`];
 
   return (
-    <div className="mb-6 flex w-full flex-col items-center gap-3.5">
+    <div ref={root} className="mb-6 flex w-full flex-col items-center gap-3.5">
       {showProModal && (
         <ProUpsellModal onSubscribe={subscribeToPro} onClose={closeProModal} />
       )}
