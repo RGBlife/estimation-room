@@ -37,7 +37,7 @@ const SQUASH_MS = 700;
 const TABLE_SPLIT_THRESHOLD = 5;
 // Ignore repeat table hits landing inside this window. stepCar reports a hit
 // on every frame the car is still overlapping at speed, so without this one
-// ram publishes a whole burst of cracks (an RTDB write each) and can blow
+// ram publishes a whole burst of cracks (an live write each) and can blow
 // through the split threshold in a single collision -- which made the table
 // break on first contact rather than after sustained damage.
 const TABLE_HIT_COOLDOWN_MS = 140;
@@ -744,8 +744,7 @@ export default function SeatTable({
   // stale 'squash'/'wobble' animation value indefinitely between hits.
   const [wobbling, setWobbling] = useState<Record<string, number>>({});
   const [squashed, setSquashed] = useState<Record<string, number>>({});
-  // Table damage (cracks/piece-shove/wasted) is synced via RTDB under
-  // gtaTable/$roomCode (see roomStore.gta.ts) so every viewer sees the same
+  // Table damage is synced through the room connection so every viewer sees the same
   // table condition, not just whoever's car caused it -- these come in as
   // props rather than local state. wobbling/squashed above stay local-only:
   // they're purely cosmetic per-render animation timers, and a remote hit
@@ -788,7 +787,7 @@ export default function SeatTable({
     wasSplitRef.current = tableSplit;
   }, [tableSplit]);
   // Our own vacated state, reported directly by GtaOverlay off local phase
-  // (not the RTDB round-trip) -- otherwise the seat's own avatar stays
+  // (not the live round-trip) -- otherwise the seat's own avatar stays
   // visible, duplicated alongside the car, for however long that write
   // takes to land. Everyone else's vacated state (see `seats` below) reads
   // their streamed `phase` instead, now that position/phase publish from
@@ -829,7 +828,7 @@ export default function SeatTable({
     if (!stageNode) return;
     // stepCar reports a hit every frame the car is still overlapping at
     // speed, so one ram would otherwise publish a burst of near-identical
-    // cracks (an RTDB write each) and could cross the split threshold on its
+    // cracks (an live write each) and could cross the split threshold on its
     // own. One ram should read as one hit.
     const nowMs = performance.now();
     if (nowMs - lastTableHitRef.current < TABLE_HIT_COOLDOWN_MS) return;
@@ -921,7 +920,7 @@ export default function SeatTable({
   };
 
   // Remote drivers report their hit target on the streamed position payload
-  // (see roomStore.gta.ts), re-publishing the same value for as long as it
+  // (see roomStore.ts), re-publishing the same value for as long as it
   // stays true -- track what we've already animated per uid so a held hit
   // triggers the animation once, not every throttled tick.
   const lastRemoteHitRef = useRef<Record<string, string | null | undefined>>({});

@@ -2,16 +2,8 @@ import { useState } from 'react';
 import JoinScreen from '../features/join/JoinScreen.tsx';
 import { loadTheme, saveTheme, type Theme } from '../shared/lib/theme.ts';
 
-// Dev-only, Firebase-free stage for the join screen -- the first thing every
-// user sees, and the screen a visual/theme change gets judged on first, but
-// the one flow the other harnesses can't reach: App.tsx owns JoinScreen's
-// surrounding state, and App's module graph initializes Firebase at import
-// time (src/shared/lib/firebase.ts via roomStore.ts), which throws without
-// env vars. Mounting JoinScreen directly sidesteps that entirely.
-//
-// onJoin/onCreate resolve true without going anywhere, so no room is ever
-// created -- capturing the join screen costs no writes against a real
-// Firebase project.
+// Dev-only join screen stage. Stub actions keep layout checks independent
+// of a running service and avoid creating rooms.
 //
 // Reached via ?visual-test=join, stripped from production builds by the same
 // import.meta.env.DEV gate used elsewhere (see main.tsx).

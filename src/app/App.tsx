@@ -12,7 +12,7 @@ function roomCodeFromUrl(): string | null {
 }
 
 // A profile with no name yet (e.g. someone who loaded the join screen but
-// never typed one) can't join a room — Firestore rules require a non-empty
+// never typed one) can't join a room — The room service requires a non-empty
 // name. Auto-join must fall back to the form rather than attempt that write.
 function usableProfile() {
   const profile = loadProfile();

@@ -9,7 +9,7 @@ async function ready(page: Page) {
 }
 
 // Every page has its own browser context and anonymous auth identity.
-// All writes go to demo-scrum-poker emulators, never to the live project.
+// All writes go to the local API.
 test('seven players reveal, nudge, drive and retain simultaneous table damage', async ({ browser }, testInfo) => {
   const contexts = await Promise.all(Array.from({ length: 7 }, () => browser.newContext()));
   try {
@@ -80,8 +80,8 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
   }
 });
 
-// Validate the actual rules, including the previously rejected avatar shape.
-test('legacy avatar customisation no longer causes a permission-denied join', async ({ browser, request }) => {
+// Legacy profiles are normalized before sending to the API.
+test('legacy avatar customisation no longer causes a permission-denied join', async ({ browser }) => {
   const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
   try {
     const [host, guest] = await Promise.all(contexts.map(context => context.newPage()));
@@ -91,24 +91,7 @@ test('legacy avatar customisation no longer causes a permission-denied join', as
       const avatarPath = '/src/features/avatar/avatar.ts';
       return (await import(path)).useRoomStore.getState().createRoom({ name: 'Host', avatar: (await import(avatarPath)).randomAvatar(), isObserver: false, deck: 'fibonacci' });
     });
-    const { uid, token } = await guest.evaluate(async () => {
-      const path = '/src/shared/lib/firebase.ts';
-      const user = (await import(path)).auth.currentUser;
-      return { uid: user.uid, token: await user.getIdToken() };
-    });
     const avatar = { seed: 'old', bgIdx: 2, glasses: true, earrings: false, flair: false, hairIdx: 12 };
-    function value(input: unknown): object {
-      if (input === null) return { nullValue: null };
-      if (typeof input === 'string') return { stringValue: input };
-      if (typeof input === 'boolean') return { booleanValue: input };
-      if (typeof input === 'number') return { integerValue: String(input) };
-      return { mapValue: { fields: Object.fromEntries(Object.entries(input as Record<string, unknown>).map(([key, item]) => [key, value(item)])) } };
-    }
-    const rejected = await request.patch(`http://127.0.0.1:8080/v1/projects/demo-scrum-poker/databases/(default)/documents/rooms/${code}?updateMask.fieldPaths=participants.${uid}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: { fields: { participants: value({ [uid]: { name: 'Guest', avatar, isObserver: false, vote: null, joinedAt: 0 } }) } },
-    });
-    expect(rejected.status()).toBe(403);
     await guest.evaluate(async ({ code, avatar }) => {
       const path = '/src/features/room/roomStore.ts';
       await (await import(path)).useRoomStore.getState().joinRoom(code, { name: 'Guest', avatar, isObserver: false, deck: 'fibonacci' });
@@ -169,4 +152,79 @@ test('observer throws and avatar edits reach another participant', async ({ brow
   } finally {
     await Promise.all(contexts.map(c => c.close()));
   }
+});
+
+test('all decks, role changes, reconnect and reuse of an empty room', async ({ browser }) => {
+  const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
+  try {
+    await contexts[1].addInitScript(() => {
+      const NativeSocket = window.WebSocket;
+      (window as unknown as { sockets: WebSocket[] }).sockets = [];
+      window.WebSocket = class extends NativeSocket {
+        constructor(url: string | URL, protocols?: string | string[]) {
+          super(url, protocols);
+          (window as unknown as { sockets: WebSocket[] }).sockets.push(this);
+        }
+      };
+    });
+    const [host, guest] = await Promise.all(contexts.map(c => c.newPage()));
+    await Promise.all([ready(host), ready(guest)]);
+    const code = await host.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts', avatarPath = '/src/features/avatar/avatar.ts';
+      return (await import(path)).useRoomStore.getState().createRoom({ name: 'Host', avatar: (await import(avatarPath)).randomAvatar(), isObserver: false, deck: 'fibonacci' });
+    });
+    await guest.evaluate(async code => {
+      const path = '/src/features/room/roomStore.ts', avatarPath = '/src/features/avatar/avatar.ts';
+      await (await import(path)).useRoomStore.getState().joinRoom(code, { name: 'Guest', avatar: (await import(avatarPath)).randomAvatar(), isObserver: false, deck: 'fibonacci' });
+    }, code);
+    for (const [deck, value] of [['fibonacci', '13'], ['tshirt', 'XL'], ['powersOf2', '32'], ['rom', '13+ sprints'], ['custom', 'Needs a spike']]) {
+      await host.evaluate(async ({ deck, value }) => {
+        const path = '/src/features/room/roomStore.ts';
+        const store = (await import(path)).useRoomStore.getState();
+        await store.setDeck(deck); await store.castVote(value);
+      }, { deck, value });
+      await expect.poll(() => guest.evaluate(async () => {
+        const path = '/src/features/room/roomStore.ts';
+        const room = (await import(path)).useRoomStore.getState().room;
+        return Object.values(room.participants as Record<string, { name: string; vote: string }>).find(p => p.name === 'Host')?.vote;
+      })).toBe('voted');
+      await host.evaluate(async () => { const path = '/src/features/room/roomStore.ts'; await (await import(path)).useRoomStore.getState().reveal(); });
+      await expect(guest.getByText(value, { exact: true }).first()).toBeVisible();
+    }
+    await guest.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts';
+      const store = (await import(path)).useRoomStore.getState();
+      await store.setRole(true);
+      try { await store.castVote('No'); throw new Error('Observer vote was accepted'); }
+      catch (error) { if (!(error instanceof Error) || !error.message.includes('Observers cannot vote')) throw error; }
+      await store.setRole(false); await store.castVote('Reconnect estimate');
+    });
+    await guest.evaluate(() => (window as unknown as { sockets: WebSocket[] }).sockets.at(-1)!.close());
+    await expect.poll(() => guest.evaluate(() => (window as unknown as { sockets: WebSocket[] }).sockets.length)).toBeGreaterThan(1);
+    await expect.poll(() => guest.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts';
+      const state = (await import(path)).useRoomStore.getState();
+      return { error: state.error, vote: state.room.participants[state.uid].vote };
+    })).toEqual({ error: null, vote: 'Reconnect estimate' });
+    await Promise.all([host, guest].map(page => page.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts'; await (await import(path)).useRoomStore.getState().leave();
+    })));
+    await host.evaluate(async code => {
+      const path = '/src/features/room/roomStore.ts', avatarPath = '/src/features/avatar/avatar.ts';
+      await (await import(path)).useRoomStore.getState().joinRoom(code, { name: 'Returned', avatar: (await import(avatarPath)).randomAvatar(), isObserver: false, deck: 'fibonacci' });
+    }, code);
+    await expect(host.getByText('Returned (you)', { exact: true })).toBeVisible();
+    await expect.poll(() => host.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts'; return (await import(path)).useRoomStore.getState().room.deck;
+    })).toBe('custom');
+  } finally { await Promise.all(contexts.map(c => c.close())); }
+});
+
+test('health checks work and monitoring requires a separate credential', async ({ request }) => {
+  expect((await request.get('http://127.0.0.1:5050/health/live')).status()).toBe(200);
+  expect((await request.get('http://127.0.0.1:5050/health/ready')).status()).toBe(200);
+  expect((await request.get('http://127.0.0.1:5050/metrics')).status()).toBe(401);
+  const response = await request.get('http://127.0.0.1:5050/metrics', { headers: { Authorization: 'Bearer local-monitoring-only' } });
+  expect(response.status()).toBe(200);
+  expect(await response.text()).toContain('scrum_database_writes_total');
 });

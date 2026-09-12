@@ -115,7 +115,7 @@ interface RemoteCarProps {
 
 // Renders another driver's car for every phase they're in, not just
 // 'driving' -- position/heading now stream continuously through the whole
-// lifecycle (see roomStore.gta.ts), so there's always a fresh x/y/r to work
+// lifecycle (see roomStore.ts), so there's always a fresh x/y/r to work
 // from even while the car is stationary (arriving/boarding/exploding).
 //
 // arriving/boarding are deliberately simplified next to the local driver's
@@ -198,7 +198,7 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
 interface GtaOverlayProps {
   active: boolean;
   // Set true to make an in-progress drive end gracefully (explosion +
-  // return-to-seat) instead of the RTDB stream being cut instantly -- used
+  // return-to-seat) instead of the live stream being cut instantly -- used
   // when the round resets out from under a driver.
   forceEnd: boolean;
   driverUid: string;
@@ -233,7 +233,7 @@ interface GtaOverlayProps {
   // crack decal and shove the piece itself further from the impact.
   onTableHit: (tableId: string, stageX: number, stageY: number, impactDx: number, impactDy: number) => void;
   // Fires the instant the local phase crosses into/out of seatVacated --
-  // driven straight off local state, not the RTDB round-trip. Publishing to
+  // driven straight off local state, not the live round-trip. Publishing to
   // `drivers` now starts as soon as 'arriving' begins (not just once
   // driving), so this still can't be derived from drivers[uid] existing --
   // a remote viewer keys their own equivalent read off driver.phase instead
@@ -325,7 +325,7 @@ export default function GtaOverlay({
   }, [phase]);
 
   // Once fully returned, hand control back to the caller so it can hide this
-  // overlay and stop the RTDB write loop.
+  // overlay and stop the live write loop.
   useEffect(() => {
     if (phase === 'idle' && wreck) onExit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -341,7 +341,7 @@ export default function GtaOverlay({
   }, [phase]);
 
   // Reports the vacated transition the instant it happens locally -- must
-  // not wait on the RTDB round-trip, or the seat's own avatar stays visibly
+  // not wait on the live round-trip, or the seat's own avatar stays visibly
   // duplicated alongside the car for however long that write takes to land.
   useEffect(() => {
     onSeatVacatedChange(seatVacated(phase));
@@ -446,7 +446,7 @@ export default function GtaOverlay({
         carRef.current = out.car;
         for (const id of out.bumpedIds) if (!id.startsWith('driver:')) onSeatBump(id);
         if (out.hitId?.startsWith('driver:')) {
-          // A driver-vs-driver hit only reports our own uid via the RTDB
+          // A driver-vs-driver hit only reports our own uid via the live
           // payload -- the other side detects the same collision
           // independently from their own stepCar call, so it doesn't need
           // relaying, only reporting who *we* hit.

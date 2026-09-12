@@ -10,8 +10,7 @@ export interface Weapon {
   afterEffect?: string;
 }
 
-// Keep the weaponId list here in sync with the regex in database.rules.json
-// ("throws" path validation) — rules can't import this module.
+// Weapon identifiers are validated by the room service.
 export const WEAPONS: Weapon[] = [
   { id: 'peanut', label: 'Peanut', observer: true, hasEmoji: true, glyph: '🥜', impact: 'sp-impact-bounce' },
   { id: 'tomato', label: 'Tomato', observer: true, hasEmoji: true, glyph: '🍅', impact: 'sp-impact-splat' },

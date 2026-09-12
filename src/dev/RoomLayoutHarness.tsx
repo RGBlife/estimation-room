@@ -16,7 +16,7 @@ import type { Participant, DeckId } from '../types/room.ts';
 import type { DriverState, TableCrackEvent, WastedMap } from '../types/gta.ts';
 import type { ThrowEvent } from '../types/throws.ts';
 
-// Dev-only, Firestore-free stage for the *whole room layout* -- header, seats,
+// Dev-only, network-free stage for the *whole room layout* -- header, seats,
 // table and voting bar composed the way RoomScreen composes them, but with
 // fixture participants and no network. The existing ?visual-test=cards harness
 // mounts VotingBar alone, which can't catch the layout problems that only

@@ -1,17 +1,10 @@
-// Single source of truth for the Firestore `rooms/{roomCode}` document shape.
-// Keep in sync with firestore.rules' validParticipant()/validAvatar() functions,
-// which are the actual runtime enforcement -- this file describes what those
-// rules accept, it does not replace them.
-
-// Widened from a closed literal union: the real constraint on which values
-// are legal now lives in decks.ts (per-deck value sets, including Custom's
-// arbitrary free text) and firestore.rules (shape/length cap).
+// Shared room snapshots delivered by the room service.
 export type CardValue = string;
 
 export type DeckId = 'fibonacci' | 'tshirt' | 'powersOf2' | 'rom' | 'custom';
 
 // Current avatar format (avatar.js AVATAR_CATEGORIES). Index bounds below are
-// enforced by firestore.rules' validAvatar() and are not expressible in TS.
+// validated by the room service and are not expressible in TS.
 export interface AvatarOptions {
   seed: string; // <= 32 chars
   bgIdx: number; // 0-7
@@ -30,7 +23,7 @@ export interface AvatarOptions {
 }
 
 // Legacy format: pre-customization-panel avatars (random look only, no
-// per-feature indices). Still validated by firestore.rules' validAvatar().
+// per-feature indices). Normalized before joining.
 export interface LegacyAvatarOptions {
   seed: string;
   bgIdx: number;
@@ -44,8 +37,6 @@ export interface Participant {
   isObserver: boolean;
   vote: CardValue | null;
   joinedAt: number;
-  // Exactly one of these two branches is present, enforced by firestore.rules'
-  // validParticipant() hasOnly() checks -- never both, never neither.
   avatar?: AvatarOptions | LegacyAvatarOptions;
   // Transitional: participants written by pre-local-avatar-generation clients
   // store a dicebear API URL instead. Removable once no such clients/rooms remain.
@@ -57,9 +48,7 @@ export interface RoomDoc {
   isRevealed: boolean;
   creatorId: string;
   deck: DeckId;
-  // serverTimestamp() sentinel on write / Timestamp on read. Not consumed
-  // anywhere today; typed loosely on purpose rather than pulling in Firestore's
-  // FieldValue unions for a field nothing reads.
+  // Server timestamp in milliseconds.
   createdAt: unknown;
   participants: Record<string, Participant>;
 }

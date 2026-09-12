@@ -5,7 +5,7 @@ import type { Participant } from '../../types/room.ts';
 const FAKE_VOTE_VALUES = DECKS.fibonacci.values!.map((v) => v.value);
 
 // Dev-only layout testing: ?fakes=N&fakeobs=M merges N fake voters and M fake
-// observers into the room client-side. Never written to Firestore, stripped
+// observers into the room client-side. Never sent to the room service, stripped
 // from production builds.
 export const FAKE_PARTICIPANTS: Record<string, Participant> | null = (() => {
   if (!import.meta.env.DEV) return null;

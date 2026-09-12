@@ -1,21 +1,12 @@
-// Shape of a live driver's car state under the Realtime Database `gta` path.
-// Unlike ThrowEvent (one-shot, push-keyed), this is a single mutable node per
-// driver keyed by uid: a driver overwrites their own node ~30x/second while
-// driving, and removes it when they stop.
-//
-// x/y are normalised 0..1 fractions of the stage box rather than pixels, so a
-// driver on a wide monitor and a viewer on a laptop see the car in the same
-// relative place. This mirrors ThrowEvent.offsetX/offsetY, which likewise
-// stores a fraction of the target rather than absolute pixels.
-
+// Live car positions and table effects delivered by the room connection.
 export interface DriverState {
-  uid: string; // RTDB key, attached client-side from snap.key
+  uid: string; // Server-authenticated participant identity
   x: number; // 0..1 fraction of stage width
   y: number; // 0..1 fraction of stage height
   r: number; // rotation, radians
   t: number; // ms timestamp, for staleness and interpolation
   // Set for the one frame a hard collision lands, naming who was hit. Rides
-  // along on the position payload rather than getting its own RTDB path --
+  // along on the position payload rather than getting its own event --
   // squashes are transient and self-healing, so a dropped packet costs one
   // missed animation, never a stuck flattened avatar.
   hit?: string | null;
@@ -52,20 +43,9 @@ export interface SeatBox {
   solid?: boolean;
 }
 
-// Table damage, synced under RTDB `gtaTable/$roomCode` so every client in the
-// room sees the same cracks/split/wasted state -- previously this all lived
-// in SeatTable's own useState, so a hit one person's browser detected was
-// invisible to everyone else's.
-//
-// Cracks are push-keyed one-shot children (like ThrowEvent under `throws`)
-// rather than one mutable node holding an array: two drivers ramming the
-// table within the same tick would otherwise race a read-modify-write of a
-// single array field, and one of their cracks would silently vanish. Push
-// keys make every crack its own independent write -- no read needed, no
-// race possible, and ordering doesn't matter since cracks only ever
-// accumulate.
+// Individual impacts have server-issued IDs, preserving simultaneous hits.
 export interface TableCrackEvent {
-  id: string; // RTDB push key, attached client-side from snap.key
+  id: string; // live push key, attached client-side from snap.key
   fx: number; // 0..1, local to whichever surface it landed on (see `side`)
   fy: number;
   rot: number; // decal rotation, degrees
@@ -74,19 +54,12 @@ export interface TableCrackEvent {
   ts: number;
 }
 
-// Each split piece's cumulative shove, keyed by side rather than push-keyed
-// like cracks: unlike a crack (an independent, order-irrelevant event), a
-// piece's position is a running total that every subsequent hit must build
-// on top of, so it needs to be one mutable value clients converge on -- the
-// same shape roomStore.gta.ts's position node uses for a driver's car.
+// Cumulative position of one table piece.
 export interface TablePieceMove {
   x: number;
   y: number;
   rot: number;
 }
 
-// uid -> true for every player run over this round. A plain boolean map
-// (not push-keyed) because "is this uid wasted" only has two states and
-// only ever flips one way per round -- there's nothing to accumulate or
-// order, unlike cracks.
+// Participant IDs marked as hit this round.
 export type WastedMap = Record<string, true>;

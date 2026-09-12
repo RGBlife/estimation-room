@@ -4,7 +4,7 @@ import { DECKS, ALL_DECK_IDS } from '../features/room/decks.ts';
 import { computeStats, computeDistribution, computeCustomGroups } from '../features/room/stats.ts';
 import type { Participant, DeckId } from '../types/room.ts';
 
-// Dev-only, Firestore-free stage for exercising VotingBar in isolation across
+// Dev-only, network-free stage for exercising VotingBar in isolation across
 // every deck and vote-selection state, so layout/clipping bugs (long ROM
 // labels, Custom free text) can be checked without creating a real room.
 // Reached via ?visual-test=cards, stripped from production builds by the same

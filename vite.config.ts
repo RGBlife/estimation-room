@@ -11,6 +11,7 @@ export default defineConfig({
   // on one machine cannot show you.
   server: {
     host: process.env.EXPOSE === '1' || undefined,
+    proxy: { '/api': { target: process.env.API_PROXY_TARGET || 'http://127.0.0.1:5050', ws: true } },
   },
   test: {
     environment: 'jsdom',
