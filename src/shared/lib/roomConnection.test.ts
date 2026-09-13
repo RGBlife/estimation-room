@@ -10,11 +10,11 @@ class Socket {
   sent: { id?: string; action?: string; token?: string; data?: unknown }[] = [];
   onopen?: () => void;
   onmessage?: (event: { data: string }) => void;
-  onclose?: () => void;
+  onclose?: (event: { code: number; reason: string }) => void;
   onerror?: () => void;
   constructor() { Socket.instances.push(this); }
   send(value: string) { this.sent.push(JSON.parse(value)); }
-  close() { this.readyState = 3; this.onclose?.(); }
+  close(code = 1000, reason = '') { this.readyState = 3; this.onclose?.({ code, reason }); }
   receive(value: object) { this.onmessage?.({ data: JSON.stringify(value) }); }
 }
 let stop: (() => void) | undefined;
@@ -75,4 +75,36 @@ describe('room connection', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(Socket.instances).toHaveLength(0);
   });
+  it('honours server cooldowns and keeps the existing identity', async () => {
+    const { socket } = await setup(); vi.useFakeTimers();
+    socket.close(1013, 'retry:30000');
+    await vi.advanceTimersByTimeAsync(29999);
+    expect(Socket.instances).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(Socket.instances).toHaveLength(2);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('backs off repeated short connections instead of restarting the retry delay', async () => {
+    const { socket } = await setup(); vi.useFakeTimers();
+    socket.close(); await vi.advanceTimersByTimeAsync(1000);
+    const second = Socket.instances[1]; second.onopen?.(); second.receive({ type: 'ready', uid: 'u1' });
+    second.close(); await vi.advanceTimersByTimeAsync(750);
+    expect(Socket.instances).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(Socket.instances).toHaveLength(3);
+  });
+  it('shares session issuance during development remounts', async () => {
+    const connection = new RoomConnection(vi.fn(), vi.fn(), vi.fn());
+    const cleanup = connection.start(); cleanup(); stop = connection.start();
+    await vi.waitFor(() => expect(Socket.instances).toHaveLength(1));
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('respects Retry-After from session issuance', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status: 429, headers: new Headers({ 'Retry-After': '10' }) } as Response);
+    const connection = new RoomConnection(vi.fn(), vi.fn(), vi.fn()); stop = connection.start();
+    await vi.advanceTimersByTimeAsync(9999); expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1000); expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
 });

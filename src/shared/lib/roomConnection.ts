@@ -25,6 +25,8 @@ export class RoomConnection {
   private heartbeat?: ReturnType<typeof setInterval>;
   private generation = 0;
   private attempts = 0;
+  private sessionRequest: Promise<{ uid: string; token: string }> | null = null;
+  private retryAfterMs = 0;
   private session: { uid: string; token: string } | null = null;
   private room: { code: string; payload: JoinPayload } | null = null;
   private pending = new Map<string, { resolve: (ack: Ack) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
@@ -54,9 +56,10 @@ export class RoomConnection {
       if (!this.session) {
         try { this.session = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); } catch { /* private browsing */ }
         if (!this.session?.token || !this.session.uid) {
-          const response = await fetch(`${this.base}/api/session`, { method: 'POST', signal: AbortSignal.timeout(10000) });
-          if (!response.ok) throw new Error('Unable to connect. Please try again shortly.');
-          this.session = await response.json();
+          // React's development remounts share the in-flight request instead
+          // of issuing duplicate anonymous sessions.
+          if (!this.sessionRequest) this.sessionRequest = this.createSession().finally(() => { this.sessionRequest = null; });
+          this.session = await this.sessionRequest;
           try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(this.session)); } catch { /* in-memory identity */ }
         }
       }
@@ -66,13 +69,14 @@ export class RoomConnection {
       const socket = new WebSocket(url);
       this.socket = socket;
       let authenticated = false;
+      let connectedAt = 0;
       const authTimeout = setTimeout(() => socket.close(), 12000);
       socket.onopen = () => socket.send(JSON.stringify({ token: session.token }));
       socket.onmessage = event => {
         if (generation !== this.generation) return;
         const message = JSON.parse(event.data) as Message;
         if (message.type === 'ready') {
-          authenticated = true; clearTimeout(authTimeout); this.ready = true; this.attempts = 0;
+          authenticated = true; connectedAt = performance.now(); clearTimeout(authTimeout); this.ready = true;
           this.identity(message.uid); this.error(null);
           clearInterval(this.heartbeat);
           this.heartbeat = setInterval(() => { void this.command('ping').catch(() => socket.close()); }, 25000);
@@ -91,11 +95,18 @@ export class RoomConnection {
           }
         } else this.receive(message);
       };
-      socket.onclose = () => {
+      socket.onclose = event => {
         clearTimeout(authTimeout);
         if (generation !== this.generation) return;
         this.ready = false; clearInterval(this.heartbeat); this.rejectPending();
-        if (!authenticated) { this.session = null; try { sessionStorage.removeItem(SESSION_KEY); } catch { /* storage unavailable */ } }
+        if (authenticated && performance.now() - connectedAt >= 30000) this.attempts = 0;
+        // Capacity rejection is not an invalid identity. Keep the token so a
+        // reconnect neither evades server limits nor creates another session.
+        if (!authenticated && event.code === 1008) { this.session = null; try { sessionStorage.removeItem(SESSION_KEY); } catch { /* storage unavailable */ } }
+        if (event.code === 1013) {
+          const delay = /^retry:(\d+)$/.exec(event.reason);
+          this.retryAfterMs = Math.max(this.retryAfterMs, delay ? Math.min(600000, Number(delay[1])) : 5000);
+        }
         this.retry();
       };
       socket.onerror = () => socket.close();
@@ -104,10 +115,23 @@ export class RoomConnection {
       this.error(error instanceof Error ? error.message : 'Unable to connect'); this.retry();
     }
   }
+  private async createSession(): Promise<{ uid: string; token: string }> {
+    const response = await fetch(`${this.base}/api/session`, { method: 'POST', signal: AbortSignal.timeout(10000) });
+    if (!response.ok) {
+      if (response.status === 429 || response.status === 503) {
+        const seconds = Number(response.headers.get('Retry-After'));
+        this.retryAfterMs = Number.isFinite(seconds) && seconds > 0 ? Math.min(600000, seconds * 1000) : 5000;
+      }
+      throw new Error('Unable to connect. Please try again shortly.');
+    }
+    return response.json();
+  }
   private retry() {
     if (!this.active) return;
     this.error('Connection lost. Reconnecting…');
-    this.reconnectTimer = setTimeout(() => { void this.connect(); }, Math.min(30000, 500 * 2 ** this.attempts++) + Math.random() * 250);
+    const delay = Math.max(this.retryAfterMs, Math.min(30000, 500 * 2 ** Math.min(this.attempts++, 10)));
+    this.retryAfterMs = 0;
+    this.reconnectTimer = setTimeout(() => { void this.connect(); }, delay + Math.random() * 250);
   }
   command(action: string, data: object = {}): Promise<Ack> {
     if (!this.connected) return Promise.reject(new Error('Not connected yet. Please try again.'));

@@ -1,0 +1,61 @@
+{
+  "rules": {
+    "presence": {
+      "$roomCode": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isBoolean()"
+        }
+      }
+    },
+    "gta": {
+      "$roomCode": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['x','y','r','t','phase']) && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 1 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 1 && newData.child('r').isNumber() && newData.child('t').isNumber() && newData.child('phase').isString() && newData.child('phase').val().matches(/^(idle|arriving|boarding|driving|exploding|returning)$/) && (!newData.hasChild('hit') || (newData.child('hit').isString() && newData.child('hit').val().length <= 128))"
+        }
+      }
+    },
+    "gtaTable": {
+      "$roomCode": {
+        ".read": "auth != null",
+        ".write": "auth != null && !newData.exists()",
+        "cracks": {
+          ".indexOn": ["ts"],
+          "$crackId": {
+            ".write": "auth != null && newData.exists() && !data.exists() && newData.child('fromUid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['fx','fy','rot','side','fromUid','ts']) && newData.child('fx').isNumber() && newData.child('fx').val() >= 0 && newData.child('fx').val() <= 1 && newData.child('fy').isNumber() && newData.child('fy').val() >= 0 && newData.child('fy').val() <= 1 && newData.child('rot').isNumber() && newData.child('side').isString() && newData.child('side').val().matches(/^(table|left|right)$/) && newData.child('fromUid').val() === auth.uid && newData.child('fromUid').isString() && newData.child('fromUid').val().length <= 128 && newData.child('ts').isNumber()"
+          }
+        },
+        "pieceMove": {
+          "$side": {
+            ".write": "auth != null && ($side === 'left' || $side === 'right')",
+            ".validate": "newData.hasChildren(['x','y','rot']) && newData.child('x').isNumber() && newData.child('y').isNumber() && newData.child('rot').isNumber()"
+          }
+        },
+        "wasted": {
+          "$uid": {
+            ".write": "auth != null",
+            ".validate": "newData.isBoolean() && newData.val() === true"
+          }
+        }
+      }
+    },
+    "throws": {
+      "$roomCode": {
+        ".read": "auth != null",
+        ".indexOn": ["ts"],
+        "$throwId": {
+          ".write": "auth != null && ((newData.exists() && !data.exists() && newData.child('fromUid').val() === auth.uid) || (!newData.exists() && data.exists() && data.child('fromUid').val() === auth.uid))",
+          ".validate": "newData.hasChildren(['fromUid','toUid','weaponId','ts']) && newData.child('fromUid').val() === auth.uid && newData.child('fromUid').isString() && newData.child('fromUid').val().length <= 128 && newData.child('toUid').isString() && newData.child('toUid').val().length <= 128 && newData.child('toUid').val() !== newData.child('fromUid').val() && newData.child('weaponId').isString() && newData.child('weaponId').val().matches(/^(paper-airplane|heart|microwave|flower|bob-ross|snowball|rubber-duck|confetti|peanut|tomato|spec-doc|rubber-chicken|cheese|stale-pastry|nudge)$/) && newData.child('ts').isNumber() && (!newData.hasChild('offsetX') || (newData.child('offsetX').isNumber() && newData.child('offsetX').val() >= -1 && newData.child('offsetX').val() <= 1)) && (!newData.hasChild('offsetY') || (newData.child('offsetY').isNumber() && newData.child('offsetY').val() >= -1 && newData.child('offsetY').val() <= 1))"
+        }
+      }
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

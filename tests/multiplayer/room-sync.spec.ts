@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 
+const apiUrl = process.env.API_PROXY_TARGET || 'http://127.0.0.1:5050';
+const testingFirebase = process.env.ROOM_TEST_BACKEND === 'firebase';
+
 async function ready(page: Page) {
   await page.goto('/');
   await page.waitForFunction(async () => {
@@ -155,6 +158,7 @@ test('observer throws and avatar edits reach another participant', async ({ brow
 });
 
 test('all decks, role changes, reconnect and reuse of an empty room', async ({ browser }) => {
+  test.skip(testingFirebase, 'Persistence and WebSocket reconnect policies belong to the .NET adapter.');
   const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
   try {
     await contexts[1].addInitScript(() => {
@@ -221,10 +225,11 @@ test('all decks, role changes, reconnect and reuse of an empty room', async ({ b
 });
 
 test('health checks work and monitoring requires a separate credential', async ({ request }) => {
-  expect((await request.get('http://127.0.0.1:5050/health/live')).status()).toBe(200);
-  expect((await request.get('http://127.0.0.1:5050/health/ready')).status()).toBe(200);
-  expect((await request.get('http://127.0.0.1:5050/metrics')).status()).toBe(401);
-  const response = await request.get('http://127.0.0.1:5050/metrics', { headers: { Authorization: 'Bearer local-monitoring-only' } });
+  test.skip(testingFirebase, 'The Firebase adapter has no custom monitoring endpoint.');
+  expect((await request.get(`${apiUrl}/health/live`)).status()).toBe(200);
+  expect((await request.get(`${apiUrl}/health/ready`)).status()).toBe(200);
+  expect((await request.get(`${apiUrl}/metrics`)).status()).toBe(401);
+  const response = await request.get(`${apiUrl}/metrics`, { headers: { Authorization: 'Bearer local-monitoring-only' } });
   expect(response.status()).toBe(200);
   expect(await response.text()).toContain('scrum_database_writes_total');
 });

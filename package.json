@@ -14,11 +14,17 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "dev:lan": "EXPOSE=1 vite --host",
-    "dev:staging": "vite --mode staging --host"
+    "dev:staging": "vite --mode staging --host",
+    "dev:firebase": "VITE_ROOM_BACKEND=firebase vite",
+    "build:firebase": "VITE_ROOM_BACKEND=firebase vite build",
+    "emulators": "firebase emulators:start --project demo-scrum-poker",
+    "dev:emulated": "VITE_ROOM_BACKEND=firebase VITE_USE_EMULATOR=1 vite --host",
+    "test:firebase": "ROOM_TEST_BACKEND=firebase playwright test --config playwright.multiplayer.config.ts"
   },
   "dependencies": {
     "@dicebear/collection": "^9.4.3",
     "@dicebear/core": "^9.4.3",
+    "firebase": "12.19.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zustand": "^5.0.14"
