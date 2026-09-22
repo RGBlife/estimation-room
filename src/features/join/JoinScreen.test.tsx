@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import JoinScreen from './JoinScreen.tsx';
+import { randomAvatar } from '../avatar/avatar.ts';
+import type { PeekRoom } from './useRoomStatuses.ts';
+
+function seedRecentRoom(code: string) {
+  localStorage.setItem('sp_recent_rooms_v1', JSON.stringify([{ code, lastSeenAt: Date.now(), createdByMe: false, people: [{ name: 'Sam', avatar: randomAvatar() }] }]));
+}
 
 function baseProps() {
   return {
@@ -13,6 +19,7 @@ function baseProps() {
     ready: true,
     theme: 'dark' as const,
     onToggleTheme: vi.fn(),
+    peekRoom: undefined as PeekRoom | undefined,
   };
 }
 
@@ -135,4 +142,86 @@ describe('JoinScreen', () => {
     expect(screen.queryByText('This room was closed.')).not.toBeInTheDocument();
     expect(screen.getByText('Room not found')).toBeInTheDocument();
   });
+
+  it('shows the decorative hand until this device has been in a room', () => {
+    renderJoinScreen();
+    expect(screen.queryByRole('heading', { name: 'Your recent rooms' })).not.toBeInTheDocument();
+  });
+
+  it('rejoins a recent room in one tap with the saved name, look and role', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('sp_profile', JSON.stringify({ name: 'Ada', avatar: randomAvatar(), isObserver: true }));
+    seedRecentRoom('ABCD');
+    const peekRoom = vi.fn().mockResolvedValue({ participants: [{ name: 'Sam', isObserver: false }] });
+    const { props } = renderJoinScreen({ peekRoom });
+
+    expect(screen.getByRole('heading', { name: 'Your recent rooms' })).toBeInTheDocument();
+    await screen.findByText('1 here');
+    expect(peekRoom).toHaveBeenCalledExactlyOnceWith('ABCD');
+    await user.click(screen.getByRole('button', { name: /Rejoin room ABCD/ }));
+
+    expect(props.onJoin).toHaveBeenCalledOnce();
+    const [code, payload] = props.onJoin.mock.calls[0];
+    expect(code).toBe('ABCD');
+    expect(payload).toMatchObject({ name: 'Ada', isObserver: true });
+  });
+
+  it('fills in the form instead when there is no saved name yet', async () => {
+    const user = userEvent.setup();
+    seedRecentRoom('ABCD');
+    const { props } = renderJoinScreen();
+
+    await user.click(screen.getByRole('button', { name: /Rejoin room ABCD/ }));
+
+    expect(props.onJoin).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Enter your room code')).toHaveValue('ABCD');
+    expect(screen.getByPlaceholderText('e.g. Sam Rivera')).toHaveFocus();
+  });
+
+  it('asks about the room again when a rejoin is refused', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('sp_profile', JSON.stringify({ name: 'Ada', avatar: randomAvatar() }));
+    seedRecentRoom('ABCD');
+    const peekRoom = vi.fn().mockResolvedValueOnce({ participants: [] }).mockResolvedValueOnce(null);
+    renderJoinScreen({ peekRoom, onJoin: vi.fn().mockResolvedValue(false) });
+
+    await screen.findByText('Empty');
+    await user.click(screen.getByRole('button', { name: /Rejoin room ABCD/ }));
+
+    await screen.findByText('Closed');
+    expect(peekRoom).toHaveBeenCalledTimes(2);
+  });
+
+  it('forgets a room from its card', async () => {
+    const user = userEvent.setup();
+    seedRecentRoom('ABCD');
+    renderJoinScreen();
+
+    await user.click(screen.getByRole('button', { name: 'Forget room ABCD' }));
+
+    expect(screen.queryByRole('button', { name: /Rejoin room ABCD/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Your recent rooms' })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('sp_recent_rooms_v1')!)).toEqual([]);
+  });
+});
+
+it('offers remembered teams only on create and trims an optional name', async () => {
+  localStorage.clear();
+  localStorage.setItem('sp_recent_rooms_v1', JSON.stringify([{ code: 'ABCD', teamName: 'Platform', lastSeenAt: 1, people: [] }]));
+  const user = userEvent.setup();
+  const { props } = renderJoinScreen();
+  expect(screen.queryByLabelText(/Team name/)).not.toBeInTheDocument();
+  await user.type(screen.getByLabelText('Your name'), 'Ada');
+  await user.click(screen.getByText('or create a new room'));
+  const input = screen.getByLabelText(/Team name/);
+  expect(input).toHaveAttribute('maxLength', '40');
+  expect(document.querySelector('datalist option')).toHaveAttribute('value', 'Platform');
+  await user.click(screen.getByText('Create room'));
+  expect(props.onCreate.mock.calls[0][0]).not.toHaveProperty('teamName');
+  await user.type(input, '   ');
+  await user.click(screen.getByText('Create room'));
+  expect(props.onCreate.mock.calls[1][0]).not.toHaveProperty('teamName');
+  await user.type(input, 'Platform  ');
+  await user.click(screen.getByText('Create room'));
+  expect(props.onCreate.mock.calls[2][0].teamName).toBe('Platform');
 });

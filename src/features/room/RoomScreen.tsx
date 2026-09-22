@@ -31,6 +31,7 @@ interface RoomActions {
   updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
+  renameRoom: (teamName: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
   startNextRound: () => Promise<void>;
@@ -222,6 +223,8 @@ export default function RoomScreen({
     <>
       {editingAvatar && <RoomAvatarEditor participant={me} onSave={actions.updateAvatar} onClose={() => setEditingAvatar(false)} />}
       <RoomHeader
+        teamName={room.teamName}
+        onRename={actions.renameRoom}
         avatarUrl={participantAvatarSrc(me)}
         onEditAvatar={() => { cancelTargeting(); if (isDriving) actions.stopDrive(); setEditingAvatar(true); }}
         roomCode={roomCode}

@@ -87,6 +87,17 @@ service cloud.firestore {
         && (p.vote == null || (p.vote is string && p.vote.size() <= 40));
     }
 
+    // Missing is valid for old rooms. Empty or padded strings must be
+    // normalized by the client before writing; clearing deletes the field.
+    function validTeamName() {
+      return !('teamName' in incomingData()) || (
+        incomingData().teamName is string
+        && incomingData().teamName.size() >= 1
+        && incomingData().teamName.size() <= 40
+        && incomingData().teamName == incomingData().teamName.trim()
+      );
+    }
+
     function myIncomingParticipant() {
       return incomingData().participants[request.auth.uid];
     }
@@ -97,6 +108,7 @@ service cloud.firestore {
       allow list: if false;
 
       allow create: if isSignedIn()
+        && validTeamName()
         && incomingData().code == roomCode
         && incomingData().isRevealed == false
         && incomingData().creatorId == request.auth.uid
@@ -106,6 +118,16 @@ service cloud.firestore {
         && validParticipant(myIncomingParticipant());
 
       allow update: if isSignedIn() && (
+        // Naming is independent of votes and cannot transfer ownership.
+        (request.auth.uid == existingData().creatorId
+          && incomingData().diff(existingData()).affectedKeys().hasOnly(['teamName'])
+          && validTeamName())
+        ||
+        // All ordinary updates preserve both the value and absence of the
+        // name. Check once outside the branches to stay within the rules budget.
+        (incomingData().get('teamName', '') == existingData().get('teamName', '')
+          && incomingData().keys().hasAny(['teamName']) == existingData().keys().hasAny(['teamName'])
+          && (
         // A participant joining: adds exactly their own key, nothing else changes.
         (
           changedParticipantKeys().hasOnly([request.auth.uid])
@@ -171,6 +193,9 @@ service cloud.firestore {
         (
           request.auth.uid in existingData().participants
           && existingData().isRevealed == true
+          && incomingData().code == existingData().code
+          && incomingData().creatorId == existingData().creatorId
+          && incomingData().diff(existingData()).affectedKeys().hasOnly(['participants', 'isRevealed'])
           && incomingData().isRevealed == false
           && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
           && incomingData().deck == existingData().deck
@@ -195,6 +220,7 @@ service cloud.firestore {
           && incomingData().isRevealed == false
           && incomingData().participants.keys().toSet() == existingData().participants.keys().toSet()
         )
+        ))
       );
 
       // Participants can close their room; anyone signed in can garbage-collect

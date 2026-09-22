@@ -11,14 +11,14 @@ import { saveLastRoomCode } from '../join/profile.ts';
 import { clearMyPresence, trackPresence, teardownPresence } from './roomStore.presence.ts';
 import {
   updateAvatarAction, createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setDeckAction,
-  revealAction, startNextRoundAction, throwWeaponAction, leaveAction,
+  renameRoomAction, revealAction, startNextRoundAction, throwWeaponAction, leaveAction, peekRoomAction,
 } from './roomStore.actions.ts';
 import {
   startDriving, publishDriverState, stopDriving, subscribeDrivers, teardownGta,
   publishTableCrack, subscribeTableCracks, publishTablePieceMove, markWasted,
   clearWasted, subscribeTableDamage, resetTableDamage,
 } from './roomStore.gta.ts';
-import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
+import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 
@@ -37,9 +37,11 @@ interface RoomState {
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
   joinRoom: (code: string, payload: JoinPayload) => Promise<void>;
+  peekRoom: (code: string) => Promise<RoomPeek | null>;
   updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
+  renameRoom: (teamName: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
   startNextRound: () => Promise<void>;
@@ -175,6 +177,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     subscribeTableDamage(code, set);
   },
 
+  peekRoom: code => peekRoomAction(code.toUpperCase(), get().uid),
+
   updateAvatar: async avatar => {
     const { uid, roomCode, room } = get();
     if (!uid || !roomCode) throw new Error('You are no longer in the room');
@@ -191,6 +195,12 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     const { uid, roomCode, room } = get();
     if (!uid || !roomCode) return;
     await castVoteAction(uid, roomCode, room, value);
+  },
+
+  renameRoom: async teamName => {
+    const { uid, roomCode, room } = get();
+    if (!uid || !roomCode) throw new Error('You are no longer in the room');
+    await renameRoomAction(uid, roomCode, room, teamName);
   },
 
   setDeck: async (deckId) => {

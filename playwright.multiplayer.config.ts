@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Select an origin already admitted by the local service.
+const port = Number(process.env.ROOM_TEST_PORT || 4177);
+const baseURL = `http://127.0.0.1:${port}`;
 const firebase = process.env.ROOM_TEST_BACKEND === 'firebase';
 
 export default defineConfig({
@@ -7,10 +10,10 @@ export default defineConfig({
   workers: 1,
   timeout: 90000,
   reporter: 'list',
-  use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:4177', trace: 'retain-on-failure' },
+  use: { ...devices['Desktop Chrome'], baseURL, trace: 'retain-on-failure' },
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4177 --strictPort',
-    url: 'http://127.0.0.1:4177',
+    command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
+    url: baseURL,
     reuseExistingServer: false,
     env: {
       VITE_ROOM_BACKEND: firebase ? 'firebase' : 'dotnet',

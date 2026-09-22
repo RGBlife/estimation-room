@@ -114,6 +114,39 @@ body {
 .sp-intro-card span { position: absolute; left: 11px; top: 5px; font-size: 25px; line-height: 1; }
 .sp-intro-card span:last-child { left: auto; top: auto; bottom: 6px; right: 11px; transform: rotate(180deg); }
 .sp-intro-card strong { display: grid; place-items: center; height: 100%; font-size: 98px; font-weight: 600; }
+/* Recent rooms: the hero hand dealt from rooms this device has sat in. Same
+   card as the decorative hand, now carrying information -- the corner index
+   is the room code, a yellow face means you dealt (created) it, a dashed
+   muted face means the room has closed. Cards fan from a pivot below the
+   hand, each overlapping the last like cards held in a hand, and the step is
+   sized from the column so six cards still fit; what a card has to say sits
+   in the strip on its left that the next card never covers. --tilt and
+   --lift come from the component. */
+.sp-room-hand-block { margin-top: 34px; }
+.sp-room-hand-heading { margin: 0 0 16px; font-size: 13px; font-weight: 600; color: var(--sp-text-faint); }
+.sp-room-hand { --card-w: 108px; --card-h: 152px; --max-step: 84px; --edge: 14px; position: relative; width: 100%; height: calc(var(--card-h) + 18px); margin: 0; padding: 0; list-style: none; }
+.sp-room-hand > li { --step: min(var(--max-step), (100% - var(--card-w) - 2 * var(--edge)) / max(1, var(--n) - 1)); position: absolute; top: 0; left: calc(var(--edge) + var(--i) * var(--step)); width: var(--card-w); height: var(--card-h); z-index: calc(var(--i) + 1); transform: rotate(calc(var(--tilt) * var(--tilt-scale, 1))) translateY(var(--lift)); transform-origin: 50% 130%; transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
+.sp-room-hand > li:hover, .sp-room-hand > li:focus-within { z-index: 20; transform: rotate(calc(var(--tilt) * var(--tilt-scale, 1))) translateY(calc(var(--lift) - 12px)); }
+.sp-room-card { position: relative; display: block; width: 100%; height: 100%; padding: 0 0 0 10px; border: 2px solid #213754; border-radius: 12px; background: #FFFFFF; color: #213754; box-shadow: 3px 5px 0 #21375428; font-family: var(--sp-font); text-align: left; cursor: pointer; transition: box-shadow 180ms ease; }
+.sp-room-card[data-face='host'] { background: #F4D579; }
+.sp-room-hand > li:hover .sp-room-card, .sp-room-hand > li:focus-within .sp-room-card { box-shadow: 4px 9px 0 #21375428; }
+.sp-room-card[data-state='closed'] { border-style: dashed; border-color: var(--sp-border-stronger); background: var(--sp-panel-2); color: var(--sp-text-faint); box-shadow: none; cursor: default; }
+.sp-room-card[aria-disabled='true']:not([data-state='closed']) { cursor: wait; }
+.sp-room-card-index { position: absolute; left: 10px; top: 8px; font-family: var(--sp-display); font-size: 15px; font-weight: 700; line-height: 1; letter-spacing: .04em; }
+.sp-room-card-index-mirror { left: auto; top: auto; right: 10px; bottom: 8px; transform: rotate(180deg); }
+.sp-room-card-team { position: absolute; top: 30px; left: 8px; right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; }
+.sp-room-card-faces { display: flex; align-items: center; height: 30px; margin-top: 50px; }
+.sp-room-card-face, .sp-room-card-more, .sp-room-card-seat { box-sizing: border-box; width: 30px; height: 30px; border-radius: 50%; border: 2px solid currentColor; flex: none; }
+.sp-room-card-face { object-fit: cover; background: #FFFFFF; }
+.sp-room-card-face + .sp-room-card-face, .sp-room-card-face + .sp-room-card-more { margin-left: -9px; }
+.sp-room-card-more { display: grid; place-items: center; background: #213754; color: #FFFFFF; font-family: var(--sp-display); font-size: 12px; font-weight: 700; }
+.sp-room-card-seat { border-style: dashed; opacity: .45; }
+.sp-room-card[data-state='closed'] .sp-room-card-face { filter: grayscale(1); opacity: .6; }
+.sp-room-card-status { display: block; margin-top: 10px; font-size: 12px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.sp-room-card[data-state='checking'] .sp-room-card-status, .sp-room-card[data-state='unknown'] .sp-room-card-status { font-weight: 500; opacity: .7; }
+.sp-room-card-forget { position: absolute; left: -9px; bottom: -11px; z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--sp-border-stronger); border-radius: 50%; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-sm); cursor: pointer; opacity: 0; transition: opacity 120ms ease; }
+.sp-room-hand > li:hover .sp-room-card-forget, .sp-room-hand > li:focus-within .sp-room-card-forget { opacity: 1; }
+@media (hover: none) { .sp-room-card-forget { opacity: 1; width: 32px; height: 32px; } }
 .sp-join-card { padding: 26px 28px; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); box-shadow: 5px 5px 0 var(--sp-border); }
 .sp-join-card-heading { margin-bottom: 22px; }
 .sp-join-card-heading h2 { font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
@@ -133,6 +166,7 @@ body {
 @media (min-width: 901px) {
   .sp-join-layout[data-expanded="true"] .sp-join-workspace { grid-template-columns: 280px minmax(0, 1fr); gap: 40px; }
   .sp-join-layout[data-expanded="true"] .sp-card-hand { transform: scale(.8); transform-origin: left center; margin-left: 0; }
+  .sp-join-layout[data-expanded="true"] .sp-room-hand-block { transform: scale(.8); transform-origin: left top; }
 }
 @media (max-width: 900px) {
   .sp-join-workspace { grid-template-columns: 1fr; gap: 26px; }
@@ -142,6 +176,9 @@ body {
   .sp-join-intro > p { max-width: 48ch; font-size: 15px; margin-top: 12px; }
   .sp-card-hand { display: none; }
   .sp-join-header { margin-bottom: 28px; }
+  .sp-room-hand-block { margin-top: 22px; }
+  .sp-room-hand { --card-w: 96px; --card-h: 136px; --edge: 10px; }
+  .sp-room-card-faces { margin-top: 40px; }
 }
 @media (max-width: 559px) {
   .sp-join { padding: 20px 16px max(24px, env(safe-area-inset-bottom)); align-items: flex-start; }
@@ -152,6 +189,14 @@ body {
   .sp-join-card-heading h2 { font-size: 22px; }
   .sp-join-fields button { min-height: 44px; }
   .sp-voting-dock { column-gap: 12px; row-gap: 10px; padding-inline: 12px; }
+  .sp-room-hand { --card-w: 84px; --card-h: 118px; --edge: 10px; --tilt-scale: .6; }
+  .sp-room-card { padding-left: 8px; }
+  .sp-room-card-index { font-size: 13px; left: 8px; top: 7px; }
+  .sp-room-card-index-mirror { left: auto; top: auto; right: 8px; bottom: 7px; }
+  .sp-room-card-faces { height: 26px; margin-top: 32px; }
+  .sp-room-card-face, .sp-room-card-more, .sp-room-card-seat { width: 26px; height: 26px; }
+  .sp-room-card-face + .sp-room-card-face, .sp-room-card-face + .sp-room-card-more { margin-left: -8px; }
+  .sp-room-card-status { margin-top: 8px; font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sp-join *, .sp-vote-card, .sp-dist-column, .sp-dist-bar, .sp-dist-average { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }

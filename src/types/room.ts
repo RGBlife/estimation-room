@@ -44,6 +44,7 @@ export interface Participant {
 }
 
 export interface RoomDoc {
+  teamName?: string;
   code: string;
   isRevealed: boolean;
   creatorId: string;
@@ -53,8 +54,16 @@ export interface RoomDoc {
   participants: Record<string, Participant>;
 }
 
+// What a room looks like from outside: who is at the table right now, or
+// null when the room no longer exists. Votes are never included.
+export interface RoomPeek {
+  teamName?: string;
+  participants: Array<Pick<Participant, 'name' | 'avatar' | 'avatarUrl' | 'isObserver'>>;
+}
+
 // Payload constructed by JoinScreen and passed into createRoom/joinRoom.
 export interface JoinPayload {
+  teamName?: string;
   name: string;
   avatar: AvatarOptions;
   isObserver: boolean;

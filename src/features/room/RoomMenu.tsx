@@ -25,7 +25,7 @@ interface RoomMenuProps {
   groups?: RoomMenuGroup[];
 }
 
-// Phone-only overflow menu for the room's secondary controls. On a narrow
+// Overflow menu for the room's secondary controls. On a narrow
 // screen the header's six controls had shrunk to fit -- the theme toggle was
 // 28x28 and "Leave room" was 32x16, well under the 44x44 minimum a finger
 // needs, and they still wrapped the header into a tower. Collapsing
@@ -33,6 +33,8 @@ interface RoomMenuProps {
 // a tap for controls that can actually be tapped.
 export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
   const [open, setOpen] = useState(false);
+  // Focus the persistent trigger before an action opens a dialog; menu items unmount.
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         onClick={() => setOpen(o => !o)}
         aria-label="Room menu"
         aria-expanded={open}
@@ -79,7 +82,7 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
                   key={item.label}
                   role="menuitemradio"
                   aria-checked={!!item.selected}
-                  onClick={() => { setOpen(false); item.onSelect(); }}
+                  onClick={() => { setOpen(false); triggerRef.current?.focus(); item.onSelect(); }}
                   className={`flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-2 border-none bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold ${
                     item.selected ? 'text-sp-accent-text' : 'text-sp-text-dim'
                   }`}
@@ -94,7 +97,7 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
             <button
               key={item.label}
               role="menuitem"
-              onClick={() => { setOpen(false); item.onSelect(); }}
+              onClick={() => { setOpen(false); triggerRef.current?.focus(); item.onSelect(); }}
               className={`flex min-h-[44px] w-full cursor-pointer items-center border-none border-b border-sp-border bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold last:border-b-0 ${
                 item.accent ? 'text-sp-accent-text' : 'text-sp-text-dim'
               }`}

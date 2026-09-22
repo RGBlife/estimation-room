@@ -37,6 +37,15 @@ describe('room API store', () => {
     expect(useRoomStore.getState().room).toBeNull();
     expect(useRoomStore.getState().roomCode).toBeNull();
   });
+  it('peeks a room without joining it, reporting a missing room as null', async () => {
+    mock.command.mockResolvedValueOnce({ room: { participants: [{ name: 'Sam', isObserver: false }] } });
+    await expect(useRoomStore.getState().peekRoom('abcd')).resolves.toEqual({ participants: [{ name: 'Sam', isObserver: false }] });
+    expect(mock.command).toHaveBeenCalledExactlyOnceWith('peek', { code: 'ABCD' });
+    mock.command.mockResolvedValueOnce({ room: null });
+    await expect(useRoomStore.getState().peekRoom('ZZZZ')).resolves.toBeNull();
+    expect(mock.remember).not.toHaveBeenCalled();
+    expect(useRoomStore.getState().roomCode).toBeNull();
+  });
   it('clears own wasted state when starting a drive and throttles unchanged positions', () => {
     const state = useRoomStore.getState();
     state.startDrive();
@@ -45,4 +54,16 @@ describe('room API store', () => {
     expect(mock.command.mock.calls.filter(([action]) => action === 'drive')).toHaveLength(1);
     expect(mock.command).toHaveBeenCalledWith('startDrive', {});
   });
+});
+
+it('sends normalized renames and clearing, validates length and propagates rejection', async () => {
+  await useRoomStore.getState().renameRoom('  Platform  ');
+  expect(mock.command).toHaveBeenLastCalledWith('rename', { teamName: 'Platform' });
+  await useRoomStore.getState().renameRoom('  ');
+  expect(mock.command).toHaveBeenLastCalledWith('rename', { teamName: null });
+  mock.command.mockClear();
+  await expect(useRoomStore.getState().renameRoom('x'.repeat(41))).rejects.toThrow('40');
+  expect(mock.command).not.toHaveBeenCalled();
+  mock.command.mockRejectedValueOnce(new Error('Only the room creator can rename it'));
+  await expect(useRoomStore.getState().renameRoom('Guest')).rejects.toThrow('creator');
 });

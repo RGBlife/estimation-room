@@ -18,9 +18,37 @@ for (const theme of ['light', 'dark']) {
     await page.screenshot({ path: test.info().outputPath('avatar-expanded.png'), fullPage: true });
     await page.getByRole('button', { name: 'or create a new room' }).click();
     await expect(page.getByRole('button', { name: 'Create room', exact: true })).toBeEnabled();
+    await page.getByLabel(/Team name/).fill('W'.repeat(40));
+    await page.screenshot({ path: test.info().outputPath(`create-team-${theme}.png`), fullPage: true });
     expect(await fits()).toBe(true);
     const inputSize = await page.getByLabel('Your name', { exact: true }).evaluate(el => parseFloat(getComputedStyle(el).fontSize));
     if (page.viewportSize()!.width < 560) expect(inputSize).toBeGreaterThanOrEqual(16);
+  });
+}
+
+for (const count of [3, 6]) {
+  test(`a hand of ${count} recent rooms fits the viewport and stays tappable`, async ({ page }) => {
+    await page.goto(`/?visual-test=join&rooms=${count}`);
+    await expect(page.getByRole('heading', { name: 'Your recent rooms' })).toBeVisible();
+    const cards = page.getByRole('button', { name: /^Rejoin room|is closed\./ });
+    await expect(cards).toHaveCount(count);
+    // Live statuses arrive after the harness's stubbed delay.
+    await expect(page.getByRole('button', { name: /Rejoin room KXPT\. \d here/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Room ZHLV is closed/ })).toHaveAttribute('aria-disabled', 'true');
+    const box = (await cards.first().boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.waitForTimeout(450);
+    await page.screenshot({ path: test.info().outputPath(`recent-rooms-${count}.png`), fullPage: true });
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await page.screenshot({ path: test.info().outputPath(`recent-rooms-${count}-dark.png`), fullPage: true });
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+    await cards.first().hover();
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: test.info().outputPath(`recent-rooms-${count}-hover.png`), fullPage: true });
+    await page.getByRole('button', { name: 'Forget room KXPT' }).click();
+    await expect(cards).toHaveCount(count - 1);
   });
 }
 
@@ -78,3 +106,23 @@ test('late voting stays usable after early reveal', async ({ page }) => {
   await expect(page.getByText('Still time for your estimate')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Start next round' })).toBeVisible();
 });
+
+for (const theme of ['light', 'dark']) {
+  test(`maximum team name preserves room controls in ${theme}`, async ({ page }) => {
+    const name = 'W'.repeat(40);
+    await page.goto(`/?visual-test=room&host=1&teamName=${name}`);
+    await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+    const copy = page.getByRole('button', { name: /Copy shareable invite link/ });
+    expect((await copy.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(page.getByTitle(name)).toBeVisible();
+    await page.getByRole('button', { name: 'Room menu', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Rename team' }).click();
+    await expect(page.getByRole('dialog', { name: 'Rename team' })).toBeVisible();
+    await page.getByLabel(/Team name/).fill(name);
+    await page.screenshot({ path: test.info().outputPath(`rename-team-${theme}.png`), fullPage: true });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Room menu', exact: true })).toBeFocused();
+    await page.screenshot({ path: test.info().outputPath(`room-team-${theme}.png`), fullPage: true });
+  });
+}

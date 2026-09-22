@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { JoinScreen, loadProfile, loadLastRoomCode } from '../features/join/index.ts';
+import { JoinScreen, loadProfile, loadLastRoomCode, rememberRoom } from '../features/join/index.ts';
 import type { JoinPayload } from '../features/join/JoinScreen.tsx';
 import { RoomScreen } from '../features/room/index.js';
 import { useRoomStore } from '../features/room/roomStore.ts';
@@ -32,9 +32,11 @@ export default function App() {
   const tableWasted = useRoomStore(s => s.tableWasted);
   const createRoom = useRoomStore(s => s.createRoom);
   const joinRoom = useRoomStore(s => s.joinRoom);
+  const peekRoom = useRoomStore(s => s.peekRoom);
   const updateAvatar = useRoomStore(s => s.updateAvatar);
   const setRole = useRoomStore(s => s.setRole);
   const castVote = useRoomStore(s => s.castVote);
+  const renameRoom = useRoomStore(s => s.renameRoom);
   const setDeck = useRoomStore(s => s.setDeck);
   const reveal = useRoomStore(s => s.reveal);
   const startNextRound = useRoomStore(s => s.startNextRound);
@@ -127,14 +129,21 @@ export default function App() {
       .finally(() => setAutoJoining(false));
   }, [uid, urlRoomCode, room, joinRoom]);
 
+  // Every room we sit in goes on the join screen's recent-rooms hand, with
+  // the table as it was the last time we saw it. Recorded from the snapshot
+  // rather than the join action so both backends feed it the same way.
+  useEffect(() => {
+    if (room && uid) rememberRoom(room, uid);
+  }, [room, uid]);
+
   // Put the room code in the tab title so several rooms open at once stay
   // tellable apart, and surface the reveal in the title too -- it's the one
   // moment you care about while tabbed away.
   useEffect(() => {
     document.title = roomCode
-      ? `${room?.isRevealed ? '✓ ' : ''}${roomCode} · Estimation Room`
+      ? `${room?.isRevealed ? '✓ ' : ''}${room?.teamName ? `${room.teamName} · ` : ''}${roomCode} · Estimation Room`
       : 'Estimation Room';
-  }, [roomCode, room?.isRevealed]);
+  }, [roomCode, room?.isRevealed, room?.teamName]);
 
   // Keep the address bar in sync with the current room so the URL itself
   // is always a valid shareable/refreshable link, not just the copy-link button.
@@ -170,6 +179,7 @@ export default function App() {
           ready={!!uid}
           theme={theme}
           onToggleTheme={toggleTheme}
+          peekRoom={peekRoom}
         />
       ) : (
         <RoomScreen
@@ -182,7 +192,7 @@ export default function App() {
           tablePieceMove={tablePieceMove}
           tableWasted={tableWasted}
           actions={{
-            updateAvatar, setRole, castVote, setDeck, reveal, startNextRound, leave, throwWeapon, dismissThrow,
+            updateAvatar, setRole, castVote, setDeck, renameRoom, reveal, startNextRound, leave, throwWeapon, dismissThrow,
             startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
           }}
           theme={theme}

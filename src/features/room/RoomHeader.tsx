@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import { WEAPONS } from './weapons.ts';
 import DeckSwitcher from './DeckSwitcher.tsx';
 import RoomMenu from './RoomMenu.tsx';
+import RenameRoomDialog from './RenameRoomDialog.tsx';
 import { DECKS, DECK_ORDER } from './decks.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 import type { DeckDefinition } from './decks.ts';
@@ -27,6 +28,8 @@ const SNUG_QUERY = '(max-width: 900px)';
 
 interface RoomHeaderProps {
   roomCode: string;
+  teamName?: string;
+  onRename?: (teamName: string) => Promise<void>;
   avatarUrl?: string;
   onEditAvatar?: () => void;
   copied: boolean;
@@ -54,11 +57,13 @@ interface RoomHeaderProps {
 // Top bar: room code / copy-link, theme toggle, deck switcher (host-only),
 // weapon-equip button, GTA Mode button, role switch, and leave button.
 export default function RoomHeader({
-  avatarUrl, onEditAvatar, roomCode, copied, onCopy, isCreator,
+  avatarUrl, onEditAvatar, roomCode, teamName, onRename, copied, onCopy, isCreator,
   theme, onToggleTheme, isObserver, deck, onSwitchDeck, equippedWeaponId, onCancelTargeting, onOpenWeaponTray,
   isRevealed, isDriving, onStartDriving,
   onSwitchRole, onLeave, onHeightChange,
 }: RoomHeaderProps) {
+  const [renaming, setRenaming] = useState(false);
+  const renameItems = isCreator && onRename ? [{ label: 'Rename team', onSelect: () => setRenaming(true) }] : [];
   const touchPrimary = useMediaQuery(TOUCH_PRIMARY_QUERY);
   const narrow = useMediaQuery(NARROW_QUERY);
   const snug = useMediaQuery(SNUG_QUERY);
@@ -83,7 +88,7 @@ export default function RoomHeader({
       {/* nowrap on a phone: the decorative logo plus the room code exceeded
           the space left beside the buttons, so the group wrapped to two lines
           and the room code sat visibly below the row it should align with. */}
-      <div className={`flex flex-1 items-center ${narrow ? 'min-w-0 flex-nowrap gap-2' : snug ? 'min-w-0 flex-wrap gap-3' : 'min-w-[280px] flex-wrap gap-5'}`}>
+      <div className={`flex flex-1 items-center ${narrow ? 'min-w-0 flex-nowrap gap-2' : snug ? 'min-w-0 flex-wrap gap-3' : 'min-w-0 flex-nowrap gap-5'}`}>
         {onEditAvatar && <button onClick={onEditAvatar} aria-label="Customise your avatar" title="Customise your avatar" className="relative h-11 w-11 shrink-0 cursor-pointer rounded-full border border-sp-border-strong bg-sp-card-bg p-1 hover:border-sp-accent">
           <img src={avatarUrl} alt="" className="h-full w-full rounded-full" />
           <span aria-hidden="true" className="absolute -right-0.5 -bottom-0.5 rounded-full bg-sp-panel px-1 text-xs text-sp-text">✎</span>
@@ -95,11 +100,19 @@ export default function RoomHeader({
           onClick={onCopy}
           title="Copy shareable invite link"
           aria-label={`Room ${roomCode.split('').join(' ')}. Copy shareable invite link`}
-          className={`flex cursor-pointer items-center rounded-md border border-sp-border bg-sp-panel px-2.5 text-sp-text-dim ${narrow || touchPrimary ? 'min-h-[44px] gap-2' : 'gap-[7px] py-1.5'}`}
+          className={`flex shrink-0 min-h-[44px] cursor-pointer items-center rounded-md border border-sp-border bg-sp-panel px-2.5 text-sp-text-dim ${narrow || touchPrimary ? 'min-h-[44px] gap-2' : 'gap-[7px] py-1.5'}`}
         >
           <span aria-hidden="true" className="font-sp-mono text-[13px] tracking-[0.08em]">{roomCode}</span>
           <span aria-hidden="true" className="text-[11px] text-sp-text-faint">{copied ? 'link copied' : 'copy link'}</span>
         </button>
+        {/* Only the name yields space; the code and tap targets stay intact. */}
+        {isCreator && onRename ? (
+          <button onClick={() => setRenaming(true)} title={teamName || 'Add a team name'} aria-label={teamName ? `Rename team ${teamName}` : 'Add a team name'}
+            className="group flex min-h-11 min-w-0 max-w-56 cursor-pointer items-center gap-2 rounded-md px-1 text-sm font-semibold text-sp-text hover:bg-sp-panel-2">
+            <span className="truncate">{teamName || 'Name your team'}</span>
+            <svg className="shrink-0 text-sp-text-faint" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5" /></svg>
+          </button>
+        ) : teamName && <span title={teamName} className="min-w-0 max-w-56 truncate text-sm font-semibold text-sp-text">{teamName}</span>}
         {/* Announced separately from the button label so the confirmation is
             read out on click -- a label change alone isn't reliably announced. */}
         <span aria-live="polite" className="sr-only">{copied ? 'Invite link copied to clipboard' : ''}</span>
@@ -143,6 +156,7 @@ export default function RoomHeader({
               })),
             }] : []}
             items={[
+              ...renameItems,
               { label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', onSelect: onToggleTheme },
               ...(!isObserver && isRevealed && !touchPrimary ? [{ label: '🚗 GTA Mode', onSelect: onStartDriving }] : []),
               isObserver
@@ -211,9 +225,11 @@ export default function RoomHeader({
             className="cursor-pointer rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3 py-2 font-sp-font text-xs font-semibold text-sp-accent-text"
           >Switch to voting</button>
         )}
+        {renameItems.length > 0 && <RoomMenu items={renameItems} />}
         <button onClick={onLeave} className="cursor-pointer border-none bg-transparent text-xs text-sp-text-faintest">Leave room</button>
       </div>
       )}
+      {renaming && onRename && <RenameRoomDialog roomCode={roomCode} teamName={teamName} onSave={onRename} onClose={() => setRenaming(false)} />}
     </div>
   );
 }

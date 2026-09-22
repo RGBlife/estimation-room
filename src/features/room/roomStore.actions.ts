@@ -8,7 +8,9 @@ import { db, rtdb } from '../../shared/lib/firebase.ts';
 import { saveProfile } from '../join/profile.ts';
 import { normalizeAvatar } from '../avatar/avatar.ts';
 import { randomRoomCode } from '../join/roomCode.ts';
-import type { JoinPayload, CardValue, RoomDoc, DeckId, AvatarOptions } from '../../types/room.ts';
+import type { JoinPayload, CardValue, RoomDoc, DeckId, AvatarOptions, RoomPeek } from '../../types/room.ts';
+
+import { normalizeTeamName } from '../../shared/lib/teamName.ts';
 
 const MAX_CREATE_ATTEMPTS = 3;
 
@@ -17,7 +19,8 @@ const MAX_CREATE_ATTEMPTS = 3;
 const THROW_CLEANUP_MS = 2200;
 const lastNudgeBySender = new Map<string, number>();
 
-export async function createRoomAction(uid: string, { name, avatar, isObserver, deck }: JoinPayload): Promise<string> {
+export async function createRoomAction(uid: string, { name, avatar, isObserver, deck, teamName }: JoinPayload): Promise<string> {
+  const normalizedTeamName = normalizeTeamName(teamName);
   for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
     const code = randomRoomCode();
     const ref = doc(db, 'rooms', code);
@@ -25,6 +28,7 @@ export async function createRoomAction(uid: string, { name, avatar, isObserver, 
     if (existing.exists()) continue;
     const data = {
       code,
+      ...(normalizedTeamName ? { teamName: normalizedTeamName } : {}),
       isRevealed: false,
       creatorId: uid,
       deck,
@@ -132,6 +136,23 @@ export async function throwWeaponAction(
   }, weaponId === 'nudge' ? 10000 : THROW_CLEANUP_MS);
 }
 
+// Reads a room without joining it. Rooms allow `get` to anyone holding the
+// code (firestore.rules), which is all a shared link ever relied on too.
+// The asker is left out: the join screen peeks the moment the room screen
+// unmounts, which can be before their own leave write has landed, and what
+// they are asking is who else is there.
+export async function peekRoomAction(code: string, uid: string | null): Promise<RoomPeek | null> {
+  const snap = await getDoc(doc(db, 'rooms', code));
+  if (!snap.exists()) return null;
+  const { participants, teamName } = snap.data() as RoomDoc;
+  return {
+    ...(teamName ? { teamName } : {}),
+    participants: Object.entries(participants)
+      .filter(([id]) => id !== uid)
+      .map(([, { name, avatar, avatarUrl, isObserver }]) => ({ name, avatar, avatarUrl, isObserver })),
+  };
+}
+
 export async function leaveAction(uid: string, code: string): Promise<void> {
   try {
     const ref = doc(db, 'rooms', code);
@@ -165,4 +186,10 @@ export async function updateAvatarAction(uid: string, code: string, room: RoomDo
     ...(me.avatarUrl ? { [`participants.${uid}.avatarUrl`]: deleteField() } : {}),
   });
   saveProfile({ name: me.name, avatar: normalized, isObserver: me.isObserver });
+}
+
+export async function renameRoomAction(uid: string, code: string, room: RoomDoc | null, value: string): Promise<void> {
+  if (!room || room.creatorId !== uid) throw new Error('Only the room creator can rename it');
+  const teamName = normalizeTeamName(value);
+  await updateDoc(doc(db, 'rooms', code), { teamName: teamName ?? deleteField() });
 }

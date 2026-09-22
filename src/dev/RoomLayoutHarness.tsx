@@ -161,6 +161,8 @@ export default function RoomLayoutHarness() {
     <div className="sp-app relative">
       {editingAvatar && <RoomAvatarEditor participant={me} onSave={async avatar => setEditedAvatar(avatar)} onClose={() => setEditingAvatar(false)} />}
       <RoomHeader
+        teamName={params.get('teamName')?.slice(0, 40) || undefined}
+        onRename={async () => {}}
         avatarUrl={participantAvatarSrc(me)}
         onEditAvatar={() => setEditingAvatar(true)}
         roomCode="ABCD"

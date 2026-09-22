@@ -1,10 +1,10 @@
-import type { JoinPayload, RoomDoc } from '../../types/room.ts';
+import type { JoinPayload, RoomDoc, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 
 type Message =
   | { type: 'ready'; uid: string }
-  | { type: 'ack'; id: string; code?: string; error?: string }
+  | { type: 'ack'; id: string; code?: string; room?: RoomPeek | null; error?: string }
   | { type: 'room'; room: RoomDoc }
   | { type: 'throw'; item: ThrowEvent }
   | { type: 'driver'; uid: string; driver: DriverState | null }

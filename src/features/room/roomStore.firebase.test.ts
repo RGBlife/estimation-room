@@ -55,6 +55,7 @@ vi.mock('./roomStore.gta.ts', () => ({
   resetTableDamage: vi.fn(),
 }));
 
+const renameRoomAction = vi.fn();
 const createRoomAction = vi.fn();
 const joinRoomAction = vi.fn();
 const setRoleAction = vi.fn();
@@ -64,8 +65,10 @@ const revealAction = vi.fn();
 const startNextRoundAction = vi.fn();
 const throwWeaponAction = vi.fn();
 const leaveAction = vi.fn();
+const peekRoomAction = vi.fn();
 
 vi.mock('./roomStore.actions.ts', () => ({
+  renameRoomAction: (...args: unknown[]) => renameRoomAction(...args),
   createRoomAction: (...args: unknown[]) => createRoomAction(...args),
   joinRoomAction: (...args: unknown[]) => joinRoomAction(...args),
   setRoleAction: (...args: unknown[]) => setRoleAction(...args),
@@ -75,6 +78,7 @@ vi.mock('./roomStore.actions.ts', () => ({
   startNextRoundAction: (...args: unknown[]) => startNextRoundAction(...args),
   throwWeaponAction: (...args: unknown[]) => throwWeaponAction(...args),
   leaveAction: (...args: unknown[]) => leaveAction(...args),
+  peekRoomAction: (...args: unknown[]) => peekRoomAction(...args),
 }));
 
 const { useRoomStore } = await import('./roomStore.firebase.ts');
@@ -178,6 +182,14 @@ describe('useRoomStore', () => {
     expect(setDeckAction).toHaveBeenCalledWith('ABCD', room, 'tshirt');
   });
 
+  it('peeks a room by its uppercase code, as me, without touching room state', async () => {
+    useRoomStore.setState({ uid: 'u1' });
+    peekRoomAction.mockResolvedValueOnce({ participants: [] });
+    await expect(useRoomStore.getState().peekRoom('abcd')).resolves.toEqual({ participants: [] });
+    expect(peekRoomAction).toHaveBeenCalledWith('ABCD', 'u1');
+    expect(useRoomStore.getState().roomCode).toBeNull();
+  });
+
   it('leave is a no-op without uid/roomCode, and calls leaveAction + resets state when joined', async () => {
     useRoomStore.setState({ uid: null, roomCode: null });
     await useRoomStore.getState().leave();
@@ -204,4 +216,14 @@ it('clears table damage only after a successful round transition, never after a 
   });
   await useRoomStore.getState().startNextRound();
   expect(resetTableDamage).toHaveBeenCalledExactlyOnceWith('ABCD');
+});
+
+it('routes renames through the authenticated Firebase action and propagates errors', async () => {
+  useRoomStore.setState({ uid: 'u1', roomCode: 'ABCD', room: { creatorId: 'u1' } as never });
+  await useRoomStore.getState().renameRoom('Platform');
+  expect(renameRoomAction).toHaveBeenCalledWith('u1', 'ABCD', { creatorId: 'u1' }, 'Platform');
+  renameRoomAction.mockRejectedValueOnce(new Error('Permission denied'));
+  await expect(useRoomStore.getState().renameRoom('No')).rejects.toThrow('Permission denied');
+  useRoomStore.setState({ uid: null });
+  await expect(useRoomStore.getState().renameRoom('No')).rejects.toThrow('no longer');
 });

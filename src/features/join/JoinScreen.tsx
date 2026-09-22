@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AvatarBuilder, useAvatarPanelWidth } from '../avatar/index.js';
 import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
 import { randomRoomCode } from './roomCode.ts';
 import { loadProfile, saveProfile } from './profile.ts';
+import RecentRooms from './RecentRooms.tsx';
+import { forgetRoom, loadRecentRooms } from './recentRooms.ts';
+import { useRoomStatuses, type PeekRoom } from './useRoomStatuses.ts';
 import { randomAvatar } from '../avatar/avatar.ts';
 import { DECKS, DECK_ORDER, DEFAULT_DECK } from '../room/decks.ts';
 import type { AvatarOptions, DeckId } from '../../types/room.ts';
@@ -24,9 +27,12 @@ interface JoinScreenProps {
   ready: boolean;
   theme: Theme;
   onToggleTheme: () => void;
+  // Live check for the recent-rooms hand. Absent in stages that have no
+  // backend; the cards then show what this device remembers.
+  peekRoom?: PeekRoom;
 }
 
-export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme }: JoinScreenProps) {
+export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme, peekRoom }: JoinScreenProps) {
   const [storedProfile] = useState(loadProfile);
   const [avatar, setAvatar] = useState(() => storedProfile?.avatar ?? randomAvatar());
   const [name, setName] = useState(() => storedProfile?.name ?? '');
@@ -36,6 +42,10 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   const [roomCodeInput, setRoomCodeInput] = useState(prefillRoomCode ?? '');
   const [busy, setBusy] = useState(false);
   const [avatarExpanded, setAvatarExpanded] = useState(false);
+  const [recentRooms, setRecentRooms] = useState(loadRecentRooms);
+  const [rejoiningCode, setRejoiningCode] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const { statuses: roomStatuses, refresh: refreshRoomStatus } = useRoomStatuses(recentRooms.map(r => r.code), peekRoom, ready);
   const panelWidth = useAvatarPanelWidth(avatarExpanded);
   const cardMaxWidth = panelWidth ? panelWidth + 56 : 460;
 
@@ -44,6 +54,9 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   useEffect(() => {
     saveProfile({ name: name.trim().slice(0, 40), avatar, isObserver: role === 'observer' });
   }, [name, avatar, role]);
+
+  const [teamName, setTeamName] = useState('');
+  const teamNames = [...new Set(recentRooms.flatMap(r => r.teamName ? [r.teamName] : []))];
 
   const switchToCreate = () => { setMode('create'); setRoomCodeInput(randomRoomCode()); };
   const switchToJoin = () => { setMode('join'); setRoomCodeInput(''); };
@@ -59,13 +72,38 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
     if (joinDisabled) return;
     setBusy(true);
     const trimmedName = name.trim().slice(0, 40);
-    const payload = { name: trimmedName, avatar, isObserver: role === 'observer', deck };
+    const payload = { name: trimmedName, avatar, isObserver: role === 'observer', deck, ...(mode === 'create' && teamName.trim() ? { teamName: teamName.trim() } : {}) };
     try {
       await (mode === 'create' ? onCreate(payload) : onJoin(roomCodeInput, payload));
     } finally {
       setBusy(false);
     }
   };
+
+  // A card in the recent-rooms hand is a one-tap rejoin with the saved look
+  // and role. Someone who never typed a name gets the form filled in for
+  // them instead, since the backend refuses a nameless join.
+  const handleRejoin = async (code: string) => {
+    if (busy || !ready) return;
+    const trimmedName = name.trim().slice(0, 40);
+    if (!trimmedName) {
+      setMode('join');
+      setRoomCodeInput(code);
+      nameInputRef.current?.focus();
+      return;
+    }
+    setBusy(true);
+    setRejoiningCode(code);
+    try {
+      const joined = await onJoin(code, { name: trimmedName, avatar, isObserver: role === 'observer', deck });
+      if (!joined) refreshRoomStatus(code);
+    } finally {
+      setBusy(false);
+      setRejoiningCode(null);
+    }
+  };
+
+  const handleForget = (code: string) => setRecentRooms(forgetRoom(code));
 
   // Enter submits whichever mode is active (join or create), from either text
   // field. Not a <form> — the avatar customizer's own buttons live in this
@@ -92,13 +130,24 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
           <div className="sp-join-intro">
             <h1>What’s your <br />estimate?</h1>
             <p>Planning poker for your team. Vote privately, reveal together, and talk through the differences.</p>
-            <div className="sp-card-hand" aria-hidden="true">
-              {[3, 5, 8].map(value => (
-                <div className="sp-intro-card" key={value}>
-                  <span>{value}</span><strong>{value}</strong><span>{value}</span>
-                </div>
-              ))}
-            </div>
+            {recentRooms.length > 0 ? (
+              <RecentRooms
+                rooms={recentRooms}
+                statuses={roomStatuses}
+                joiningCode={rejoiningCode}
+                disabled={busy || !ready}
+                onRejoin={handleRejoin}
+                onForget={handleForget}
+              />
+            ) : (
+              <div className="sp-card-hand" aria-hidden="true">
+                {[3, 5, 8].map(value => (
+                  <div className="sp-intro-card" key={value}>
+                    <span>{value}</span><strong>{value}</strong><span>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -114,6 +163,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
             <div>
               <label htmlFor="join-name" className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Your name</label>
               <input
+                ref={nameInputRef}
                 id="join-name"
                 autoComplete="name"
                 value={name}
@@ -123,6 +173,14 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
                 className="w-full rounded-lg border border-sp-border bg-sp-bg px-3 py-2.5 font-sp-font text-sm text-sp-text outline-none"
               />
             </div>
+
+            {mode === 'create' && <div>
+              <label htmlFor="join-team-name" className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Team name <span className="font-normal">(optional)</span></label>
+              <input id="join-team-name" list="recent-team-names" value={teamName} onChange={e => setTeamName(e.target.value)}
+                placeholder="e.g. The Trailblazers" maxLength={40}
+                className="w-full rounded-lg border border-sp-border bg-sp-bg px-3 py-2.5 font-sp-font text-sm text-sp-text outline-none" />
+              <datalist id="recent-team-names">{teamNames.map(name => <option key={name} value={name} />)}</datalist>
+            </div>}
 
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Your role this round</label>

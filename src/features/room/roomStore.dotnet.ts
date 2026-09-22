@@ -1,8 +1,9 @@
 import { create } from 'zustand';
+import { normalizeTeamName } from '../../shared/lib/teamName.ts';
 import { RoomConnection } from '../../shared/lib/roomConnection.ts';
 import { saveLastRoomCode, saveProfile } from '../join/profile.ts';
 import { normalizeAvatar } from '../avatar/avatar.ts';
-import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId } from '../../types/room.ts';
+import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 
@@ -21,9 +22,11 @@ interface RoomState {
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
   joinRoom: (code: string, payload: JoinPayload) => Promise<void>;
+  peekRoom: (code: string) => Promise<RoomPeek | null>;
   updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
+  renameRoom: (teamName: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
   startNextRound: () => Promise<void>;
@@ -82,6 +85,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     initAuth: () => connection.start(),
     createRoom: payload => join('create', payload),
     joinRoom: async (code, payload) => { await join('join', payload, code); },
+    peekRoom: async code => (await command('peek', { code: code.toUpperCase() })).room ?? null,
     updateAvatar: async avatar => {
       const me = get().room?.participants[get().uid ?? ''];
       if (!me) throw new Error('Join the room before editing your avatar');
@@ -92,6 +96,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     },
     setRole: async isObserver => { await command('role', { isObserver }); connection.updateProfile({ isObserver }); },
     castVote: async value => { await command('vote', { value }); },
+    renameRoom: async teamName => { await command('rename', { teamName: normalizeTeamName(teamName) ?? null }); },
     setDeck: async deck => { await command('deck', { deck }); },
     reveal: async () => { await command('reveal'); },
     startNextRound: async () => { await command('next'); },

@@ -16,7 +16,7 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(() => 'DELETE'),
 }));
 
-const { setDeckAction } = await import('./roomStore.actions.ts');
+const { setDeckAction, renameRoomAction, createRoomAction } = await import('./roomStore.actions.ts');
 
 const room = {
   code: 'ABCD',
@@ -47,4 +47,29 @@ describe('setDeckAction', () => {
       'participants.u2.vote': null,
     });
   });
+});
+
+it('allows only the creator to rename, deletes blank names and rejects overlong names', async () => {
+  updateDoc.mockClear();
+  await expect(renameRoomAction('u2', 'ABCD', room, 'No')).rejects.toThrow('creator');
+  await expect(renameRoomAction('u1', 'ABCD', room, 'x'.repeat(41))).rejects.toThrow('40');
+  expect(updateDoc).not.toHaveBeenCalled();
+  await renameRoomAction('u1', 'ABCD', room, ' Platform ');
+  expect(updateDoc).toHaveBeenLastCalledWith({ id: 'ABCD' }, { teamName: 'Platform' });
+  await renameRoomAction('u1', 'ABCD', room, '  ');
+  expect(updateDoc).toHaveBeenLastCalledWith({ id: 'ABCD' }, { teamName: 'DELETE' });
+});
+
+it('creates with normalized names and omits blank or missing names', async () => {
+  const { getDoc, setDoc } = await import('firebase/firestore');
+  const { randomAvatar } = await import('../avatar/avatar.ts');
+  vi.mocked(getDoc).mockResolvedValue({ exists: () => false } as never);
+  const profile = { name: 'Ada', avatar: randomAvatar(), isObserver: false, deck: 'fibonacci' as const };
+  for (const teamName of [undefined, ' ', ' Platform ']) {
+    await createRoomAction('u1', { ...profile, teamName });
+    const data = vi.mocked(setDoc).mock.calls.at(-1)![1];
+    if (teamName?.trim()) expect(data).toHaveProperty('teamName', 'Platform');
+    else expect(data).not.toHaveProperty('teamName');
+  }
+  await expect(createRoomAction('u1', { ...profile, teamName: 'x'.repeat(41) })).rejects.toThrow('40');
 });
