@@ -1,7 +1,33 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+
+// main.tsx lazy-loads App so the dev-only harnesses stay out of production,
+// which also meant the browser only discovered the app's largest file after
+// the entry script had downloaded and run -- one extra round trip before the
+// room could even start loading. This lists App's chunk (and its CSS) in the
+// page itself so both download alongside the entry script.
+function preloadApp(): Plugin {
+  return {
+    name: 'preload-app',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, { bundle }) {
+        const app = Object.values(bundle ?? {}).find(chunk =>
+          chunk.type === 'chunk' && chunk.facadeModuleId?.endsWith('/src/app/App.tsx'));
+        if (!app || app.type !== 'chunk') return [];
+        const base = process.env.GITHUB_PAGES ? '/estimation-room/' : '/';
+        const css = [...(app.viteMetadata?.importedCss ?? [])];
+        return [
+          { tag: 'link', attrs: { rel: 'modulepreload', crossorigin: '', href: base + app.fileName }, injectTo: 'head' },
+          ...css.map(file => ({ tag: 'link', attrs: { rel: 'preload', as: 'style', crossorigin: '', href: base + file }, injectTo: 'head' as const })),
+        ];
+      },
+    },
+  };
+}
 
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
@@ -14,7 +40,7 @@ export default defineConfig(({ mode, command }) => {
   }
   return {
     resolve: { alias: { '#room-backend': fileURLToPath(new URL(`./src/features/room/roomStore.${backend}.ts`, import.meta.url)) } },
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), preloadApp()],
     base: process.env.GITHUB_PAGES ? '/estimation-room/' : '/',
     // `npm run dev -- --host` exposes the dev server on the LAN so a phone or a
     // colleague's laptop can join the same room -- the only way to exercise real
