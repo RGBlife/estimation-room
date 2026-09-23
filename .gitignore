@@ -24,3 +24,8 @@ design/
 # uses, and the winning palette gets promoted into theme.css by hand. The
 # import tolerates its absence, so a clone without it builds and tests fine.
 src/styles/themes.css
+
+# Assistant and editor scratch files (dot-directories are already covered by .*)
+CLAUDE.md
+AGENTS.md
+.github/copilot-instructions.md
