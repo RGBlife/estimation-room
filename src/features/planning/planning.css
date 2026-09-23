@@ -9,6 +9,7 @@
 .sp-planning-tools button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--sp-text-dim); cursor: pointer; font-size: 13px; font-weight: 600; }
 .sp-planning-tools button:hover { background: var(--sp-panel-2); }
 .sp-planning-tools button span { color: var(--sp-accent-text); font-variant-numeric: tabular-nums; }
+.sp-soon { padding: 2px 7px; border: 1px solid var(--sp-border-strong); border-radius: 999px; color: var(--sp-text-faint); font-size: 11px; font-weight: 600; white-space: nowrap; }
 /* The edge establishes where each tool lives: tickets left, readiness right.
    A native modal retains focus trapping and keeps the table inert underneath. */
 .sp-planning-window { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(620px, calc(100% - 48px)); max-width: none; height: 100dvh; max-height: 100dvh; padding: 0; overflow-y: auto; overscroll-behavior: contain; border: 0; border-left: 1px solid var(--sp-border-strong); border-radius: 0; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --drawer-shift: 100%; }

@@ -195,7 +195,8 @@ export default function RoomLayoutHarness() {
       <RoomPlanning room={{ readiness, activeTicket }} isCreator={params.get('host') !== '0'}
         onChange={async change => setReadiness(current => applyReadinessChange(current, change))}
         onSelect={async ticket => { setActiveTicket(ticket ?? undefined); setReadiness(resetReadiness); setRevealed(false); setVoted(0); setLocalVote(null); setTableCracks([]); setTableWasted({}); }}
-        onHeightChange={handlePlanningHeightChange} />
+        onHeightChange={handlePlanningHeightChange}
+        ticketsComingSoon={params.get('ticketsSoon') === '1'} />
 
       {/* The harness's own controls, taken out of flow deliberately. In flow
           they cost ~30px of column height that the real app doesn't have, so

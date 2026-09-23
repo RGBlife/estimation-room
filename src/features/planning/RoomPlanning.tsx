@@ -5,12 +5,19 @@ import ReadinessWindow from './ReadinessWindow.tsx';
 import TicketsWindow from './TicketsWindow.tsx';
 import './planning.css';
 
-export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHeightChange }: {
+// Tickets come only from the demo provider for now, and that exists only in
+// development builds. Everywhere else the feature is labelled as coming, so
+// nobody opens an empty drawer expecting their backlog.
+const TICKETS_COMING_SOON = !import.meta.env.DEV;
+
+export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHeightChange, ticketsComingSoon = TICKETS_COMING_SOON }: {
   room: Pick<RoomDoc, 'readiness' | 'activeTicket'>; isCreator: boolean;
   onChange: (change: ReadinessChange) => Promise<void>; onSelect: (ticket: PlanningTicket | null) => Promise<void>;
   // Reports the strip's height so the table can leave it out of its vertical
   // budget; otherwise the strip pushes the bottom seat row behind the results.
   onHeightChange?: (height: number) => void;
+  // Overridable so the dev harness can show the production state.
+  ticketsComingSoon?: boolean;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -37,11 +44,11 @@ export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHe
       <div ref={barRef} className="sp-planning-bar">
         <button className="sp-at-table" onClick={() => setPanel('tickets')}>
           {room.activeTicket ? <><strong>{room.activeTicket.key}</strong><span>{room.activeTicket.title}</span>{room.activeTicket.source === 'demo' && <small>Demo</small>}</>
-            : <span>No ticket selected <small>Open tickets to plan the next round</small></span>}
+            : <span>No ticket selected <small>{ticketsComingSoon ? 'Ticket planning is coming soon' : 'Open tickets to plan the next round'}</small></span>}
         </button>
         <div className="sp-planning-tools">
           <button onClick={() => setPanel('readiness')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m3 6 2 2 4-4M12 6h9M3 13h5m4 0h9M3 20h5m4 0h9" /></svg>Readiness <span>{checked}/{count}</span></button>
-          <button onClick={() => setPanel('tickets')}>Tickets</button>
+          <button onClick={() => setPanel('tickets')}>Tickets{ticketsComingSoon && <small className="sp-soon">Coming soon</small>}</button>
         </div>
       </div>
       {panel === 'readiness' && <ReadinessWindow items={items} onChange={onChange} closing={closing} onClose={() => setClosing(true)} />}
