@@ -1,3 +1,4 @@
+import RoomPlanning from '../planning/RoomPlanning.tsx';
 import RoomAvatarEditor from './RoomAvatarEditor.tsx';
 import { participantAvatarSrc } from '../avatar/index.js';
 import { useNudge } from './useNudge.ts';
@@ -28,6 +29,8 @@ const HEADER_FALLBACK = 64;
 const OVERLAY_GAP = 12;
 
 interface RoomActions {
+  changeReadiness: (change: import('../../types/planning.ts').ReadinessChange) => Promise<void>;
+  selectTicket: (ticket: import('../../types/planning.ts').PlanningTicket | null) => Promise<void>;
   updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
@@ -78,6 +81,7 @@ export default function RoomScreen({
   const [hoveredVoteValue, setHoveredVoteValue] = useState<CardValue | null>(null);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [planningHeight, setPlanningHeight] = useState(0);
   const [isDriving, setIsDriving] = useState(false);
   const participants: Record<string, Participant> = useMemo(() => FAKE_PARTICIPANTS
     ? { ...FAKE_PARTICIPANTS, ...room.participants }
@@ -116,6 +120,7 @@ export default function RoomScreen({
   const getSeatNode = useCallback((seatUid: string) => seatNodesRef.current.get(seatUid) ?? null, []);
   const handleVotingBarHeightChange = useCallback((h: number) => setVotingBarHeight(h), []);
   const handleHeaderHeightChange = useCallback((h: number) => setHeaderHeight(h), []);
+  const handlePlanningHeightChange = useCallback((h: number) => setPlanningHeight(h), []);
   // Overlays pinned near the bottom clear the voting bar by measuring it
   // rather than assuming a one-row bar -- on a phone it wraps to two or three
   // rows (and taller again once the distribution panel renders), which used to
@@ -247,6 +252,8 @@ export default function RoomScreen({
         onHeightChange={handleHeaderHeightChange}
       />
 
+      <RoomPlanning key={roomCode} room={room} isCreator={isCreator} onChange={actions.changeReadiness} onSelect={actions.selectTicket} onHeightChange={handlePlanningHeightChange} />
+
       <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} bottom={aboveBar} />
 
       <WeaponTipBanner
@@ -278,6 +285,7 @@ export default function RoomScreen({
         onThrowDone={actions.dismissThrow}
         highlightValues={highlightValues}
         bottomClearance={votingBarHeight}
+        topReserve={planningHeight}
         isDriving={isDriving}
         forceEndDrive={forceEndDrive}
         drivers={drivers}

@@ -67,3 +67,13 @@ it('sends normalized renames and clearing, validates length and propagates rejec
   mock.command.mockRejectedValueOnce(new Error('Only the room creator can rename it'));
   await expect(useRoomStore.getState().renameRoom('Guest')).rejects.toThrow('creator');
 });
+
+it('sends shared checklist changes and ticket selection without optimistic round resets', async () => {
+  const change = { operation: 'toggle' as const, id: 'a', checked: true };
+  await useRoomStore.getState().changeReadiness(change);
+  expect(mock.command).toHaveBeenLastCalledWith('readiness', change);
+  await useRoomStore.getState().selectTicket(null);
+  expect(mock.command).toHaveBeenLastCalledWith('ticket', { ticket: null });
+  mock.command.mockRejectedValueOnce(new Error('Only the room creator can select a ticket'));
+  await expect(useRoomStore.getState().selectTicket(null)).rejects.toThrow('creator');
+});

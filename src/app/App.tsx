@@ -36,6 +36,8 @@ export default function App() {
   const updateAvatar = useRoomStore(s => s.updateAvatar);
   const setRole = useRoomStore(s => s.setRole);
   const castVote = useRoomStore(s => s.castVote);
+  const changeReadiness = useRoomStore(s => s.changeReadiness);
+  const selectTicket = useRoomStore(s => s.selectTicket);
   const renameRoom = useRoomStore(s => s.renameRoom);
   const setDeck = useRoomStore(s => s.setDeck);
   const reveal = useRoomStore(s => s.reveal);
@@ -192,7 +194,7 @@ export default function App() {
           tablePieceMove={tablePieceMove}
           tableWasted={tableWasted}
           actions={{
-            updateAvatar, setRole, castVote, setDeck, renameRoom, reveal, startNextRound, leave, throwWeapon, dismissThrow,
+            updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
             startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
           }}
           theme={theme}

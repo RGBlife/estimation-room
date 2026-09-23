@@ -1,3 +1,5 @@
+import type { PlanningTicket, Readiness } from './planning.ts';
+
 // Shared room snapshots delivered by the room service.
 export type CardValue = string;
 
@@ -44,6 +46,8 @@ export interface Participant {
 }
 
 export interface RoomDoc {
+  readiness?: Readiness;
+  activeTicket?: PlanningTicket;
   teamName?: string;
   code: string;
   isRevealed: boolean;

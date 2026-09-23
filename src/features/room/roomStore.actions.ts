@@ -1,5 +1,5 @@
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, deleteField,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, deleteField, runTransaction,
 } from 'firebase/firestore';
 import {
   ref as rtdbRef, onDisconnect, set as rtdbSet, remove as rtdbRemove, push,
@@ -11,6 +11,9 @@ import { randomRoomCode } from '../join/roomCode.ts';
 import type { JoinPayload, CardValue, RoomDoc, DeckId, AvatarOptions, RoomPeek } from '../../types/room.ts';
 
 import { normalizeTeamName } from '../../shared/lib/teamName.ts';
+
+import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
+import { applyReadinessChange, resetReadiness, validateTicket } from '../planning/planning.ts';
 
 const MAX_CREATE_ATTEMPTS = 3;
 
@@ -192,4 +195,34 @@ export async function renameRoomAction(uid: string, code: string, room: RoomDoc 
   if (!room || room.creatorId !== uid) throw new Error('Only the room creator can rename it');
   const teamName = normalizeTeamName(value);
   await updateDoc(doc(db, 'rooms', code), { teamName: teamName ?? deleteField() });
+}
+
+// Read inside the transaction so two people editing different criteria cannot
+// overwrite one another with an old room snapshot.
+export async function changeReadinessAction(uid: string, code: string, change: ReadinessChange): Promise<void> {
+  await runTransaction(db, async transaction => {
+    const ref = doc(db, 'rooms', code);
+    const snap = await transaction.get(ref);
+    const room = snap.exists() ? snap.data() as RoomDoc : null;
+    if (!room?.participants[uid]) throw new Error('You are no longer in the room');
+    transaction.update(ref, { readiness: applyReadinessChange(room.readiness ?? {}, change) });
+  });
+}
+
+export async function selectTicketAction(uid: string, code: string, ticket: PlanningTicket | null): Promise<void> {
+  const selected = ticket ? validateTicket(ticket) : null;
+  await runTransaction(db, async transaction => {
+    const ref = doc(db, 'rooms', code);
+    const snap = await transaction.get(ref);
+    const room = snap.exists() ? snap.data() as RoomDoc : null;
+    if (!room?.participants[uid] || room.creatorId !== uid) throw new Error('Only the room creator can select a ticket');
+    // Selection and reset are one write: no client can vote on a new ticket
+    // while still seeing estimates from the previous one.
+    transaction.update(ref, {
+      activeTicket: selected ?? deleteField(),
+      readiness: resetReadiness(room.readiness ?? {}),
+      isRevealed: false,
+      participants: Object.fromEntries(Object.entries(room.participants).map(([id, p]) => [id, { ...p, vote: null }])),
+    });
+  });
 }

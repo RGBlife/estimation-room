@@ -1,3 +1,6 @@
+import RoomPlanning from '../features/planning/RoomPlanning.tsx';
+import { applyReadinessChange, resetReadiness } from '../features/planning/planning.ts';
+import type { PlanningTicket, Readiness } from '../types/planning.ts';
 import RoomAvatarEditor from '../features/room/RoomAvatarEditor.tsx';
 import { participantAvatarSrc } from '../features/avatar/index.js';
 import type { AvatarOptions } from '../types/room.ts';
@@ -96,13 +99,16 @@ export default function RoomLayoutHarness() {
   };
   const seats = Number(params.get('seats') || 8);
   const observers = Number(params.get('observers') || 0);
-  const voted = Number(params.get('voted') ?? seats);
+  const [voted, setVoted] = useState(Number(params.get('voted') ?? seats));
+  const [readiness, setReadiness] = useState<Readiness>({});
+  const [activeTicket, setActiveTicket] = useState<PlanningTicket>();
   const [nudgedName, setNudgedName] = useState<string | null>(null);
   const [teamName, setTeamName] = useState(params.get('teamName')?.slice(0, 40) || undefined);
   const [deckId, setDeckId] = useState<DeckId>((params.get('deck') as DeckId) || ALL_DECK_IDS[0]);
   const [revealed, setRevealed] = useState(params.get('revealed') === '1');
   const [toastOpen, setToastOpen] = useState(false);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
+  const [planningHeight, setPlanningHeight] = useState(0);
   // Real weapon/driving state rather than no-op stubs, so the interaction
   // between the two (see RoomScreen.handleStartDriving) can actually be
   // exercised here instead of only reasoned about.
@@ -157,6 +163,7 @@ export default function RoomLayoutHarness() {
   }, []);
   const getSeatNode = useCallback((id: string) => seatNodesRef.current.get(id) ?? null, []);
   const handleVotingBarHeightChange = useCallback((h: number) => setVotingBarHeight(h), []);
+  const handlePlanningHeightChange = useCallback((h: number) => setPlanningHeight(h), []);
 
   return (
     <div className="sp-app relative">
@@ -185,6 +192,11 @@ export default function RoomLayoutHarness() {
         onLeave={() => {}}
       />
 
+      <RoomPlanning room={{ readiness, activeTicket }} isCreator={params.get('host') !== '0'}
+        onChange={async change => setReadiness(current => applyReadinessChange(current, change))}
+        onSelect={async ticket => { setActiveTicket(ticket ?? undefined); setReadiness(resetReadiness); setRevealed(false); setVoted(0); setLocalVote(null); setTableCracks([]); setTableWasted({}); }}
+        onHeightChange={handlePlanningHeightChange} />
+
       {/* The harness's own controls, taken out of flow deliberately. In flow
           they cost ~30px of column height that the real app doesn't have, so
           every vertical-fit assertion measured a stage 30px shorter than the
@@ -192,7 +204,7 @@ export default function RoomLayoutHarness() {
           panel that are actually fine in production. Overlaid at the top-left
           instead, where they stay clickable without distorting the layout
           under test. */}
-      <div className="pointer-events-none absolute top-16 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
+      <div style={params.get('jiraDemo') === '1' ? { display: 'none' } : undefined} className="pointer-events-none absolute top-32 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
         <button
           data-testid="toggle-reveal"
           onClick={() => setRevealed(r => !r)}
@@ -323,6 +335,7 @@ export default function RoomLayoutHarness() {
         throws={throws}
         onThrowDone={id => setThrows(t => t.filter(x => x.id !== id))}
         bottomClearance={votingBarHeight}
+        topReserve={planningHeight}
         // Real GTA state rather than a hardcoded false. The harness already
         // owned isDriving for the header's benefit, but passed false here, so
         // GtaOverlay never mounted and the button appeared to do nothing --

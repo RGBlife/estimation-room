@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
 import {
   doc, onSnapshot, type Unsubscribe as FirestoreUnsubscribe,
 } from 'firebase/firestore';
@@ -11,7 +12,7 @@ import { saveLastRoomCode } from '../join/profile.ts';
 import { clearMyPresence, trackPresence, teardownPresence } from './roomStore.presence.ts';
 import {
   updateAvatarAction, createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setDeckAction,
-  renameRoomAction, revealAction, startNextRoundAction, throwWeaponAction, leaveAction, peekRoomAction,
+  changeReadinessAction, selectTicketAction, renameRoomAction, revealAction, startNextRoundAction, throwWeaponAction, leaveAction, peekRoomAction,
 } from './roomStore.actions.ts';
 import {
   startDriving, publishDriverState, stopDriving, subscribeDrivers, teardownGta,
@@ -41,6 +42,8 @@ interface RoomState {
   updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
+  changeReadiness: (change: ReadinessChange) => Promise<void>;
+  selectTicket: (ticket: PlanningTicket | null) => Promise<void>;
   renameRoom: (teamName: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
@@ -195,6 +198,19 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     const { uid, roomCode, room } = get();
     if (!uid || !roomCode) return;
     await castVoteAction(uid, roomCode, room, value);
+  },
+
+  changeReadiness: async change => {
+    const { uid, roomCode } = get();
+    if (!uid || !roomCode) throw new Error('You are no longer in the room');
+    await changeReadinessAction(uid, roomCode, change);
+  },
+
+  selectTicket: async ticket => {
+    const { uid, roomCode } = get();
+    if (!uid || !roomCode) throw new Error('You are no longer in the room');
+    await selectTicketAction(uid, roomCode, ticket);
+    if (get().roomCode === roomCode) resetTableDamage(roomCode);
   },
 
   renameRoom: async teamName => {

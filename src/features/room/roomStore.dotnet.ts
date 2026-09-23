@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
 import { normalizeTeamName } from '../../shared/lib/teamName.ts';
 import { RoomConnection } from '../../shared/lib/roomConnection.ts';
 import { saveLastRoomCode, saveProfile } from '../join/profile.ts';
@@ -26,6 +27,8 @@ interface RoomState {
   updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
+  changeReadiness: (change: ReadinessChange) => Promise<void>;
+  selectTicket: (ticket: PlanningTicket | null) => Promise<void>;
   renameRoom: (teamName: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
@@ -96,6 +99,8 @@ export const useRoomStore = create<RoomState>((set, get) => {
     },
     setRole: async isObserver => { await command('role', { isObserver }); connection.updateProfile({ isObserver }); },
     castVote: async value => { await command('vote', { value }); },
+    changeReadiness: async change => { await command('readiness', change); },
+    selectTicket: async ticket => { await command('ticket', { ticket }); },
     renameRoom: async teamName => { await command('rename', { teamName: normalizeTeamName(teamName) ?? null }); },
     setDeck: async deck => { await command('deck', { deck }); },
     reveal: async () => { await command('reveal'); },

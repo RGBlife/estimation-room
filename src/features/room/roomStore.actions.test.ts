@@ -4,9 +4,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // payloads themselves can be asserted without an emulator, the same approach
 // roomStore.test.ts already takes for the store.
 const updateDoc = vi.fn();
+const transactionGet = vi.fn();
+const transactionUpdate = vi.fn();
 
 vi.mock('../../shared/lib/firebase.ts', () => ({ db: {}, auth: {}, rtdb: {} }));
 vi.mock('firebase/firestore', () => ({
+  runTransaction: vi.fn(async (_db, callback) => callback({ get: transactionGet, update: transactionUpdate })),
   doc: vi.fn((_db, _col, id) => ({ id })),
   updateDoc: (...args: unknown[]) => updateDoc(...args),
   setDoc: vi.fn(),
@@ -16,7 +19,7 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(() => 'DELETE'),
 }));
 
-const { setDeckAction, renameRoomAction, createRoomAction } = await import('./roomStore.actions.ts');
+const { setDeckAction, renameRoomAction, createRoomAction, changeReadinessAction, selectTicketAction } = await import('./roomStore.actions.ts');
 
 const room = {
   code: 'ABCD',
@@ -72,4 +75,18 @@ it('creates with normalized names and omits blank or missing names', async () =>
     else expect(data).not.toHaveProperty('teamName');
   }
   await expect(createRoomAction('u1', { ...profile, teamName: 'x'.repeat(41) })).rejects.toThrow('40');
+});
+
+it('changes readiness against the transaction snapshot and atomically resets when selecting a ticket', async () => {
+  const snapshot = { code: 'ABCD', creatorId: 'u1', readiness: { a: { text: 'Ready', checked: true } }, participants: { u1: { name: 'Ada', vote: '5' }, u2: { name: 'Bo', vote: '8' } } };
+  transactionGet.mockResolvedValue({ exists: () => true, data: () => snapshot });
+  await changeReadinessAction('u2', 'ABCD', { operation: 'add', id: 'b', text: 'Testable' });
+  expect(transactionUpdate).toHaveBeenLastCalledWith({ id: 'ABCD' }, { readiness: { a: { text: 'Ready', checked: true }, b: { text: 'Testable', checked: false } } });
+  await expect(changeReadinessAction('outsider', 'ABCD', { operation: 'remove', id: 'a' })).rejects.toThrow('no longer');
+  await expect(selectTicketAction('u2', 'ABCD', null)).rejects.toThrow('creator');
+  await selectTicketAction('u1', 'ABCD', null);
+  expect(transactionUpdate).toHaveBeenLastCalledWith({ id: 'ABCD' }, {
+    activeTicket: 'DELETE', readiness: { a: { text: 'Ready', checked: false } }, isRevealed: false,
+    participants: { u1: { name: 'Ada', vote: null }, u2: { name: 'Bo', vote: null } },
+  });
 });

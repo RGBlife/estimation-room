@@ -98,6 +98,72 @@ service cloud.firestore {
       );
     }
 
+    function validPlanningText(value, max) {
+      return value is string && value.size() > 0 && value.size() <= max && value == value.trim();
+    }
+
+    function validCriterion(item) {
+      let label = item.text;
+      return item is map && item.keys().hasOnly(['text', 'checked'])
+        && label is string && label.size() > 0 && label.size() <= 160
+        && label == label.trim() && item.checked is bool;
+    }
+
+    // Validate the bounded map in one pass. Bind values once and check all
+    // IDs together to leave enough rule budget for a ticket + round reset.
+    function validReadiness(items) {
+      let values = items.values();
+      let count = values.size();
+      let ids = items.keys().join(',');
+      return items is map && count <= 12
+        && (count == 0 || (ids.matches('[a-zA-Z0-9_-]{1,48}(,[a-zA-Z0-9_-]{1,48}){0,11}')
+          && ids.split(',').size() == count))
+        && (count <= 0 || validCriterion(values[0]))
+        && (count <= 1 || validCriterion(values[1]))
+        && (count <= 2 || validCriterion(values[2]))
+        && (count <= 3 || validCriterion(values[3]))
+        && (count <= 4 || validCriterion(values[4]))
+        && (count <= 5 || validCriterion(values[5]))
+        && (count <= 6 || validCriterion(values[6]))
+        && (count <= 7 || validCriterion(values[7]))
+        && (count <= 8 || validCriterion(values[8]))
+        && (count <= 9 || validCriterion(values[9]))
+        && (count <= 10 || validCriterion(values[10]))
+        && (count <= 11 || validCriterion(values[11]))
+      ;
+    }
+
+    function validTicket(ticket) {
+      return ticket is map
+        && ticket.keys().hasOnly(['key', 'title', 'description', 'team', 'status', 'source'])
+        && validPlanningText(ticket.key, 40)
+        && validPlanningText(ticket.title, 200)
+        && validPlanningText(ticket.description, 4000)
+        && validPlanningText(ticket.team, 80)
+        && ticket.status in ['Backlog', 'Ready', 'In progress']
+        && ticket.source in ['demo', 'jira'];
+    }
+
+    function validPlanningUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      // Checked first so ordinary votes and joins, which this rule never
+      // allows, stop here instead of spending the shared expression budget.
+      return changed.hasAny(['readiness', 'activeTicket'])
+        && request.auth.uid in before.participants
+        && changed.hasOnly(['readiness', 'activeTicket', 'isRevealed', 'participants'])
+        && (changed.hasOnly(['readiness']) || (
+          request.auth.uid == before.creatorId
+          && after.isRevealed == false
+          && after.participants.keys().toSet() == before.participants.keys().toSet()
+          && (!('activeTicket' in after) || validTicket(after.activeTicket))
+        ))
+        // Validate once after the authorization branches, including when the
+        // same write both selects a ticket and resets a full checklist.
+        && validReadiness(after.readiness);
+    }
+
     function myIncomingParticipant() {
       return incomingData().participants[request.auth.uid];
     }
@@ -109,6 +175,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && validTeamName()
+        && !incomingData().keys().hasAny(['readiness', 'activeTicket'])
         && incomingData().code == roomCode
         && incomingData().isRevealed == false
         && incomingData().creatorId == request.auth.uid
@@ -117,7 +184,14 @@ service cloud.firestore {
         && incomingData().participants.keys()[0] == request.auth.uid
         && validParticipant(myIncomingParticipant());
 
-      allow update: if isSignedIn() && (
+      // Readiness is shared by participants; a ticket selection belongs to
+      // the creator and atomically starts a new round. Neither can rename a
+      // room, transfer ownership, or change its deck.
+      allow update: if isSignedIn() && validPlanningUpdate();
+
+      // Keep planning fields out of all existing join/vote/leave paths.
+      allow update: if isSignedIn()
+        && !incomingData().diff(existingData()).affectedKeys().hasAny(['readiness', 'activeTicket']) && (
         // Naming is independent of votes and cannot transfer ownership.
         (request.auth.uid == existingData().creatorId
           && incomingData().diff(existingData()).affectedKeys().hasOnly(['teamName'])

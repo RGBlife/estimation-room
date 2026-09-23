@@ -682,6 +682,10 @@ interface SeatTableProps {
   onThrowDone: (id: string) => void;
   highlightValues?: (CardValue | null)[];
   bottomClearance?: number;
+  // Height of fixed-flow chrome between the header and the stage (the
+  // planning strip). The short-viewport tiers were tuned for a header alone,
+  // so this comes off the vertical budget before a tier is picked.
+  topReserve?: number;
   isDriving: boolean;
   forceEndDrive: boolean;
   drivers: Record<string, DriverState>;
@@ -698,7 +702,7 @@ interface SeatTableProps {
 export default function SeatTable({
   participants, uid, creatorId, isRevealed, anyVote, allVoted, onReveal, onNudge, nudgeDisabled,
   canTarget, onThrowAt, registerSeatNode, getSeatNode, stageRef, throws, onThrowDone,
-  highlightValues = [], bottomClearance: measuredClearance,
+  highlightValues = [], bottomClearance: measuredClearance, topReserve = 0,
   isDriving, forceEndDrive, drivers, tableCracks, tablePieceMove, tableWasted,
   onPublishDrive, onExitDrive, onPublishCrack, onPublishPieceMove, onMarkWasted,
 }: SeatTableProps) {
@@ -710,7 +714,10 @@ export default function SeatTable({
   // short sides, and the vertical observer rail (which drops below the table
   // on narrow viewports so seats keep the full width).
   const wide = useMediaQuery(END_SEAT_BREAKPOINT);
-  const { width: viewportWidth, height: viewportHeight } = useViewportSize();
+  const { width: viewportWidth, height: rawViewportHeight } = useViewportSize();
+  // What's left for the stage once extra chrome above it is paid for. Kept at
+  // 0 while unmeasured (jsdom) so every "unmeasured" check below still holds.
+  const viewportHeight = rawViewportHeight > 0 ? Math.max(1, rawViewportHeight - topReserve) : 0;
   // How tight the screen is vertically. Phones are excluded: they use a list
   // layout with no table at all, and squeezing their seats further would fix
   // a problem they don't have.

@@ -232,3 +232,27 @@ artwork again, bump the preview filename and icon version references to avoid
 reusing old cached image URLs. Deploy the Pages build before testing links in
 Teams, Messages, Slack and Discord; local metadata checks cannot validate those
 services' live rendering or clear their preview caches.
+
+### Readiness and ticket planning
+
+Each room has a **Readiness** drawer opening from the right and a **Tickets**
+drawer opening from the left. Everyone in the
+room can edit or check readiness criteria. Presets save the criteria (without
+checks) on this browser and can be applied in any room. Reusing a preset name
+updates it. Selecting a ticket is a host action: it shows the ticket to everyone
+and clears votes, reveal state, and readiness checks together.
+
+Jira authentication and API access are not connected yet. In development, open
+**Tickets → Use demo tickets** to filter sample issues by team, status/backlog,
+and search, preview details, and start estimating. `?jiraDemo=1` enables that
+option initially. For a preview without a backend, visit
+`/?visual-test=room&jiraDemo=1`. The demo switch is omitted from production builds;
+selected demo issues are always labelled as demo data. No estimates are written
+back to Jira.
+
+Both the Firebase rules and .NET service implement shared planning state. Deploy
+the matching backend changes with the frontend. Run the focused browser checks
+with `npx playwright test tests/visual/planning-layout.spec.ts`; the two-client
+checks are in `tests/multiplayer/planning.spec.ts`. Use `ROOM_TEST_PORT=5174` for
+an origin allowed by the local .NET service, or `ROOM_TEST_BACKEND=firebase` with
+local Firebase emulators running.
