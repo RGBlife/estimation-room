@@ -19,7 +19,8 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(() => 'DELETE'),
 }));
 
-const { setDeckAction, renameRoomAction, createRoomAction, changeReadinessAction, selectTicketAction } = await import('./roomStore.actions.ts');
+const { setDeckAction, renameRoomAction, createRoomAction, changeReadinessAction, selectTicketAction, leaveAction } = await import('./roomStore.actions.ts');
+const firestore = await import('firebase/firestore');
 
 const room = {
   code: 'ABCD',
@@ -88,5 +89,24 @@ it('changes readiness against the transaction snapshot and atomically resets whe
   expect(transactionUpdate).toHaveBeenLastCalledWith({ id: 'ABCD' }, {
     activeTicket: 'DELETE', readiness: { a: { text: 'Ready', checked: false } }, isRevealed: false,
     participants: { u1: { name: 'Ada', vote: null }, u2: { name: 'Bo', vote: null } },
+  });
+});
+
+describe('leaveAction', () => {
+  beforeEach(() => vi.clearAllMocks());
+  const snapshot = (participants: object) => ({ exists: () => true, data: () => ({ code: 'ABCD', participants }) });
+
+  it('keeps the room when the last person leaves, so it can be rejoined', async () => {
+    vi.mocked(firestore.getDoc).mockResolvedValueOnce(snapshot({ u1: {} }) as never);
+    await leaveAction('u1', 'ABCD');
+    expect(updateDoc).toHaveBeenCalledExactlyOnceWith({ id: 'ABCD' }, { 'participants.u1': 'DELETE' });
+    expect(firestore.deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('removes only the leaver when others remain', async () => {
+    vi.mocked(firestore.getDoc).mockResolvedValueOnce(snapshot({ u1: {}, u2: {} }) as never);
+    await leaveAction('u1', 'ABCD');
+    expect(updateDoc).toHaveBeenCalledExactlyOnceWith({ id: 'ABCD' }, { 'participants.u1': 'DELETE' });
+    expect(firestore.deleteDoc).not.toHaveBeenCalled();
   });
 });

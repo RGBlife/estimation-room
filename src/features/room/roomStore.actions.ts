@@ -1,5 +1,5 @@
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, deleteField, runTransaction,
+  doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteField, runTransaction,
 } from 'firebase/firestore';
 import {
   ref as rtdbRef, onDisconnect, set as rtdbSet, remove as rtdbRemove, push,
@@ -156,24 +156,17 @@ export async function peekRoomAction(code: string, uid: string | null): Promise<
   };
 }
 
+// Leaving only takes you out of the room; the room itself stays, even once
+// it's empty. It used to be deleted when the last person left, which made it
+// show as closed in everyone's recent rooms -- a team whose host created the
+// room ahead of time and stepped out found their own link dead. The room
+// service keeps empty rooms joinable the same way.
 export async function leaveAction(uid: string, code: string): Promise<void> {
   try {
     const ref = doc(db, 'rooms', code);
     const snap = await getDoc(ref);
     if (!snap.exists()) return;
-    const remaining = Object.keys((snap.data() as RoomDoc).participants).filter(id => id !== uid);
-    if (remaining.length === 0) {
-      await deleteDoc(ref);
-    } else {
-      await updateDoc(ref, { [`participants.${uid}`]: deleteField() });
-      // If several people left at once, everyone saw someone else remaining
-      // and nobody took the delete branch — re-check so the last write out
-      // still cleans up the empty room.
-      const after = await getDoc(ref);
-      if (after.exists() && Object.keys((after.data() as RoomDoc).participants).length === 0) {
-        await deleteDoc(ref);
-      }
-    }
+    await updateDoc(ref, { [`participants.${uid}`]: deleteField() });
   } catch {
     // Best-effort: if this fails (e.g. offline), other clients' disconnect
     // cleanup removes us once our presence entry drops.

@@ -297,9 +297,9 @@ service cloud.firestore {
         ))
       );
 
-      // Participants can close their room; anyone signed in can garbage-collect
-      // a room whose participants map has emptied out (e.g. simultaneous
-      // leaves, where each leaver saw someone else remaining).
+      // Leaving keeps the room (an empty room stays joinable), so the app
+      // itself never deletes one. Kept for cleaning up: a participant can
+      // close their room, and anyone signed in can remove an empty one.
       allow delete: if isSignedIn() && (
         request.auth.uid in existingData().participants
         || existingData().participants.size() == 0
