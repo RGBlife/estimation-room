@@ -5,7 +5,7 @@ const DECKS = [
   { id: 'fibonacci', name: 'Fibonacci' },
   { id: 'tshirt', name: 'T-shirt' },
   { id: 'powersOf2', name: 'Powers of 2' },
-  { id: 'rom', name: 'ROM' },
+  { id: 'rom', name: 'Sprints Needed (ROM)' },
   { id: 'custom', name: 'Custom' },
 ] as const;
 

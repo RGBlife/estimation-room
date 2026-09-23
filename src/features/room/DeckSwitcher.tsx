@@ -38,8 +38,8 @@ export default function DeckSwitcher({ currentDeckId, onSwitch }: DeckSwitcherPr
         aria-expanded={open}
         aria-haspopup="menu"
         // Sizes to content rather than a fixed min-width: a fixed width sized
-        // for the longest deck name ("Powers of 2") left visibly uneven
-        // padding after the chevron for short names like "ROM"/"Custom",
+        // for the longest deck name ("Sprints Needed (ROM)") left visibly uneven
+        // padding after the chevron for short names like "T-shirt"/"Custom",
         // since equal padding on both sides of a variable-width label still
         // reads as more trailing whitespace once you account for the
         // chevron glyph's own visual weight sitting toward the top of its

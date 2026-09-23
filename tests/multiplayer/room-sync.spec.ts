@@ -181,7 +181,7 @@ test('all decks, role changes, reconnect and reuse of an empty room', async ({ b
       const path = '/src/features/room/roomStore.ts', avatarPath = '/src/features/avatar/avatar.ts';
       await (await import(path)).useRoomStore.getState().joinRoom(code, { name: 'Guest', avatar: (await import(avatarPath)).randomAvatar(), isObserver: false, deck: 'fibonacci' });
     }, code);
-    for (const [deck, value] of [['fibonacci', '13'], ['tshirt', 'XL'], ['powersOf2', '32'], ['rom', '13+ sprints'], ['custom', 'Needs a spike']]) {
+    for (const [deck, value] of [['fibonacci', '13'], ['tshirt', 'XL'], ['powersOf2', '32'], ['rom', '10+'], ['custom', 'Needs a spike']]) {
       await host.evaluate(async ({ deck, value }) => {
         const path = '/src/features/room/roomStore.ts';
         const store = (await import(path)).useRoomStore.getState();

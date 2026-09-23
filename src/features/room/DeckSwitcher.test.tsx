@@ -14,7 +14,7 @@ describe('DeckSwitcher', () => {
     render(<DeckSwitcher currentDeckId="fibonacci" onSwitch={vi.fn()} />);
     await user.click(screen.getByText('Fibonacci'));
     expect(screen.getByText('T-shirt')).toBeInTheDocument();
-    expect(screen.getByText('ROM')).toBeInTheDocument();
+    expect(screen.getByText('Sprints Needed (ROM)')).toBeInTheDocument();
     // Custom is deliberately excluded from the dropdown -- see DECK_ORDER in decks.ts.
     expect(screen.queryByText('Custom')).not.toBeInTheDocument();
     // "Fibonacci" appears only once (on the pill), not again in the dropdown.
@@ -28,7 +28,7 @@ describe('DeckSwitcher', () => {
     await user.click(screen.getByText('Fibonacci'));
     await user.click(screen.getByText('T-shirt'));
     expect(onSwitch).toHaveBeenCalledWith('tshirt');
-    expect(screen.queryByText('ROM')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sprints Needed (ROM)')).not.toBeInTheDocument();
   });
 
   it('closes the dropdown on outside click', async () => {
