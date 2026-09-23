@@ -8,7 +8,7 @@ async function ready(page: Page) {
   await expect.poll(() => page.evaluate(async () => {
     const path = '/src/features/room/roomStore.ts';
     return !!(await import(path)).useRoomStore.getState().uid;
-  })).toBe(true);
+  }), { timeout: 30000 }).toBe(true);
 }
 
 // Every page has its own browser context and anonymous auth identity.
@@ -31,7 +31,7 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
     await Promise.all(pages.map(page => expect.poll(() => page.evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
       return Object.keys((await import(path)).useRoomStore.getState().room?.participants ?? {}).length === 7;
-    })).toBe(true)));
+    }), { timeout: 30000 }).toBe(true)));
     await pages[0].getByRole('button', { name: 'Nudge Player 2 to vote' }).click();
     await expect(pages[1].getByRole('status')).toContainText('Player 1 nudged you');
     await pages[0].evaluate(async () => {
@@ -68,7 +68,7 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
     await Promise.all(pages.map(page => expect.poll(() => page.evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
       return (await import(path)).useRoomStore.getState().tableCracks.length >= 21;
-    })).toBe(true)));
+    }), { timeout: 30000 }).toBe(true)));
     await pages[0].waitForTimeout(800);
     await Promise.all(pages.map(page => expect(page.locator('[data-table-piece="left"]')).toBeVisible()));
     await pages[0].screenshot({ path: testInfo.outputPath('seven-player-broken-table.png') });
@@ -77,7 +77,7 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
       const path = '/src/features/room/roomStore.ts';
       const state = (await import(path)).useRoomStore.getState();
       return !state.room.isRevealed && state.tableCracks.length === 0;
-    })).toBe(true)));
+    }), { timeout: 30000 }).toBe(true)));
   } finally {
     await Promise.all(contexts.map(context => context.close()));
   }

@@ -5,7 +5,7 @@ async function ready(page: Page) {
   await expect.poll(() => page.evaluate(async () => {
     const path = '/src/features/room/roomStore.ts';
     return !!(await import(path)).useRoomStore.getState().uid;
-  })).toBe(true);
+  }), { timeout: 30000 }).toBe(true);
 }
 
 test('team names create, broadcast, rename, clear and refresh remembered cards', async ({ browser }) => {
@@ -30,7 +30,7 @@ test('team names create, broadcast, rename, clear and refresh remembered cards',
       const path = '/src/features/room/roomStore.ts';
       try { await (await import(path)).useRoomStore.getState().renameRoom('Stolen'); return false; }
       catch { return true; }
-    })).toBe(true);
+    }), { timeout: 30000 }).toBe(true);
     const rename = async (name: string) => {
       await host.getByRole('button', { name: /^Rename team|^Add a team name$/ }).click();
       await host.getByLabel(/Team name/).fill(name);

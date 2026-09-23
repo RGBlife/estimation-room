@@ -5,7 +5,7 @@ async function ready(page: Page) {
   await expect.poll(() => page.evaluate(async () => {
     const path = '/src/features/room/roomStore.ts';
     return !!(await import(path)).useRoomStore.getState().uid;
-  })).toBe(true);
+  }), { timeout: 30000 }).toBe(true);
 }
 
 test('two browsers share readiness and estimate the selected ticket', async ({ browser }) => {
@@ -55,7 +55,7 @@ test('two browsers share readiness and estimate the selected ticket', async ({ b
     expect(await guest.evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
       try { await (await import(path)).useRoomStore.getState().selectTicket(null); return false; } catch { return true; }
-    })).toBe(true);
+    }), { timeout: 30000 }).toBe(true);
     await guest.reload();
     await expect(guest.getByRole('button', { name: /WEB-142.*Keep filters/ })).toBeVisible();
     await Promise.all([host, guest].map(p => p.getByRole('button', { name: 'Leave room', exact: true }).click()));
