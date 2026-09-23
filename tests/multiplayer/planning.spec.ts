@@ -2,10 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function ready(page: Page) {
   await page.goto('/?jiraDemo=1');
-  await page.waitForFunction(async () => {
+  await expect.poll(() => page.evaluate(async () => {
     const path = '/src/features/room/roomStore.ts';
     return !!(await import(path)).useRoomStore.getState().uid;
-  });
+  })).toBe(true);
 }
 
 test('two browsers share readiness and estimate the selected ticket', async ({ browser }) => {

@@ -5,10 +5,10 @@ const testingFirebase = process.env.ROOM_TEST_BACKEND === 'firebase';
 
 async function ready(page: Page) {
   await page.goto('/');
-  await page.waitForFunction(async () => {
+  await expect.poll(() => page.evaluate(async () => {
     const path = '/src/features/room/roomStore.ts';
     return !!(await import(path)).useRoomStore.getState().uid;
-  });
+  })).toBe(true);
 }
 
 // Every page has its own browser context and anonymous auth identity.
@@ -28,10 +28,10 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
       const avatarPath = '/src/features/avatar/avatar.ts';
       return (await import(path)).useRoomStore.getState().joinRoom(code, { name: `Player ${i + 2}`, avatar: (await import(avatarPath)).randomAvatar(), isObserver: false, deck: 'fibonacci' });
     }, { code, i })));
-    await Promise.all(pages.map(page => page.waitForFunction(async () => {
+    await Promise.all(pages.map(page => expect.poll(() => page.evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
       return Object.keys((await import(path)).useRoomStore.getState().room?.participants ?? {}).length === 7;
-    })));
+    })).toBe(true)));
     await pages[0].getByRole('button', { name: 'Nudge Player 2 to vote' }).click();
     await expect(pages[1].getByRole('status')).toContainText('Player 1 nudged you');
     await pages[0].evaluate(async () => {
@@ -65,19 +65,19 @@ test('seven players reveal, nudge, drive and retain simultaneous table damage', 
       const store = (await import(path)).useRoomStore.getState();
       for (let i = 0; i < 3; i++) store.publishCrack({ fx: .1 + i * .3, fy: .5, rot: 45, side: 'table' });
     })));
-    await Promise.all(pages.map(page => page.waitForFunction(async () => {
+    await Promise.all(pages.map(page => expect.poll(() => page.evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
       return (await import(path)).useRoomStore.getState().tableCracks.length >= 21;
-    })));
+    })).toBe(true)));
     await pages[0].waitForTimeout(800);
     await Promise.all(pages.map(page => expect(page.locator('[data-table-piece="left"]')).toBeVisible()));
     await pages[0].screenshot({ path: testInfo.outputPath('seven-player-broken-table.png') });
     await pages[0].getByRole('button', { name: 'Start next round', exact: true }).click();
-    await Promise.all(pages.map(page => page.waitForFunction(async () => {
+    await Promise.all(pages.map(page => expect.poll(() => page.evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
       const state = (await import(path)).useRoomStore.getState();
       return !state.room.isRevealed && state.tableCracks.length === 0;
-    })));
+    })).toBe(true)));
   } finally {
     await Promise.all(contexts.map(context => context.close()));
   }

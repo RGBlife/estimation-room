@@ -2,10 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function ready(page: Page) {
   await page.goto('/');
-  await page.waitForFunction(async () => {
+  await expect.poll(() => page.evaluate(async () => {
     const path = '/src/features/room/roomStore.ts';
     return !!(await import(path)).useRoomStore.getState().uid;
-  });
+  })).toBe(true);
 }
 
 test('team names create, broadcast, rename, clear and refresh remembered cards', async ({ browser }) => {
