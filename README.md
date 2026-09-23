@@ -12,6 +12,14 @@ Real-time multiplayer planning poker. React + Vite frontend, Firebase (Firestore
 
 `npm test` runs the unit tests (vitest).
 
+### Against the local room service
+
+`npm run dev` talks to the .NET room service by default, proxying `/api` to
+port 5050; start the service from its own repository first (its README has
+the Docker one-liner). If port 5173 is busy, use `npm run dev -- --port 5174`.
+Vite is configured to fail on a taken port rather than move to the next one,
+because the service only accepts connections from ports it was told about.
+
 Realtime Database is used only for presence (detecting when a tab closes/crashes so a participant is removed from the room automatically) — all room/vote data still lives in Firestore. Presence is re-registered on every reconnect (via `.info/connected`), and other clients only remove a participant after they've been absent from presence for a continuous grace period, so brief network blips don't get anyone kicked.
 
 Avatars are generated locally with `@dicebear/core` — participants store just the avatar options, so nothing depends on the dicebear API at runtime.

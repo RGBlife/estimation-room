@@ -22,6 +22,12 @@ export default defineConfig(({ mode, command }) => {
     // on one machine cannot show you.
     server: {
       host: process.env.EXPOSE === '1' || undefined,
+      // The room service only admits WebSockets from exact, pre-listed
+      // origins. If the requested port is taken, Vite's default is to move
+      // to the next one, which then fails with a silent "Connection lost.
+      // Reconnecting…" loop. Failing to start is the clearer outcome; pick
+      // another allowed port with `npm run dev -- --port 5174`.
+      strictPort: true,
       proxy: { '/api': { target: process.env.API_PROXY_TARGET || 'http://127.0.0.1:5050', ws: true } },
     },
     test: {
@@ -30,7 +36,7 @@ export default defineConfig(({ mode, command }) => {
       globals: false,
       // tests/visual is a separate Playwright suite (npm run test:visual), not
       // a Vitest suite -- its own `test`/`expect` globals clash with Vitest's.
-      exclude: ['node_modules/**', 'tests/**'],
+      exclude: ['node_modules/**', 'tests/**', 'test-results/**', 'playwright-report/**'],
     },
   };
 });
