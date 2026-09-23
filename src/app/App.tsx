@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { JoinScreen, loadProfile, loadLastRoomCode, rememberRoom } from '../features/join/index.ts';
 import type { JoinPayload } from '../features/join/JoinScreen.tsx';
 import { RoomScreen } from '../features/room/index.js';
@@ -26,10 +26,6 @@ export default function App() {
   const error = useRoomStore(s => s.error);
   const notice = useRoomStore(s => s.notice);
   const throws = useRoomStore(s => s.throws);
-  const drivers = useRoomStore(s => s.drivers);
-  const tableCracks = useRoomStore(s => s.tableCracks);
-  const tablePieceMove = useRoomStore(s => s.tablePieceMove);
-  const tableWasted = useRoomStore(s => s.tableWasted);
   const createRoom = useRoomStore(s => s.createRoom);
   const joinRoom = useRoomStore(s => s.joinRoom);
   const peekRoom = useRoomStore(s => s.peekRoom);
@@ -54,6 +50,16 @@ export default function App() {
   const resetTable = useRoomStore(s => s.resetTable);
 
   useEffect(() => useRoomStore.getState().initAuth(), []);
+
+  // Store actions never change identity, so one object serves every render
+  // and RoomScreen's callbacks built on it stay stable too.
+  const actions = useMemo(() => ({
+    updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
+    startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
+  }), [
+    updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
+    startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
+  ]);
 
   const [joinError, setJoinError] = useState<string | null>(null);
   // Captured once at page load. Reading the URL on later renders would pick up
@@ -189,14 +195,7 @@ export default function App() {
           roomCode={roomCode!}
           uid={uid}
           throws={throws}
-          drivers={drivers}
-          tableCracks={tableCracks}
-          tablePieceMove={tablePieceMove}
-          tableWasted={tableWasted}
-          actions={{
-            updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
-            startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
-          }}
+          actions={actions}
           theme={theme}
           onToggleTheme={toggleTheme}
         />

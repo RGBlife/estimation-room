@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
 import type { Participant } from '../../types/room.ts';
 
@@ -14,7 +15,7 @@ interface ObserverRailProps {
 // on top, and a "gaze" triangle pointing toward the table. Vertical rail on the
 // right of the table by default; `horizontal` renders it as a wrapping strip
 // instead, for narrow viewports where a side rail would starve the seats.
-export default function ObserverRail({
+function ObserverRail({
   observers,
   uid,
   canTarget = false,
@@ -67,3 +68,6 @@ export default function ObserverRail({
     </div>
   );
 }
+
+// Re-rendered by the table on every car update otherwise.
+export default memo(ObserverRail);

@@ -191,26 +191,30 @@ export function resetTableDamage(code: string): void {
   rtdbRemove(rtdbRef(rtdb, `gtaTable/${code}`)).catch(() => {});
 }
 
-// Subscribes to piece-shove and wasted-uid state together -- both live under
-// the same gtaTable/$roomCode node as cracks, so one listener on the whole
-// subtree covers all of it rather than juggling three separate onValue calls.
+// Subscribes to piece-shove and wasted-uid state. Two narrow listeners
+// rather than one on the whole gtaTable/$roomCode node: that node also holds
+// the cracks, so every crack used to fire this listener too and hand the
+// store fresh (but identical) pieceMove/wasted objects -- two table renders
+// per crack instead of one. Unchanged values keep their previous reference.
+let pieceMoveUnsubscribe: Unsubscribe | null = null;
+
 export function subscribeTableDamage(
   code: string,
   set: (fn: (state: { tablePieceMove: { left: TablePieceMove; right: TablePieceMove }; tableWasted: WastedMap }) => Partial<{ tablePieceMove: { left: TablePieceMove; right: TablePieceMove }; tableWasted: WastedMap }>) => void,
 ): void {
   if (wastedUnsubscribe) { wastedUnsubscribe(); wastedUnsubscribe = null; }
+  if (pieceMoveUnsubscribe) { pieceMoveUnsubscribe(); pieceMoveUnsubscribe = null; }
   const zero: TablePieceMove = { x: 0, y: 0, rot: 0 };
   set(() => ({ tablePieceMove: { left: zero, right: zero }, tableWasted: {} }));
-  const tableRef = rtdbRef(rtdb, `gtaTable/${code}`);
-  wastedUnsubscribe = onValue(tableRef, snap => {
-    const val = snap.val() as { pieceMove?: { left?: TablePieceMove; right?: TablePieceMove }; wasted?: WastedMap } | null;
-    set(() => ({
-      tablePieceMove: {
-        left: val?.pieceMove?.left ?? zero,
-        right: val?.pieceMove?.right ?? zero,
-      },
-      tableWasted: val?.wasted ?? {},
-    }));
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  pieceMoveUnsubscribe = onValue(rtdbRef(rtdb, `gtaTable/${code}/pieceMove`), snap => {
+    const val = snap.val() as { left?: TablePieceMove; right?: TablePieceMove } | null;
+    const next = { left: val?.left ?? zero, right: val?.right ?? zero };
+    set(state => (same(state.tablePieceMove, next) ? state : { tablePieceMove: next }));
+  });
+  wastedUnsubscribe = onValue(rtdbRef(rtdb, `gtaTable/${code}/wasted`), snap => {
+    const next = (snap.val() as WastedMap | null) ?? {};
+    set(state => (same(state.tableWasted, next) ? state : { tableWasted: next }));
   });
 }
 
@@ -218,6 +222,7 @@ export function teardownGta(): void {
   if (driversUnsubscribe) { driversUnsubscribe(); driversUnsubscribe = null; }
   if (cracksUnsubscribe) { cracksUnsubscribe(); cracksUnsubscribe = null; }
   if (wastedUnsubscribe) { wastedUnsubscribe(); wastedUnsubscribe = null; }
+  if (pieceMoveUnsubscribe) { pieceMoveUnsubscribe(); pieceMoveUnsubscribe = null; }
   stopDriving();
   lastPublishAt = 0;
   lastPublishedPhase = null;

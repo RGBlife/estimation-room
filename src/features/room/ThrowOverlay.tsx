@@ -1,5 +1,5 @@
 import { useThrowAudio, squeakChicken } from './chickenSound.ts';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { WEAPONS, FRAG_ANGLES } from './weapons.ts';
 import WeaponShape from './WeaponShape.tsx';
 import TreeShape from './TreeShape.tsx';
@@ -246,7 +246,7 @@ interface ThrowOverlayProps {
   onThrowDone: (id: string) => void;
 }
 
-export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDone }: ThrowOverlayProps) {
+function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDone }: ThrowOverlayProps) {
   useThrowAudio();
   const geometryCacheRef = useRef(new Map<string, Geometry>());
 
@@ -285,3 +285,6 @@ export default function ThrowOverlay({ throws, getSeatNode, stageNode, onThrowDo
     </div>
   );
 }
+
+// Re-rendered by the table on every car update otherwise.
+export default memo(ThrowOverlay);

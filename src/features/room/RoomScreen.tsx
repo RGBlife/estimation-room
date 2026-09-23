@@ -2,8 +2,10 @@ import RoomPlanning from '../planning/RoomPlanning.tsx';
 import RoomAvatarEditor from './RoomAvatarEditor.tsx';
 import { participantAvatarSrc } from '../avatar/index.js';
 import { useNudge } from './useNudge.ts';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import SeatTable from './SeatTable.tsx';
+import { useRoomStore } from './roomStore.ts';
+import { useStableCallback } from '../../shared/hooks/useStableCallback.ts';
 import VotingBar from './VotingBar.tsx';
 import WeaponTray from './WeaponTray.tsx';
 import RoomHeader from './RoomHeader.tsx';
@@ -17,7 +19,7 @@ import { computeStats, computeDistribution, computeCustomGroups } from './stats.
 import { DECKS, DEFAULT_DECK } from './decks.ts';
 import type { AvatarOptions, RoomDoc, Participant, CardValue, DeckId } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
-import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+import type { DriverState, TableCrackEvent, TablePieceMove } from '../../types/gta.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 import { useClipboard } from '../../shared/hooks/useClipboard.ts';
 
@@ -55,17 +57,13 @@ interface RoomScreenProps {
   roomCode: string;
   uid: string | null;
   throws: ThrowEvent[];
-  drivers: Record<string, DriverState>;
-  tableCracks: TableCrackEvent[];
-  tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
-  tableWasted: WastedMap;
   actions: RoomActions;
   theme: Theme;
   onToggleTheme: () => void;
 }
 
 export default function RoomScreen({
-  room, roomCode, uid, throws, drivers, tableCracks, tablePieceMove, tableWasted, actions, theme, onToggleTheme,
+  room, roomCode, uid, throws, actions, theme, onToggleTheme,
 }: RoomScreenProps) {
   const { copied, copy } = useClipboard();
   const [roundPending, setRoundPending] = useState(false);
@@ -99,7 +97,7 @@ export default function RoomScreen({
     const timer = setTimeout(() => setNudgeDisabled(false), 10000);
     return () => clearTimeout(timer);
   }, [nudgeDisabled]);
-  const handleNudge = (targetUid: string) => {
+  const handleNudge = useStableCallback((targetUid: string) => {
     if (nudgeDisabled) return;
     setNudgeDisabled(true);
     setActionError(null);
@@ -107,7 +105,7 @@ export default function RoomScreen({
       setNudgeDisabled(false);
       setActionError("Couldn't send the nudge — try again.");
     });
-  };
+  });
 
   // uid -> DOM node, covers both active seats and the observer rail — a
   // single lookup used by ThrowOverlay to compute fly-to animation geometry.
@@ -170,7 +168,7 @@ export default function RoomScreen({
   // Seats only dim while actively hovering a bar in the distribution panel —
   // no highlight is shown by default, so the table stays at full brightness
   // until the user is inspecting a specific vote group.
-  const highlightValues = hoveredVoteValue != null ? [hoveredVoteValue] : [];
+  const highlightValues = useMemo(() => hoveredVoteValue != null ? [hoveredVoteValue] : [], [hoveredVoteValue]);
 
   useKeyboardShortcuts({
     isRevealed, allVoted, anyVote, isObserver,
@@ -185,11 +183,12 @@ export default function RoomScreen({
     "Couldn't switch deck — try again.");
   }, [actions, showDeckToast, runRoundAction]);
 
-  const handleThrowAt = (targetUid: string, event?: React.MouseEvent) => {
+  const handleThrowAt = useStableCallback((targetUid: string, event?: React.MouseEvent) => {
     throwAt(targetUid, event, (target, weaponId, offsetX, offsetY) => {
       runAction(() => actions.throwWeapon(target, weaponId, offsetX, offsetY), "Couldn't throw — check your connection.");
     });
-  };
+  });
+  const tableThrows = useMemo(() => throws.filter(event => event.weaponId !== 'nudge'), [throws]);
 
   // A new round hides votes again, and GTA Mode was gated on isRevealed --
   // starting the next round should end any drive in progress, but gracefully:
@@ -266,7 +265,7 @@ export default function RoomScreen({
 
       <WeaponTray isObserver={isObserver} open={weaponTrayOpen} selectedWeaponId={equippedWeaponId} onSelect={selectWeapon} onClose={closeTray} />
 
-      <SeatTable
+      <LiveSeatTable
         participants={participants}
         uid={uid}
         creatorId={room.creatorId}
@@ -281,17 +280,13 @@ export default function RoomScreen({
         registerSeatNode={registerSeatNode}
         getSeatNode={getSeatNode}
         stageRef={stageNodeRef}
-        throws={throws.filter(event => event.weaponId !== 'nudge')}
+        throws={tableThrows}
         onThrowDone={actions.dismissThrow}
         highlightValues={highlightValues}
         bottomClearance={votingBarHeight}
         topReserve={planningHeight}
         isDriving={isDriving}
         forceEndDrive={forceEndDrive}
-        drivers={drivers}
-        tableCracks={tableCracks}
-        tablePieceMove={tablePieceMove}
-        tableWasted={tableWasted}
         onPublishDrive={actions.publishDrive}
         onExitDrive={handleExitDrive}
         onPublishCrack={actions.publishCrack}
@@ -340,3 +335,18 @@ export default function RoomScreen({
     </>
   );
 }
+
+type LiveSeatTableProps = Omit<ComponentProps<typeof SeatTable>, 'drivers' | 'tableCracks' | 'tablePieceMove' | 'tableWasted'>;
+
+// The only part of the room that follows GTA Mode's live state. Car positions
+// arrive up to ~20 times a second; subscribing here instead of in App means
+// those updates re-render the table alone, not the header, planning strip and
+// voting bar with it. Memoized so RoomScreen's own renders (a vote, a hover)
+// skip it when nothing it shows has changed.
+const LiveSeatTable = memo(function LiveSeatTable(props: LiveSeatTableProps) {
+  const drivers = useRoomStore(s => s.drivers);
+  const tableCracks = useRoomStore(s => s.tableCracks);
+  const tablePieceMove = useRoomStore(s => s.tablePieceMove);
+  const tableWasted = useRoomStore(s => s.tableWasted);
+  return <SeatTable {...props} drivers={drivers} tableCracks={tableCracks} tablePieceMove={tablePieceMove} tableWasted={tableWasted} />;
+});

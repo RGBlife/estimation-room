@@ -1,5 +1,5 @@
 import NudgeButton from './NudgeButton.tsx';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import ObserverRail from './ObserverRail.tsx';
@@ -261,7 +261,7 @@ function cardScatterStyle(squashAt: number | null): React.CSSProperties | undefi
   } as StyleVars;
 }
 
-function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes, onNudge, nudgeDisabled }: SeatProps) {
+const Seat = memo(function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes, onNudge, nudgeDisabled }: SeatProps) {
   const canClick = canTarget && !seat.isMe;
   // Dimmed, not the highlighted ones themselves, is what carries the contrast:
   // fading every other seat makes the highlighted group unmissable regardless
@@ -407,6 +407,18 @@ function Seat({ seat, reverse, canTarget, onThrowAt, registerSeatNode, sizes, on
       </div>
     </div>
   );
+}, (prev, next) => {
+  // The table re-renders whenever a car moves; a seat only needs to when its
+  // own data (vote, hit animation, vacated...) or the shared handlers change.
+  const { seat: a, ...restA } = prev;
+  const { seat: b, ...restB } = next;
+  return shallowEqual(a, b) && shallowEqual(restA, restB);
+});
+
+function shallowEqual(a: object, b: object): boolean {
+  const ka = Object.keys(a) as (keyof typeof a)[];
+  if (ka.length !== Object.keys(b).length) return false;
+  return ka.every(k => Object.is(a[k], b[k]));
 }
 
 // Phone layout: participants as a two-column list instead of ringed around a
@@ -706,8 +718,11 @@ export default function SeatTable({
   isDriving, forceEndDrive, drivers, tableCracks, tablePieceMove, tableWasted,
   onPublishDrive, onExitDrive, onPublishCrack, onPublishPieceMove, onMarkWasted,
 }: SeatTableProps) {
-  const active: ParticipantEntry[] = Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder);
-  const observers: ParticipantEntry[] = Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder);
+  // Memoized so a car update (which re-renders the table) keeps handing the
+  // observer rail the same array, and it can skip re-rendering.
+  const active: ParticipantEntry[] = useMemo(() => Object.entries(participants).filter(([, p]) => !p.isObserver).sort(byJoinOrder), [participants]);
+  const observers: ParticipantEntry[] = useMemo(() => Object.entries(participants).filter(([, p]) => p.isObserver).sort(byJoinOrder), [participants]);
+  const wastedIds = useMemo(() => new Set(Object.keys(tableWasted)), [tableWasted]);
   const n = active.length;
   const votedCount = active.filter(([, p]) => p.vote != null).length;
   // One breakpoint governs both wide-only behaviors: end seats on the table's
@@ -897,7 +912,10 @@ export default function SeatTable({
 
   const handleSeatBump = (seatId: string) => {
     const stamp = performance.now();
-    setWobbling(w => ({ ...w, [seatId]: stamp }));
+    // stepCar reports a bump on every frame the car is still touching a
+    // seat. Re-stamping a wobble that's already playing changes nothing on
+    // screen, but it did re-render the whole table every frame.
+    setWobbling(w => (w[seatId] != null && stamp - w[seatId] < WOBBLE_MS ? w : { ...w, [seatId]: stamp }));
     // Only clears the entry this call itself set -- a later bump on the same
     // seat re-stamps it, and that bump's own timer is what clears it.
     setTimeout(() => setWobbling(w => {
@@ -1265,7 +1283,7 @@ export default function SeatTable({
           getAvatarForUid={otherUid => participantAvatarSrc(participants[otherUid] ?? {})}
           colorIndexForUid={otherUid => joinOrderIds.indexOf(otherUid)}
           obstacleIds={obstacleIds}
-          wastedIds={new Set(Object.keys(tableWasted))}
+          wastedIds={wastedIds}
           getSeatNode={getSeatNode}
           stageNode={stageRef.current}
           // The stage box runs the full height of the column, which extends
