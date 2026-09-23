@@ -1,6 +1,14 @@
 name: Deploy Firebase Rules
 
+# Firebase is the live backend, so rule changes deploy with the push that
+# makes them -- a frontend relying on a new rule must never ship ahead of it.
+# Still runnable by hand for a redeploy.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - 'database.rules.json'
   workflow_dispatch:
 
 permissions:
