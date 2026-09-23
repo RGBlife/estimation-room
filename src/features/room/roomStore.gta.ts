@@ -4,6 +4,7 @@ import {
 } from 'firebase/database';
 import { rtdb } from '../../shared/lib/firebase.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+import { recordDriverSample, forgetDriver, forgetAllDrivers } from './remoteDriverSamples.ts';
 
 // Live driver-position sync for GTA Mode, under the RTDB `gta` path. Unlike
 // throws (one-shot, push-keyed events) this is a single mutable node per
@@ -89,6 +90,9 @@ export function subscribeDrivers(code: string, set: (fn: (state: { drivers: Reco
     if (closed || !snap.key) return;
     const previous = drivers[snap.key];
     const driver = { ...snap.val(), uid: snap.key } as DriverState;
+    // Every sample goes to the interpolation buffer the moment it lands, even
+    // though the store update below is batched.
+    recordDriverSample(snap.key, driver);
     drivers = { ...drivers, [snap.key]: driver };
     // Phase transitions and impacts remain immediate. Ordinary position
     // bursts from seven drivers cause one room render, not seven.
@@ -103,11 +107,13 @@ export function subscribeDrivers(code: string, set: (fn: (state: { drivers: Reco
       const next = { ...drivers };
       delete next[snap.key];
       drivers = next;
+      forgetDriver(snap.key);
       flush();
     }),
   ];
   driversUnsubscribe = () => {
     closed = true;
+    forgetAllDrivers();
     if (timer) clearTimeout(timer);
     unsubscribers.forEach(unsubscribe => unsubscribe());
   };

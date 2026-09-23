@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomAvatar } from '../avatar/avatar.ts';
-const mock = vi.hoisted(() => ({ command: vi.fn(), remember: vi.fn(), forget: vi.fn(), update: vi.fn() }));
+const mock = vi.hoisted(() => ({ command: vi.fn(), remember: vi.fn(), forget: vi.fn(), update: vi.fn(), onMessage: null as null | ((message: unknown) => void) }));
 vi.mock('../../shared/lib/roomConnection.ts', () => ({ RoomConnection: class {
+  constructor(onMessage: (message: unknown) => void) { mock.onMessage = onMessage; }
   connected = true;
   command = mock.command;
   rememberRoom = mock.remember;
@@ -76,4 +77,31 @@ it('sends shared checklist changes and ticket selection without optimistic round
   expect(mock.command).toHaveBeenLastCalledWith('ticket', { ticket: null });
   mock.command.mockRejectedValueOnce(new Error('Only the room creator can select a ticket'));
   await expect(useRoomStore.getState().selectTicket(null)).rejects.toThrow('creator');
+});
+
+describe('driver updates', () => {
+  const pose = (x: number, phase = 'driving') => ({ uid: 'd1', x, y: .5, r: 0, t: 1, phase });
+  beforeEach(() => { vi.useFakeTimers(); useRoomStore.setState({ drivers: {} }); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('folds a burst of position updates into one store update', () => {
+    const updates = vi.fn();
+    const unsubscribe = useRoomStore.subscribe(updates);
+    mock.onMessage!({ type: 'driver', uid: 'd1', driver: pose(.1) });
+    updates.mockClear();
+    for (const x of [.2, .3, .4]) mock.onMessage!({ type: 'driver', uid: 'd1', driver: pose(x) });
+    expect(updates).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(50);
+    expect(updates).toHaveBeenCalledTimes(1);
+    expect(useRoomStore.getState().drivers.d1.x).toBe(.4);
+    unsubscribe();
+  });
+
+  it('applies phase changes and removals immediately', () => {
+    mock.onMessage!({ type: 'driver', uid: 'd1', driver: pose(.1) });
+    mock.onMessage!({ type: 'driver', uid: 'd1', driver: pose(.1, 'exploding') });
+    expect(useRoomStore.getState().drivers.d1.phase).toBe('exploding');
+    mock.onMessage!({ type: 'driver', uid: 'd1', driver: null });
+    expect(useRoomStore.getState().drivers).toEqual({});
+  });
 });

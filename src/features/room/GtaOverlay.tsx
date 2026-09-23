@@ -8,6 +8,7 @@ import {
 } from './gtaLifecycle.ts';
 import type { CarState } from './gtaPhysics.ts';
 import type { DriveInput, SeatBox, DriverState } from '../../types/gta.ts';
+import { driverPoseAt, lastDriverArrival } from './remoteDriverSamples.ts';
 
 // Distinct car colors per driver, cycled by join order -- otherwise every car
 // on the board is the same red as the sandbox's, and two drivers colliding
@@ -19,7 +20,22 @@ const SEAT_SIZE_FALLBACK = 52;
 // How long a remote driver's node is kept without a fresh update before it's
 // treated as gone -- covers a dropped final write (e.g. a crash that beat
 // onDisconnect) without leaving a ghost car parked on the board forever.
+// Measured against local arrival time: a parked driver still re-sends its pose
+// once a second, so only a driver who has really gone quiet crosses it.
 const REMOTE_STALE_MS = 4000;
+// Seat and table boxes barely move during a drive, so they're re-measured on
+// this interval rather than read from the DOM on every physics frame.
+const OBSTACLE_MEASURE_MS = 100;
+
+function carTransform(x: number, y: number, r: number): string {
+  return `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${r}rad)`;
+}
+
+// Where to draw a remote car right now: interpolated from its recent samples
+// when there are any, else its latest known pose (fixture drivers).
+function remotePose(driver: DriverState, now: number): { x: number; y: number; r: number } {
+  return driverPoseAt(driver.uid, now) ?? driver;
+}
 
 // The stage width the car/physics constants in gtaPhysics.ts are tuned at.
 // A narrower stage (phone-width board) scales the car down proportionally so
@@ -111,6 +127,9 @@ interface RemoteCarProps {
   avatarUrl: string | undefined;
   seatNode: HTMLElement | null;
   stageNode: HTMLElement;
+  // The moving car's node, handed to GtaOverlay's animation loop, which owns
+  // its transform from then on.
+  registerCarNode: (uid: string, node: HTMLDivElement | null) => void;
 }
 
 // Renders another driver's car for every phase they're in, not just
@@ -126,9 +145,10 @@ interface RemoteCarProps {
 // path. It's the brief phase and the least important one to get exactly
 // right; exploding/returning (the two phases everyone actually watches
 // happen) reuse the same animations as the local driver's own.
-function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: RemoteCarProps) {
+function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode, registerCarNode }: RemoteCarProps) {
   const x = driver.x * stageBox.w;
   const y = driver.y * stageBox.h;
+  const pose = remotePose(driver, performance.now());
   const phase = driver.phase as GtaPhase;
   const scale = carScaleFor(stageBox.w);
   const { w: carW, h: carH } = carSize(scale);
@@ -172,14 +192,15 @@ function RemoteCar({ driver, stageBox, color, avatarUrl, seatNode, stageNode }: 
 
   return (
     <div
+      ref={node => registerCarNode(driver.uid, node)}
+      data-remote-car={driver.uid}
       className="absolute"
       style={{
         left: 0, top: 0, width: carW, height: carH,
-        transform: `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(${driver.r}rad)`,
-        // Interpolates smoothly between throttled position samples while
-        // driving; harmless during arriving/boarding since the car barely
-        // moves in those phases anyway.
-        transition: 'transform 80ms linear',
+        // Starting pose only. GtaOverlay's loop rewrites this every frame
+        // from interpolated samples, so a re-render never snaps the car back
+        // to its newest (not yet due) position.
+        transform: carTransform(pose.x * stageBox.w, pose.y * stageBox.h, pose.r),
         animation: phase === 'arriving' ? 'sp-gta-remote-arrive 200ms ease both' : undefined,
       }}
     >
@@ -278,6 +299,31 @@ export default function GtaOverlay({
   bottomInsetRef.current = bottomInset;
 
   const localCarNode = useRef<HTMLDivElement>(null);
+  const remoteCarNodes = useRef(new Map<string, HTMLDivElement>());
+  const registerCarNode = useRef((uid: string, node: HTMLDivElement | null) => {
+    if (node) remoteCarNodes.current.set(uid, node);
+    else remoteCarNodes.current.delete(uid);
+  }).current;
+  // The stage's size, tracked by observation rather than measured during
+  // render -- reading layout mid-render forced the browser to lay the page
+  // out again on every car update.
+  const [stageSize, setStageSize] = useState<{ w: number; h: number } | null>(null);
+  const stageSizeRef = useRef(stageSize);
+  stageSizeRef.current = stageSize;
+  useLayoutEffect(() => {
+    if (!stageNode) return;
+    const measure = () => {
+      const b = stageNode.getBoundingClientRect();
+      setStageSize(prev => (prev && prev.w === b.width && prev.h === b.height ? prev : { w: b.width, h: b.height }));
+    };
+    measure();
+    // Absent in jsdom; the one measurement above is enough there.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(stageNode);
+    return () => observer.disconnect();
+  }, [stageNode]);
+  const obstacleCacheRef = useRef<{ at: number; ids: string[]; stage: DOMRect; boxes: SeatBox[] } | null>(null);
   const [phase, setPhase] = useState<GtaPhase>('idle');
   const [hintVisible, setHintVisible] = useState(false);
   const [hintClosing, setHintClosing] = useState(false);
@@ -389,23 +435,34 @@ export default function GtaOverlay({
     };
   }, [active]);
 
-  const measureObstacles = (stageBox: { width: number; height: number }): SeatBox[] => {
-    if (!stageNode) return [];
-    const sb = stageNode.getBoundingClientRect();
-    const out: SeatBox[] = [];
-    const vacantSeats = new Set(remoteDriversRef.current
-      .filter(driver => seatVacated(driver.phase as GtaPhase)).map(driver => driver.uid));
+  // Every seat/table box in stage-local px, re-read from the DOM at most
+  // every OBSTACLE_MEASURE_MS (and at once when the obstacle list changes,
+  // e.g. the table splitting).
+  const seatBoxes = (now: number): SeatBox[] => {
+    const cached = obstacleCacheRef.current;
+    if (cached && cached.ids === obstacleIdsRef.current && now - cached.at < OBSTACLE_MEASURE_MS) return cached.boxes;
+    const sb = stageNode!.getBoundingClientRect();
+    const boxes: SeatBox[] = [];
     for (const id of obstacleIdsRef.current) {
-      // The driver isn't in their seat while driving, so it stops being an
-      // obstacle -- otherwise the car collides with the chair it came from.
-      if ((id === driverUid && seatVacated(phaseRef.current)) || vacantSeats.has(id)) continue;
       const node = getSeatNode(id);
       if (!node) continue;
       const b = node.getBoundingClientRect();
-      out.push({
-        id, x: b.left + b.width / 2 - sb.left, y: b.top + b.height / 2 - sb.top, w: b.width, h: b.height,
-        solid: !wastedIdsRef.current.has(id),
-      });
+      boxes.push({ id, x: b.left + b.width / 2 - sb.left, y: b.top + b.height / 2 - sb.top, w: b.width, h: b.height });
+    }
+    obstacleCacheRef.current = { at: now, ids: obstacleIdsRef.current, stage: sb, boxes };
+    return boxes;
+  };
+
+  const measureObstacles = (stageBox: { width: number; height: number }, now: number): SeatBox[] => {
+    if (!stageNode) return [];
+    const out: SeatBox[] = [];
+    const vacantSeats = new Set(remoteDriversRef.current
+      .filter(driver => seatVacated(driver.phase as GtaPhase)).map(driver => driver.uid));
+    for (const box of seatBoxes(now)) {
+      // The driver isn't in their seat while driving, so it stops being an
+      // obstacle -- otherwise the car collides with the chair it came from.
+      if ((box.id === driverUid && seatVacated(phaseRef.current)) || vacantSeats.has(box.id)) continue;
+      out.push({ ...box, solid: !wastedIdsRef.current.has(box.id) });
     }
     // Other drivers' current cars are obstacles too, so cars can ram each
     // other -- represented as boxes the same shape stepCar already handles.
@@ -414,10 +471,13 @@ export default function GtaOverlay({
     const { w: carW, h: carH } = carSize(carScaleFor(stageBox.width));
     for (const d of remoteDriversRef.current) {
       if (d.phase !== 'driving') continue;
+      // Collide with the car where this player can see it, not where its
+      // newest sample says it will be a moment from now.
+      const pose = remotePose(d, now);
       out.push({
         id: `driver:${d.uid}`,
-        x: d.x * stageBox.width,
-        y: d.y * stageBox.height,
+        x: pose.x * stageBox.width,
+        y: pose.y * stageBox.height,
         w: carW,
         h: carH,
       });
@@ -426,8 +486,13 @@ export default function GtaOverlay({
   };
 
   useLayoutEffect(() => {
+    // Only a player who is driving has anything to simulate or publish.
+    // Everyone else's overlay just draws remote cars (the loop below).
+    if (!active) return;
+    lastRef.current = 0;
     const loop = (now: number) => {
-      const stageBoxNow = stageNode?.getBoundingClientRect();
+      const size = stageSizeRef.current;
+      const stageBoxNow = size ? { width: size.w, height: size.h } : undefined;
       // Set only the one frame a driver-vs-driver hit lands, then published
       // once below and forgotten -- transient by construction, same as it
       // always was, just no longer folded into the branch that's gated on
@@ -437,7 +502,7 @@ export default function GtaOverlay({
         const prev = lastRef.current || now;
         const dt = Math.min(0.05, (now - prev) / 1000);
         lastRef.current = now;
-        const obstacles = measureObstacles(stageBoxNow);
+        const obstacles = measureObstacles(stageBoxNow, now);
         const scale = carScaleFor(stageBoxNow.width);
         // The drivable area stops where the voting bar starts. A floor keeps
         // it sane if the bar ever measures taller than the stage itself.
@@ -467,7 +532,7 @@ export default function GtaOverlay({
         // remote car and SVG on each local frame.
         if (localCarNode.current) {
           const car = out.car;
-          localCarNode.current.style.transform = `translate3d(${car.x}px, ${car.y}px, 0) translate(-50%, -50%) rotate(${car.r}rad)`;
+          localCarNode.current.style.transform = carTransform(car.x, car.y, car.r);
         }
       } else {
         lastRef.current = now;
@@ -495,7 +560,38 @@ export default function GtaOverlay({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageNode]);
+  }, [stageNode, active]);
+
+  // Draws every moving remote car at its interpolated pose, once per frame,
+  // straight to the DOM. Runs while any remote car is on the board.
+  const hasRemoteCars = remoteDrivers.length > 0;
+  useEffect(() => {
+    if (!hasRemoteCars) return;
+    let raf = 0;
+    const draw = (now: number) => {
+      const size = stageSizeRef.current;
+      if (size) {
+        for (const d of remoteDriversRef.current) {
+          const node = remoteCarNodes.current.get(d.uid);
+          if (!node) continue;
+          const pose = remotePose(d, now);
+          node.style.transform = carTransform(pose.x * size.w, pose.y * size.h, pose.r);
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [hasRemoteCars]);
+
+  // Re-checks staleness while remote cars exist: a driver whose updates stop
+  // arriving produces no render of its own to notice it by.
+  const [, setStaleTick] = useState(0);
+  useEffect(() => {
+    if (!hasRemoteCars) return;
+    const timer = setInterval(() => setStaleTick(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [hasRemoteCars]);
 
   const endRound = () => {
     setWreck({ x: carRef.current.x, y: carRef.current.y });
@@ -529,7 +625,7 @@ export default function GtaOverlay({
 
   const now = performance.now();
   const car = carRef.current;
-  const stageBox = stageNode?.getBoundingClientRect();
+  const stageBox = stageSize ? { width: stageSize.w, height: stageSize.h } : undefined;
   const scale = carScaleFor(stageBox?.width ?? 0);
   const { w: carW, h: carH } = carSize(scale);
   const seatSize = SEAT_SIZE_FALLBACK * scale;
@@ -545,7 +641,12 @@ export default function GtaOverlay({
     return { dx, dy, arc: Math.max(12, Math.min(46, midY - 10)) };
   })();
 
-  const otherDrivers = remoteDrivers.filter(d => now - d.t < REMOTE_STALE_MS);
+  // `t` is stamped by the sender's clock, so it can't be compared with this
+  // machine's -- local arrival time is what says a driver has gone quiet.
+  const otherDrivers = remoteDrivers.filter(d => {
+    const at = lastDriverArrival(d.uid);
+    return at == null || now - at < REMOTE_STALE_MS;
+  });
 
   return (
     <div
@@ -565,6 +666,7 @@ export default function GtaOverlay({
           avatarUrl={getAvatarForUid(d.uid)}
           seatNode={getSeatNode(d.uid)}
           stageNode={stageNode}
+          registerCarNode={registerCarNode}
         />
       ))}
 
@@ -576,7 +678,7 @@ export default function GtaOverlay({
               className="absolute"
               style={{
                 left: 0, top: 0, width: carW, height: carH,
-                transform: `translate3d(${car.x}px, ${car.y}px, 0) translate(-50%, -50%) rotate(${car.r}rad)`,
+                transform: carTransform(car.x, car.y, car.r),
               }}
             >
               <div
