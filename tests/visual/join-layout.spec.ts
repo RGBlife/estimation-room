@@ -116,13 +116,35 @@ for (const theme of ['light', 'dark']) {
     expect((await copy.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.getByTitle(name)).toBeVisible();
-    await page.getByRole('button', { name: 'Room menu', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Rename team' }).click();
+    const rename = page.getByRole('button', { name: /^Rename team/ });
+    await rename.click();
     await expect(page.getByRole('dialog', { name: 'Rename team' })).toBeVisible();
     await page.getByLabel(/Team name/).fill(name);
     await page.screenshot({ path: test.info().outputPath(`rename-team-${theme}.png`), fullPage: true });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Room menu', exact: true })).toBeFocused();
+    await expect(rename).toBeFocused();
     await page.screenshot({ path: test.info().outputPath(`room-team-${theme}.png`), fullPage: true });
   });
 }
+
+test('team names edit from the header without a rename menu or modal', async ({ page }) => {
+  await page.goto('/?visual-test=room&teamName=Trailblazers');
+  const rename = page.getByRole('button', { name: 'Rename team Trailblazers', exact: true });
+  await rename.click();
+  const editor = page.getByRole('dialog', { name: 'Rename team' });
+  const bounds = (await editor.boundingBox())!;
+  const anchor = (await rename.boundingBox())!;
+  expect(bounds.y).toBeGreaterThanOrEqual(anchor.y + anchor.height);
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await page.getByRole('textbox', { name: 'Team name', exact: true }).fill('New team');
+  await page.getByRole('textbox', { name: 'Team name', exact: true }).press('Enter');
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Rename team New team', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Rename team New team', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Team name', exact: true }).fill('Discard this');
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Rename team New team', exact: true })).toBeFocused();
+  if (page.viewportSize()!.width > 900) await expect(page.getByRole('button', { name: 'Room menu', exact: true })).toHaveCount(0);
+});

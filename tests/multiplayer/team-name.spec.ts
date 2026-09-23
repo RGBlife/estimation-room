@@ -32,11 +32,10 @@ test('team names create, broadcast, rename, clear and refresh remembered cards',
       catch { return true; }
     })).toBe(true);
     const rename = async (name: string) => {
-      await host.getByRole('button', { name: 'Room menu', exact: true }).click();
-      await host.getByRole('menuitem', { name: 'Rename team' }).click();
+      await host.getByRole('button', { name: /^Rename team|^Add a team name$/ }).click();
       await host.getByLabel(/Team name/).fill(name);
       await host.getByRole('button', { name: 'Save team name' }).click();
-      await expect(host.getByRole('dialog')).toHaveCount(0);
+      await expect(host.getByRole('dialog', { name: 'Rename team' })).toBeHidden();
     };
     await rename('W'.repeat(40));
     await expect(guest).toHaveTitle(new RegExp('W'.repeat(40)));

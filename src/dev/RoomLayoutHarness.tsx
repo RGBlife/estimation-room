@@ -98,6 +98,7 @@ export default function RoomLayoutHarness() {
   const observers = Number(params.get('observers') || 0);
   const voted = Number(params.get('voted') ?? seats);
   const [nudgedName, setNudgedName] = useState<string | null>(null);
+  const [teamName, setTeamName] = useState(params.get('teamName')?.slice(0, 40) || undefined);
   const [deckId, setDeckId] = useState<DeckId>((params.get('deck') as DeckId) || ALL_DECK_IDS[0]);
   const [revealed, setRevealed] = useState(params.get('revealed') === '1');
   const [toastOpen, setToastOpen] = useState(false);
@@ -161,8 +162,8 @@ export default function RoomLayoutHarness() {
     <div className="sp-app relative">
       {editingAvatar && <RoomAvatarEditor participant={me} onSave={async avatar => setEditedAvatar(avatar)} onClose={() => setEditingAvatar(false)} />}
       <RoomHeader
-        teamName={params.get('teamName')?.slice(0, 40) || undefined}
-        onRename={async () => {}}
+        teamName={teamName}
+        onRename={async name => setTeamName(name || undefined)}
         avatarUrl={participantAvatarSrc(me)}
         onEditAvatar={() => setEditingAvatar(true)}
         roomCode="ABCD"

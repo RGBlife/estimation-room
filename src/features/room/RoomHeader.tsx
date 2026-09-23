@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import ThemeToggle from '../../shared/ui/ThemeToggle.tsx';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import { WEAPONS } from './weapons.ts';
 import DeckSwitcher from './DeckSwitcher.tsx';
 import RoomMenu from './RoomMenu.tsx';
-import RenameRoomDialog from './RenameRoomDialog.tsx';
+import TeamNameEditor from './TeamNameEditor.tsx';
 import { DECKS, DECK_ORDER } from './decks.ts';
 import type { Theme } from '../../shared/lib/theme.ts';
 import type { DeckDefinition } from './decks.ts';
@@ -62,8 +62,6 @@ export default function RoomHeader({
   isRevealed, isDriving, onStartDriving,
   onSwitchRole, onLeave, onHeightChange,
 }: RoomHeaderProps) {
-  const [renaming, setRenaming] = useState(false);
-  const renameItems = isCreator && onRename ? [{ label: 'Rename team', onSelect: () => setRenaming(true) }] : [];
   const touchPrimary = useMediaQuery(TOUCH_PRIMARY_QUERY);
   const narrow = useMediaQuery(NARROW_QUERY);
   const snug = useMediaQuery(SNUG_QUERY);
@@ -106,13 +104,8 @@ export default function RoomHeader({
           <span aria-hidden="true" className="text-[11px] text-sp-text-faint">{copied ? 'link copied' : 'copy link'}</span>
         </button>
         {/* Only the name yields space; the code and tap targets stay intact. */}
-        {isCreator && onRename ? (
-          <button onClick={() => setRenaming(true)} title={teamName || 'Add a team name'} aria-label={teamName ? `Rename team ${teamName}` : 'Add a team name'}
-            className="group flex min-h-11 min-w-0 max-w-56 cursor-pointer items-center gap-2 rounded-md px-1 text-sm font-semibold text-sp-text hover:bg-sp-panel-2">
-            <span className="truncate">{teamName || 'Name your team'}</span>
-            <svg className="shrink-0 text-sp-text-faint" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5" /></svg>
-          </button>
-        ) : teamName && <span title={teamName} className="min-w-0 max-w-56 truncate text-sm font-semibold text-sp-text">{teamName}</span>}
+        {isCreator && onRename ? <TeamNameEditor teamName={teamName} onSave={onRename} />
+          : teamName && <span title={teamName} className="min-w-0 max-w-56 truncate text-sm font-semibold text-sp-text">{teamName}</span>}
         {/* Announced separately from the button label so the confirmation is
             read out on click -- a label change alone isn't reliably announced. */}
         <span aria-live="polite" className="sr-only">{copied ? 'Invite link copied to clipboard' : ''}</span>
@@ -156,7 +149,6 @@ export default function RoomHeader({
               })),
             }] : []}
             items={[
-              ...renameItems,
               { label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', onSelect: onToggleTheme },
               ...(!isObserver && isRevealed && !touchPrimary ? [{ label: '🚗 GTA Mode', onSelect: onStartDriving }] : []),
               isObserver
@@ -225,11 +217,9 @@ export default function RoomHeader({
             className="cursor-pointer rounded-md border border-sp-accent-border bg-sp-accent-panel-2 px-3 py-2 font-sp-font text-xs font-semibold text-sp-accent-text"
           >Switch to voting</button>
         )}
-        {renameItems.length > 0 && <RoomMenu items={renameItems} />}
         <button onClick={onLeave} className="cursor-pointer border-none bg-transparent text-xs text-sp-text-faintest">Leave room</button>
       </div>
       )}
-      {renaming && onRename && <RenameRoomDialog roomCode={roomCode} teamName={teamName} onSave={onRename} onClose={() => setRenaming(false)} />}
     </div>
   );
 }
