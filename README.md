@@ -20,6 +20,25 @@ the Docker one-liner). If port 5173 is busy, use `npm run dev -- --port 5174`.
 Vite is configured to fail on a taken port rather than move to the next one,
 because the service only accepts connections from ports it was told about.
 
+### Frontend and room service together in Docker
+
+With the backend repository checked out next to this one
+(`../scrum-poker-backend`), one command runs both:
+
+```sh
+docker compose up -d        # then open http://localhost:5173
+docker compose logs -f web  # dev server output; api for the service
+docker compose down         # stop; rooms persist in the room-data volume
+```
+
+Only Docker is needed on the host. Edits under `src/` hot-reload as with
+`npm run dev`. The service is built from the backend's working tree, so run
+`docker compose up -d --build` after changing it. Set `BACKEND_DIR` if the
+backend lives elsewhere. The container keeps its own `node_modules` (in a
+volume, reinstalled only when `package-lock.json` changes) because several
+dependencies ship platform-specific binaries. The service port is not
+published, so a separately started service can still use 5050.
+
 Realtime Database is used only for presence (detecting when a tab closes/crashes so a participant is removed from the room automatically) — all room/vote data still lives in Firestore. Presence is re-registered on every reconnect (via `.info/connected`), and other clients only remove a participant after they've been absent from presence for a continuous grace period, so brief network blips don't get anyone kicked.
 
 Avatars are generated locally with `@dicebear/core` — participants store just the avatar options, so nothing depends on the dicebear API at runtime.

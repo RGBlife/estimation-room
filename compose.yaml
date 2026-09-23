@@ -1,0 +1,55 @@
+# The whole app for local testing: the .NET room service and the frontend
+# dev server, together. `docker compose up` (from this repository), then open
+# http://localhost:5173. Edits under src/ hot-reload as with `npm run dev`.
+#
+# The room service is built from its own repository, expected next to this one
+# (../scrum-poker-backend); set BACKEND_DIR to point elsewhere. Neither service
+# needs anything installed on the host besides Docker.
+
+name: estimation-room
+
+services:
+  api:
+    build: ${BACKEND_DIR:-../scrum-poker-backend}
+    environment:
+      # The browser's origin, which the dev server's proxy passes through
+      # unchanged. The service refuses WebSockets from any other origin.
+      AllowedOrigins: http://localhost:5173;http://127.0.0.1:5173
+      MonitoringKey: local-monitoring-only
+    volumes:
+      - room-data:/data
+    # Not published: the frontend reaches it over the compose network, which
+    # also leaves 5050 free for a service started from the backend repository.
+
+  web:
+    image: node:24.21.0-bookworm-slim
+    working_dir: /app
+    # npm ci only when package-lock.json has changed since the last install.
+    # The dependencies live in their own volume, never in the host's
+    # node_modules: several packages ship native binaries per platform, and
+    # a macOS install would not run in this Linux container (or vice versa).
+    command:
+      - sh
+      - -c
+      - |
+        lock=$$(sha256sum package-lock.json | cut -d' ' -f1)
+        if [ "$$(cat node_modules/.lock-sha 2>/dev/null)" != "$$lock" ]; then
+          npm ci && echo "$$lock" > node_modules/.lock-sha
+        fi
+        exec npm run dev -- --port 5173
+    environment:
+      VITE_ROOM_BACKEND: dotnet
+      API_PROXY_TARGET: http://api:8080
+      # Listen on all interfaces so the published port reaches the server.
+      EXPOSE: '1'
+    ports:
+      - '127.0.0.1:5173:5173'
+    volumes:
+      - .:/app
+      - web-node-modules:/app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  room-data:
+  web-node-modules:
