@@ -41,6 +41,18 @@ published, so a separately started service can still use 5050.
 
 Realtime Database is used only for presence (detecting when a tab closes/crashes so a participant is removed from the room automatically) — all room/vote data still lives in Firestore. Presence is re-registered on every reconnect (via `.info/connected`), and other clients only remove a participant after they've been absent from presence for a continuous grace period, so brief network blips don't get anyone kicked.
 
+A room stays joinable after everyone leaves. The **Expire idle Firebase
+rooms** workflow runs daily and deletes rooms nobody has used for 30 days,
+along with their Realtime Database data, the same expiry the room service
+applies. "Used" means the room document was written (a join, vote, leave or
+reveal). Run it by hand from the Actions tab to preview: manual runs are dry
+runs unless you untick the option. Locally, against the emulators:
+
+```sh
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_DATABASE_EMULATOR_HOST=127.0.0.1:9000 \
+  FIREBASE_PROJECT_ID=demo-scrum-poker DRY_RUN=1 node scripts/expire-rooms.mjs
+```
+
 Avatars are generated locally with `@dicebear/core` — participants store just the avatar options, so nothing depends on the dicebear API at runtime.
 
 ## Testing with multiple users locally
