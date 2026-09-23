@@ -57,13 +57,16 @@ interface RoomScreenProps {
   roomCode: string;
   uid: string | null;
   throws: ThrowEvent[];
+  // The backend's latest error, e.g. the room connection dropping. The room
+  // keeps showing its last known state meanwhile, so it has to be said.
+  connectionError?: string | null;
   actions: RoomActions;
   theme: Theme;
   onToggleTheme: () => void;
 }
 
 export default function RoomScreen({
-  room, roomCode, uid, throws, actions, theme, onToggleTheme,
+  room, roomCode, uid, throws, connectionError, actions, theme, onToggleTheme,
 }: RoomScreenProps) {
   const { copied, copy } = useClipboard();
   const [roundPending, setRoundPending] = useState(false);
@@ -293,6 +296,12 @@ export default function RoomScreen({
         onPublishPieceMove={actions.publishPieceMove}
         onMarkWasted={actions.markPlayerWasted}
       />
+
+      {connectionError && (
+        <div role="status" className="pointer-events-none fixed inset-x-3 z-40 rounded-lg border border-sp-warn-border bg-sp-warn-bg px-3 py-2 text-center text-sm font-semibold text-sp-warn-text" style={{ top: (headerHeight || HEADER_FALLBACK) + OVERLAY_GAP }}>
+          {connectionError}
+        </div>
+      )}
 
       {showSyncing && (
         <div role="status" className="pointer-events-none fixed inset-x-3 z-40 rounded-lg border border-sp-border bg-sp-panel px-3 py-2 text-center text-sm text-sp-text-dim" style={{ bottom: aboveBar }}>

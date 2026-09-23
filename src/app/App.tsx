@@ -195,6 +195,7 @@ export default function App() {
           roomCode={roomCode!}
           uid={uid}
           throws={throws}
+          connectionError={error}
           actions={actions}
           theme={theme}
           onToggleTheme={toggleTheme}

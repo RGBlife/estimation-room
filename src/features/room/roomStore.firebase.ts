@@ -67,11 +67,21 @@ interface RoomState {
 let snapshotUnsubscribe: FirestoreUnsubscribe | null = null;
 let throwsUnsubscribe: RtdbUnsubscribe | null = null;
 let throwsSubscribeStartAt = 0;
+let resubscribeTimer: ReturnType<typeof setTimeout> | null = null;
+let resubscribeAttempt = 0;
+
+// Shown in the room while its listener is down. A Firestore listener that
+// errors is finished for good: without resubscribing, the room silently
+// froze on its last snapshot (someone else's reveal simply never arrived).
+const LISTENER_LOST = 'Lost the connection to this room. Reconnecting…';
+const RESUBSCRIBE_DELAYS_MS = [1000, 2000, 5000, 10000];
 
 const ZERO_PIECE_MOVE = { left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } };
 
 function teardown(set: (partial: Partial<RoomState>) => void): void {
   if (snapshotUnsubscribe) { snapshotUnsubscribe(); snapshotUnsubscribe = null; }
+  if (resubscribeTimer) { clearTimeout(resubscribeTimer); resubscribeTimer = null; }
+  resubscribeAttempt = 0;
   if (throwsUnsubscribe) { throwsUnsubscribe(); throwsUnsubscribe = null; }
   teardownPresence();
   teardownGta();
@@ -104,9 +114,12 @@ function subscribeTo(
   set: (partial: Partial<RoomState> | ((state: RoomState) => Partial<RoomState>)) => void,
 ): void {
   if (snapshotUnsubscribe) snapshotUnsubscribe();
+  if (resubscribeTimer) { clearTimeout(resubscribeTimer); resubscribeTimer = null; }
   set({ roomCode: code });
   saveLastRoomCode(code);
   snapshotUnsubscribe = onSnapshot(doc(db, 'rooms', code), snap => {
+    resubscribeAttempt = 0;
+    if (get().error === LISTENER_LOST) set({ error: null });
     const myUid = get().uid;
     if (!snap.exists()) {
       teardown(set);
@@ -128,7 +141,17 @@ function subscribeTo(
       return;
     }
     set({ room: data });
-  }, err => set({ error: err.message }));
+  }, () => {
+    snapshotUnsubscribe = null;
+    set({ error: LISTENER_LOST });
+    const delay = RESUBSCRIBE_DELAYS_MS[Math.min(resubscribeAttempt, RESUBSCRIBE_DELAYS_MS.length - 1)];
+    resubscribeAttempt++;
+    resubscribeTimer = setTimeout(() => {
+      resubscribeTimer = null;
+      // Only if we're still in this room -- leaving clears roomCode.
+      if (get().roomCode === code) subscribeTo(code, get, set);
+    }, delay);
+  });
 }
 
 export const useRoomStore = create<RoomState>((set, get) => ({

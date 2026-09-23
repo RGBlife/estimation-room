@@ -227,3 +227,46 @@ it('routes renames through the authenticated Firebase action and propagates erro
   useRoomStore.setState({ uid: null });
   await expect(useRoomStore.getState().renameRoom('No')).rejects.toThrow('no longer');
 });
+
+it('resubscribes after the room listener fails, and clears the warning once a snapshot lands', async () => {
+  vi.useFakeTimers();
+  try {
+    const { onSnapshot } = await import('firebase/firestore');
+    const listen = vi.mocked(onSnapshot);
+    listen.mockClear();
+    joinRoomAction.mockResolvedValueOnce(undefined);
+    useRoomStore.setState({ uid: 'u1', room: null, roomCode: null, error: null });
+    await useRoomStore.getState().joinRoom('ABCD', { name: 'Sam', avatar: {} as never, isObserver: false, deck: 'fibonacci' });
+    expect(listen).toHaveBeenCalledTimes(1);
+    const [, , fail] = listen.mock.calls[0] as unknown as [unknown, unknown, (e: Error) => void];
+    fail(new Error('unavailable'));
+    expect(useRoomStore.getState().error).toMatch(/Reconnecting/);
+    vi.advanceTimersByTime(1000);
+    expect(listen).toHaveBeenCalledTimes(2);
+    const [, next] = listen.mock.calls[1] as unknown as [unknown, (snap: unknown) => void];
+    next({ exists: () => true, data: () => ({ code: 'ABCD', participants: { u1: {} } }) });
+    expect(useRoomStore.getState().error).toBeNull();
+    expect(useRoomStore.getState().room?.code).toBe('ABCD');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('stops trying to resubscribe once the player has left', async () => {
+  vi.useFakeTimers();
+  try {
+    const { onSnapshot } = await import('firebase/firestore');
+    const listen = vi.mocked(onSnapshot);
+    listen.mockClear();
+    joinRoomAction.mockResolvedValueOnce(undefined);
+    useRoomStore.setState({ uid: 'u1', room: null, roomCode: null, error: null });
+    await useRoomStore.getState().joinRoom('ABCD', { name: 'Sam', avatar: {} as never, isObserver: false, deck: 'fibonacci' });
+    const [, , fail] = listen.mock.calls[0] as unknown as [unknown, unknown, (e: Error) => void];
+    fail(new Error('unavailable'));
+    await useRoomStore.getState().leave();
+    vi.advanceTimersByTime(15000);
+    expect(listen).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
