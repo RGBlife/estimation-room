@@ -17,6 +17,10 @@ const SESSION_KEY = 'sp_session_v1';
 
 // One authenticated connection per tab. Mutations are acknowledged and never
 // blindly replayed after a disconnect; only room membership is restored.
+// Where the room service lives: VITE_API_URL for a separate API host (GitHub
+// Pages), otherwise the page's own origin.
+export const apiBase = () => (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+
 export class RoomConnection {
   private socket: WebSocket | null = null;
   private active = false;
@@ -30,7 +34,7 @@ export class RoomConnection {
   private session: { uid: string; token: string } | null = null;
   private room: { code: string; payload: JoinPayload } | null = null;
   private pending = new Map<string, { resolve: (ack: Ack) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
-  private base = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+  private base = apiBase();
   constructor(private receive: (message: Message) => void, private error: (message: string | null) => void, private identity: (uid: string) => void) {}
   get connected() { return this.ready && this.socket?.readyState === WebSocket.OPEN; }
   start() {
