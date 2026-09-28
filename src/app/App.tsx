@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { JoinScreen, loadProfile, loadLastRoomCode, rememberRoom } from '../features/join/index.ts';
 import type { JoinPayload } from '../features/join/JoinScreen.tsx';
+import { HomeStats } from '../features/stats/index.ts';
+
+// The stats come from the .NET room service; the Firebase build has no such endpoint.
+const showHomeStats = (import.meta.env.VITE_ROOM_BACKEND ?? 'dotnet') === 'dotnet';
 import { RoomScreen } from '../features/room/index.js';
 import { useRoomStore } from '../features/room/roomStore.ts';
 import { DEFAULT_DECK } from '../features/room/decks.ts';
@@ -178,6 +182,7 @@ export default function App() {
   return (
     <div className="sp-app">
       {!room ? (
+        <>
         <JoinScreen
           onJoin={handleJoin}
           onCreate={handleCreate}
@@ -189,6 +194,8 @@ export default function App() {
           onToggleTheme={toggleTheme}
           peekRoom={peekRoom}
         />
+        {showHomeStats && <HomeStats />}
+        </>
       ) : (
         <RoomScreen
           room={room}
