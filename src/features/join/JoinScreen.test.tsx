@@ -75,10 +75,12 @@ describe('JoinScreen', () => {
   it('shows the deck picker only in create mode, defaulting to Fibonacci', async () => {
     const user = userEvent.setup();
     renderJoinScreen();
-    expect(screen.queryByText('Estimation deck')).not.toBeInTheDocument();
+    // Mounted in both modes so the card can ease open, but unreachable
+    // (inert) until creating.
+    expect(screen.getByText('Estimation deck').closest('[inert]')).not.toBeNull();
 
     await user.click(screen.getByText('or create a new room'));
-    expect(screen.getByText('Estimation deck')).toBeInTheDocument();
+    expect(screen.getByText('Estimation deck').closest('[inert]')).toBeNull();
     expect(screen.getByRole('button', { name: 'Fibonacci' })).toHaveClass('bg-sp-accent');
   });
 
@@ -210,7 +212,7 @@ it('offers remembered teams only on create and trims an optional name', async ()
   localStorage.setItem('sp_recent_rooms_v1', JSON.stringify([{ code: 'ABCD', teamName: 'Platform', lastSeenAt: 1, people: [] }]));
   const user = userEvent.setup();
   const { props } = renderJoinScreen();
-  expect(screen.queryByLabelText(/Team name/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText(/Team name/).closest('[inert]')).not.toBeNull();
   await user.type(screen.getByLabelText('Your name'), 'Ada');
   await user.click(screen.getByText('or create a new room'));
   const input = screen.getByLabelText(/Team name/);

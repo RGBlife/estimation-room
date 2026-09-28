@@ -32,6 +32,18 @@ interface JoinScreenProps {
   peekRoom?: PeekRoom;
 }
 
+// A field that only belongs to one mode. Kept mounted and eased open/closed
+// rather than conditionally rendered, so switching between joining and
+// creating grows the card smoothly instead of jumping ~150px in one frame.
+// Inert while closed: out of the tab order and hidden from screen readers.
+function ModeField({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div className={`sp-collapse sp-join-reveal${open ? ' sp-collapse-open' : ''}`} inert={!open}>
+      <div>{children}</div>
+    </div>
+  );
+}
+
 export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefillRoomCode, ready, theme, onToggleTheme, peekRoom }: JoinScreenProps) {
   const [storedProfile] = useState(loadProfile);
   const [avatar, setAvatar] = useState(() => storedProfile?.avatar ?? randomAvatar());
@@ -58,8 +70,10 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
   const [teamName, setTeamName] = useState('');
   const teamNames = [...new Set(recentRooms.flatMap(r => r.teamName ? [r.teamName] : []))];
 
-  const switchToCreate = () => { setMode('create'); setRoomCodeInput(randomRoomCode()); };
-  const switchToJoin = () => { setMode('join'); setRoomCodeInput(''); };
+  // Only a switch animates the heading, never the first paint.
+  const [switched, setSwitched] = useState(false);
+  const switchToCreate = () => { setMode('create'); setRoomCodeInput(randomRoomCode()); setSwitched(true); };
+  const switchToJoin = () => { setMode('join'); setRoomCodeInput(''); setSwitched(true); };
 
   const handleRoomCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
@@ -152,7 +166,8 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
 
           <div>
           <div onKeyDown={handleKeyDown} className="sp-join-card">
-          <div className="sp-join-card-heading">
+          {/* Keyed on mode so the new heading fades in rather than swapping cold. */}
+          <div key={mode} className={`sp-join-card-heading${switched ? ' sp-join-heading-swap' : ''}`}>
             <h2>{mode === 'create' ? 'Start a session' : 'Take a seat'}</h2>
             <p>{mode === 'create' ? 'Choose a deck. Share the room code.' : 'Set your name and enter your room code.'}</p>
           </div>
@@ -174,13 +189,13 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
               />
             </div>
 
-            {mode === 'create' && <div>
+            <ModeField open={mode === 'create'}>
               <label htmlFor="join-team-name" className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Team name <span className="font-normal">(optional)</span></label>
               <input id="join-team-name" list="recent-team-names" value={teamName} onChange={e => setTeamName(e.target.value)}
                 placeholder="e.g. The Trailblazers" maxLength={40}
                 className="w-full rounded-lg border border-sp-border bg-sp-bg px-3 py-2.5 font-sp-font text-sm text-sp-text outline-none" />
               <datalist id="recent-team-names">{teamNames.map(name => <option key={name} value={name} />)}</datalist>
-            </div>}
+            </ModeField>
 
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Your role this round</label>
@@ -202,8 +217,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
               </div>
             </div>
 
-            {mode === 'create' && (
-              <div>
+            <ModeField open={mode === 'create'}>
                 <label className="mb-1.5 block text-xs font-semibold text-sp-text-faint">Estimation deck</label>
                 <div className="grid grid-cols-2 gap-x-[1px] gap-y-1 rounded-lg border border-sp-border bg-sp-bg p-[3px]">
                   {DECK_ORDER.map((id, i) => {
@@ -236,8 +250,7 @@ export default function JoinScreen({ onJoin, onCreate, joinError, notice, prefil
                     );
                   })}
                 </div>
-              </div>
-            )}
+            </ModeField>
 
             {mode === 'create' ? (
               <div>

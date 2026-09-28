@@ -335,6 +335,38 @@ a:hover {
   width: 100%;
 }
 
+/* A join-screen field that opens when switching to creating a room. Its
+   parent spaces fields with a 14px flex gap, which a closed (zero-height)
+   field would still claim, so the gap is cancelled while closed and eased
+   back in as it opens. The inner padding/negative margin pair leaves room
+   for the input's focus ring without adding height. */
+.sp-join-reveal {
+  transition: grid-template-rows 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease, margin-top 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sp-join-reveal:not(.sp-collapse-open) {
+  margin-top: -0.875rem;
+}
+
+.sp-join-reveal > div {
+  width: calc(100% + 8px);
+  padding: 4px;
+  margin: -4px;
+}
+
+.sp-join-reveal > div > * {
+  transform: translateY(-4px);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sp-join-reveal.sp-collapse-open > div > * {
+  transform: none;
+}
+
+.sp-join-heading-swap {
+  animation: sp-fade-in 0.2s ease both;
+}
+
 .sp-dist-column {
   animation: sp-fade-rise 0.35s ease backwards;
 }
