@@ -1,15 +1,18 @@
 /* Planning sits beside the card game: a quiet work strip and two focused
    windows, using the table's existing ink, paper and accent colours. */
 .sp-planning-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 28px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel); }
-.sp-at-table { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; border: 0; background: none; color: var(--sp-text); text-align: left; cursor: pointer; font-size: 13px; }
+.sp-at-table { display: flex; flex: 1; align-items: center; gap: 10px; min-width: 0; min-height: 44px; border: 0; background: none; color: var(--sp-text); text-align: left; cursor: pointer; font-size: 13px; }
 .sp-at-table > strong, .sp-at-table > small { flex: none; }
 .sp-at-table > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sp-at-table small { color: var(--sp-text-faint); font-size: 12px; margin-left: 8px; }
 .sp-planning-tools { display: flex; flex: none; gap: 8px; }
+/* Line the Tickets label up with the page gutter rather than its hit area. */
+.sp-planning-tools:first-child { margin-left: -12px; }
 .sp-planning-tools button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--sp-text-dim); cursor: pointer; font-size: 13px; font-weight: 600; }
 .sp-planning-tools button:hover { background: var(--sp-panel-2); }
 .sp-planning-tools button span { color: var(--sp-accent-text); font-variant-numeric: tabular-nums; }
-.sp-soon { padding: 2px 7px; border: 1px solid var(--sp-border-strong); border-radius: 999px; color: var(--sp-text-faint); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.sp-soon-short { display: none; }
+.sp-soon { position: relative; padding: 2px 7px; border: 1px solid var(--sp-border-strong); border-radius: 999px; color: var(--sp-text-faint); font-size: 11px; font-weight: 600; white-space: nowrap; }
 /* The edge establishes where each tool lives: tickets left, readiness right.
    A native modal retains focus trapping and keeps the table inert underneath. */
 .sp-planning-window { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(620px, calc(100% - 48px)); max-width: none; height: 100dvh; max-height: 100dvh; padding: 0; overflow-y: auto; overscroll-behavior: contain; border: 0; border-left: 1px solid var(--sp-border-strong); border-radius: 0; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --drawer-shift: 100%; }
@@ -42,6 +45,10 @@
 .sp-readiness-progress strong { font-size: 26px; font-variant-numeric: tabular-nums; }
 .sp-readiness-progress strong span { font-size: 16px; font-weight: 500; color: var(--sp-text-faint); }
 .sp-readiness-progress > span { color: var(--sp-text-faint); font-size: 12px; }
+.sp-readiness-progress strong.sp-readiness-none { font-size: 18px; font-weight: 600; }
+/* The drawer body already carries the side padding; the shared empty state's
+   own 12px pushed its text out of line with everything around it. */
+.sp-readiness-body .sp-planning-empty { padding-left: 0; padding-right: 0; }
 .sp-readiness-body progress { display: block; width: 100%; height: 5px; margin: 12px 0 25px; border: 0; border-radius: 10px; accent-color: var(--sp-accent); }
 .sp-readiness-body progress::-webkit-progress-bar { background: var(--sp-panel-2); border-radius: 10px; }
 .sp-readiness-body progress::-webkit-progress-value { background: var(--sp-accent); border-radius: 10px; }
@@ -88,10 +95,17 @@
 .sp-ticket-select p { margin-bottom: 12px; color: var(--sp-text-faint); font-size: 12px; line-height: 1.5; }
 .sp-ticket-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 28px; border-top: 1px solid var(--sp-border); font-size: 13px; }
 @media (max-width: 600px) {
-  .sp-planning-bar { padding: 4px 12px; flex-wrap: wrap; gap: 0; }
-  .sp-at-table { width: 100%; }
+  /* One row on a phone: the strip used to wrap to two (~100px), with the
+     ticket status alone on the first, taking height the table needs. */
+  .sp-planning-bar { padding: 0 12px; gap: 8px; }
+  .sp-at-table { flex: 1; }
   .sp-at-table > span > small { display: none; }
-  .sp-planning-tools { width: 100%; justify-content: space-between; }
+  .sp-planning-tools { gap: 0; }
+  .sp-planning-tools button { padding: 0 8px; }
+  .sp-planning-tools:first-child { margin-left: -8px; }
+  /* Visually hidden, still read out: the short label is aria-hidden. */
+  .sp-soon-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .sp-soon-short { display: inline; }
   .sp-planning-window, .sp-planning-window[data-side='left'] { width: 100%; border: 0; }
   .sp-planning-window-heading, .sp-readiness-body, .sp-ticket-detail { padding: 18px; }
   .sp-planning-window input:not([type=checkbox]), .sp-planning-window select, .sp-planning-window textarea { font-size: 16px; }

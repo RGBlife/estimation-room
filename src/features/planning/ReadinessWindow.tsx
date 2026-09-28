@@ -57,7 +57,10 @@ export default function ReadinessWindow({ items, onChange, onClose, closing }: {
   return (
     <PlanningWindow title="Ticket readiness" subtitle="Agree what ready means before estimating." onClose={onClose} side="right" closing={closing}>
       <div className="sp-readiness-body">
-        <div className="sp-readiness-progress"><strong>{checked}<span> / {entries.length} ready</span></strong><span>Shared with everyone in this room</span></div>
+        {/* "0 / 0 ready" read like a fault; say what's actually there. */}
+        <div className="sp-readiness-progress">{entries.length > 0
+          ? <strong>{checked}<span> / {entries.length} ready</span></strong>
+          : <strong className="sp-readiness-none">No criteria yet</strong>}<span>Shared with everyone in this room</span></div>
         <progress value={checked} max={Math.max(1, entries.length)} aria-label="Readiness progress" />
         <div className="sp-preset-picker">
           <label htmlFor="readiness-preset">Start from a preset</label>

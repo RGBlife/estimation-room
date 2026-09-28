@@ -41,14 +41,19 @@ export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHe
   const checked = Object.values(items).filter(item => item.checked).length;
   return (
     <>
+      {/* Each button sits on the edge its drawer opens from: tickets left,
+          readiness right, so a drawer never appears across the screen from
+          the button that opened it. */}
       <div ref={barRef} className="sp-planning-bar">
+        <div className="sp-planning-tools">
+          <button onClick={() => setPanel('tickets')}>Tickets{ticketsComingSoon && <small className="sp-soon"><span className="sp-soon-long">Coming soon</span><span className="sp-soon-short" aria-hidden="true">Soon</span></small>}</button>
+        </div>
         <button className="sp-at-table" onClick={() => setPanel('tickets')}>
           {room.activeTicket ? <><strong>{room.activeTicket.key}</strong><span>{room.activeTicket.title}</span>{room.activeTicket.source === 'demo' && <small>Demo</small>}</>
             : <span>No ticket selected <small>{ticketsComingSoon ? 'Ticket planning is coming soon' : 'Open tickets to plan the next round'}</small></span>}
         </button>
         <div className="sp-planning-tools">
-          <button onClick={() => setPanel('readiness')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m3 6 2 2 4-4M12 6h9M3 13h5m4 0h9M3 20h5m4 0h9" /></svg>Readiness <span>{checked}/{count}</span></button>
-          <button onClick={() => setPanel('tickets')}>Tickets{ticketsComingSoon && <small className="sp-soon">Coming soon</small>}</button>
+          <button onClick={() => setPanel('readiness')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m3 6 2 2 4-4M12 6h9M3 13h5m4 0h9M3 20h5m4 0h9" /></svg>Readiness{count > 0 && <span>{checked}/{count}</span>}</button>
         </div>
       </div>
       {panel === 'readiness' && <ReadinessWindow items={items} onChange={onChange} closing={closing} onClose={() => setClosing(true)} />}

@@ -4,6 +4,12 @@ for (const theme of ['light', 'dark']) {
   test(`readiness and ticket windows work in ${theme}`, async ({ page }) => {
     await page.goto('/?visual-test=room&jiraDemo=1&teamName=Trailblazers');
     await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+    // Each button sits on the side its drawer opens from.
+    const middle = page.viewportSize()!.width / 2;
+    const ticketsButton = (await page.getByRole('button', { name: 'Tickets', exact: true }).boundingBox())!;
+    const readinessButton = (await page.getByRole('button', { name: /Readiness/ }).boundingBox())!;
+    expect(ticketsButton.x + ticketsButton.width).toBeLessThan(middle);
+    expect(readinessButton.x).toBeGreaterThan(middle);
     await page.getByRole('button', { name: /Readiness/ }).click();
     const readiness = page.getByRole('dialog', { name: 'Ticket readiness' });
     await expect(readiness).toHaveAttribute('data-side', 'right');
