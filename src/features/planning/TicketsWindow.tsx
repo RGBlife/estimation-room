@@ -31,7 +31,7 @@ export default function TicketsWindow({ activeTicket, isCreator, onSelect, onClo
   };
   const alreadySelected = !!preview && preview.key === activeTicket?.key && preview.source === activeTicket.source;
   return (
-    <PlanningWindow title="Tickets" subtitle="Bring one piece of work to the table." onClose={onClose} side="left" closing={closing}>
+    <PlanningWindow title="Tickets" subtitle="Bring one piece of work to the table." onClose={onClose} side="right" wide closing={closing}>
       <div className="sp-ticket-connection"><div><strong>{demo ? 'Demo workspace' : 'Jira'}</strong><span>{demo ? 'Sample issues. No Jira data is read or changed.' : 'Connection coming next. Your room is ready for ticket planning.'}</span></div>
         {import.meta.env.DEV && <label className="sp-demo-toggle"><input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} /> Use demo tickets</label>}
       </div>

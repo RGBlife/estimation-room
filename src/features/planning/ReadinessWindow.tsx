@@ -55,7 +55,7 @@ export default function ReadinessWindow({ items, onChange, onClose, closing }: {
   };
   const apply = (value: ReadinessChange) => { void change(value).catch(() => {}); };
   return (
-    <PlanningWindow title="Ticket readiness" subtitle="Agree what ready means before estimating." onClose={onClose} side="right" closing={closing}>
+    <PlanningWindow title="Ticket readiness" subtitle="Agree what ready means before estimating." onClose={onClose} side="left" closing={closing}>
       <div className="sp-readiness-body">
         {/* "0 / 0 ready" read like a fault; say what's actually there. */}
         <div className="sp-readiness-progress">{entries.length > 0

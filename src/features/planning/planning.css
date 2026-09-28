@@ -1,22 +1,23 @@
 /* Planning sits beside the card game: a quiet work strip and two focused
    windows, using the table's existing ink, paper and accent colours. */
-.sp-planning-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 28px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel); }
-.sp-at-table { display: flex; flex: 1; align-items: center; gap: 10px; min-width: 0; min-height: 44px; border: 0; background: none; color: var(--sp-text); text-align: left; cursor: pointer; font-size: 13px; }
+.sp-planning-bar { position: relative; z-index: 20; display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 28px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel); }
+.sp-at-table { display: flex; flex: 1; align-items: center; gap: 10px; min-width: 0; min-height: 44px; border: 0; background: none; color: var(--sp-text); text-align: left; cursor: pointer; font-size: 13px; justify-content: flex-end; }
 .sp-at-table > strong, .sp-at-table > small { flex: none; }
 .sp-at-table > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sp-at-table small { color: var(--sp-text-faint); font-size: 12px; margin-left: 8px; }
 .sp-planning-tools { display: flex; flex: none; gap: 8px; }
-/* Line the Tickets label up with the page gutter rather than its hit area. */
+/* Line the Readiness label up with the page gutter rather than its hit area. */
 .sp-planning-tools:first-child { margin-left: -12px; }
 .sp-planning-tools button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--sp-text-dim); cursor: pointer; font-size: 13px; font-weight: 600; }
 .sp-planning-tools button:hover { background: var(--sp-panel-2); }
 .sp-planning-tools button span { color: var(--sp-accent-text); font-variant-numeric: tabular-nums; }
 .sp-soon-short { display: none; }
 .sp-soon { position: relative; padding: 2px 7px; border: 1px solid var(--sp-border-strong); border-radius: 999px; color: var(--sp-text-faint); font-size: 11px; font-weight: 600; white-space: nowrap; }
-/* The edge establishes where each tool lives: tickets left, readiness right.
+/* The edge establishes where each tool lives: readiness left, tickets right.
    A native modal retains focus trapping and keeps the table inert underneath. */
 .sp-planning-window { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(620px, calc(100% - 48px)); max-width: none; height: 100dvh; max-height: 100dvh; padding: 0; overflow-y: auto; overscroll-behavior: contain; border: 0; border-left: 1px solid var(--sp-border-strong); border-radius: 0; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --drawer-shift: 100%; }
-.sp-planning-window[data-side='left'] { inset: 0 auto 0 0; width: min(960px, calc(100% - 48px)); border-left: 0; border-right: 1px solid var(--sp-border-strong); --drawer-shift: -100%; }
+.sp-planning-window[data-side='left'] { inset: 0 auto 0 0; border-left: 0; border-right: 1px solid var(--sp-border-strong); --drawer-shift: -100%; }
+.sp-planning-window[data-wide='true'] { width: min(960px, calc(100% - 48px)); }
 .sp-planning-window[open] { animation: sp-drawer-enter 240ms cubic-bezier(.2, .8, .2, 1) both; }
 .sp-planning-window[open][data-closing='true'] { animation: sp-drawer-exit 180ms ease-in both; }
 .sp-planning-window::backdrop { background: #0006; animation: sp-drawer-backdrop 240ms ease-out both; }
@@ -94,6 +95,42 @@
 .sp-ticket-select { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--sp-border); }
 .sp-ticket-select p { margin-bottom: 12px; color: var(--sp-text-faint); font-size: 12px; line-height: 1.5; }
 .sp-ticket-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 28px; border-top: 1px solid var(--sp-border); font-size: 13px; }
+/* The ready check floats over the left of the table: frosted, so the room
+   stays visible through it, and small enough to leave the seats clear. */
+.sp-checklist, .sp-checklist-pill { position: absolute; top: calc(100% + 12px); left: 16px; border: 1px solid color-mix(in srgb, var(--sp-border-strong) 70%, transparent); background: color-mix(in srgb, var(--sp-panel) 68%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4); box-shadow: 0 8px 28px -12px #0005; color: var(--sp-text); animation: sp-checklist-in 220ms cubic-bezier(.2, .8, .2, 1) both; }
+.sp-checklist { width: 272px; max-height: calc(100dvh - 260px); display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; }
+.sp-checklist-heading { display: flex; align-items: center; gap: 8px; padding: 10px 6px 8px 14px; }
+.sp-checklist-heading h2 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+.sp-checklist-count { margin-right: auto; color: var(--sp-accent-text); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sp-checklist-icon { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--sp-text-faint); cursor: pointer; }
+.sp-checklist-icon:hover { background: color-mix(in srgb, var(--sp-panel-2) 80%, transparent); color: var(--sp-text); }
+.sp-checklist-progress { height: 3px; margin: 0 14px 6px; border-radius: 3px; background: color-mix(in srgb, var(--sp-border-strong) 60%, transparent); overflow: hidden; }
+.sp-checklist-progress span { display: block; height: 100%; border-radius: inherit; background: var(--sp-accent); transition: width 260ms cubic-bezier(.2, .8, .2, 1); }
+.sp-checklist ul { flex: 1; min-height: 0; margin: 0; padding: 0 6px; overflow-y: auto; list-style: none; }
+.sp-checklist label { position: relative; display: flex; align-items: flex-start; gap: 10px; min-height: 40px; padding: 9px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; line-height: 1.4; }
+.sp-checklist label:hover { background: color-mix(in srgb, var(--sp-panel-2) 70%, transparent); }
+.sp-checklist input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.sp-checklist-box { display: grid; flex: none; place-items: center; width: 20px; height: 20px; margin-top: -1px; border: 1.5px solid var(--sp-border-stronger); border-radius: 6px; color: transparent; transition: background 160ms, border-color 160ms, color 160ms; }
+.sp-checklist-box svg { transform: scale(.4); transition: transform 200ms cubic-bezier(.3, 1.6, .5, 1); }
+.sp-checklist input:checked + .sp-checklist-box { background: var(--sp-accent); border-color: transparent; color: var(--sp-bg); }
+.sp-checklist input:checked + .sp-checklist-box svg { transform: none; }
+.sp-checklist input:focus-visible + .sp-checklist-box { outline: 2px solid var(--sp-accent-text); outline-offset: 2px; }
+.sp-checklist-text { min-width: 0; overflow-wrap: anywhere; transition: color 160ms; }
+.sp-checklist label[data-checked='true'] .sp-checklist-text { color: var(--sp-text-faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--sp-text-faint) 60%, transparent); }
+.sp-checklist-error { margin: 4px 14px 0; color: var(--sp-warn-text); font-size: 12px; }
+.sp-checklist footer { padding: 4px 6px 6px; }
+.sp-checklist-edit { width: 100%; min-height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--sp-accent-text); cursor: pointer; font-size: 12px; font-weight: 600; text-align: left; padding: 0 8px; }
+.sp-checklist-edit:hover { background: color-mix(in srgb, var(--sp-panel-2) 70%, transparent); }
+.sp-checklist[data-ready='true'] { border-color: var(--sp-accent-border); }
+.sp-checklist-pill { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sp-checklist-pill svg { color: var(--sp-text-faint); }
+.sp-checklist-pill[data-ready='true'] { border-color: var(--sp-accent-border); color: var(--sp-accent-text); }
+.sp-checklist-pill[data-ready='true'] svg { color: var(--sp-accent-text); }
+.sp-checklist-pill:hover { background: color-mix(in srgb, var(--sp-panel) 88%, transparent); }
+@keyframes sp-checklist-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .sp-checklist, .sp-checklist-pill { animation: none; }
+}
 @media (max-width: 600px) {
   /* One row on a phone: the strip used to wrap to two (~100px), with the
      ticket status alone on the first, taking height the table needs. */
@@ -106,7 +143,9 @@
   /* Visually hidden, still read out: the short label is aria-hidden. */
   .sp-soon-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .sp-soon-short { display: inline; }
-  .sp-planning-window, .sp-planning-window[data-side='left'] { width: 100%; border: 0; }
+  /* No spare table on a phone; the strip's Readiness button opens the list. */
+  .sp-checklist, .sp-checklist-pill { display: none; }
+  .sp-planning-window, .sp-planning-window[data-wide='true'] { width: 100%; border: 0; }
   .sp-planning-window-heading, .sp-readiness-body, .sp-ticket-detail { padding: 18px; }
   .sp-planning-window input:not([type=checkbox]), .sp-planning-window select, .sp-planning-window textarea { font-size: 16px; }
   .sp-readiness-progress > span { max-width: 15ch; text-align: right; }

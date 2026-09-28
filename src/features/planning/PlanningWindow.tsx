@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
-export default function PlanningWindow({ title, subtitle, children, onClose, side, closing = false }: {
-  title: string; subtitle: string; children: ReactNode; onClose: () => void; side: 'left' | 'right'; closing?: boolean;
+export default function PlanningWindow({ title, subtitle, children, onClose, side, wide = false, closing = false }: {
+  title: string; subtitle: string; children: ReactNode; onClose: () => void; side: 'left' | 'right'; wide?: boolean; closing?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -11,7 +11,7 @@ export default function PlanningWindow({ title, subtitle, children, onClose, sid
     return () => { node.close(); previous?.focus(); };
   }, []);
   return (
-    <dialog ref={dialog} aria-label={title} className="sp-planning-window" data-side={side} data-closing={closing}
+    <dialog ref={dialog} aria-label={title} className="sp-planning-window" data-side={side} data-wide={wide} data-closing={closing}
       onClick={event => {
         const bounds = event.currentTarget.getBoundingClientRect();
         if (event.target === event.currentTarget && (event.clientX < bounds.left || event.clientX > bounds.right)) onClose();

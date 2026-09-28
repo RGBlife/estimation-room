@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RoomDoc } from '../../types/room.ts';
 import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
+import ReadinessChecklist from './ReadinessChecklist.tsx';
 import ReadinessWindow from './ReadinessWindow.tsx';
 import TicketsWindow from './TicketsWindow.tsx';
 import './planning.css';
@@ -41,20 +42,23 @@ export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHe
   const checked = Object.values(items).filter(item => item.checked).length;
   return (
     <>
-      {/* Each button sits on the edge its drawer opens from: tickets left,
-          readiness right, so a drawer never appears across the screen from
-          the button that opened it. */}
+      {/* Each button sits on the edge its drawer opens from: readiness left,
+          tickets right, so a drawer never appears across the screen from
+          the button that opened it. The checklist floats on the left too. */}
       <div ref={barRef} className="sp-planning-bar">
         <div className="sp-planning-tools">
-          <button onClick={() => setPanel('tickets')}>Tickets{ticketsComingSoon && <small className="sp-soon"><span className="sp-soon-long">Coming soon</span><span className="sp-soon-short" aria-hidden="true">Soon</span></small>}</button>
+          <button onClick={() => setPanel('readiness')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m3 6 2 2 4-4M12 6h9M3 13h5m4 0h9M3 20h5m4 0h9" /></svg>Readiness{count > 0 && <span>{checked}/{count}</span>}</button>
         </div>
         <button className="sp-at-table" onClick={() => setPanel('tickets')}>
           {room.activeTicket ? <><strong>{room.activeTicket.key}</strong><span>{room.activeTicket.title}</span>{room.activeTicket.source === 'demo' && <small>Demo</small>}</>
             : <span>No ticket selected <small>{ticketsComingSoon ? 'Ticket planning is coming soon' : 'Open tickets to plan the next round'}</small></span>}
         </button>
         <div className="sp-planning-tools">
-          <button onClick={() => setPanel('readiness')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m3 6 2 2 4-4M12 6h9M3 13h5m4 0h9M3 20h5m4 0h9" /></svg>Readiness{count > 0 && <span>{checked}/{count}</span>}</button>
+          <button onClick={() => setPanel('tickets')}>Tickets{ticketsComingSoon && <small className="sp-soon"><span className="sp-soon-long">Coming soon</span><span className="sp-soon-short" aria-hidden="true">Soon</span></small>}</button>
         </div>
+        {/* Out of the way while a drawer is open; the setup drawer has the
+            same list, and two copies would compete for the same ticks. */}
+        {count > 0 && !panel && <ReadinessChecklist items={items} onChange={onChange} onEdit={() => setPanel('readiness')} />}
       </div>
       {panel === 'readiness' && <ReadinessWindow items={items} onChange={onChange} closing={closing} onClose={() => setClosing(true)} />}
       {panel === 'tickets' && <TicketsWindow activeTicket={room.activeTicket} isCreator={isCreator} onSelect={onSelect} closing={closing} onClose={() => setClosing(true)} />}
