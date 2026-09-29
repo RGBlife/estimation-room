@@ -1,0 +1,84 @@
+name: Uptime check
+
+# Nothing else watches whether people can actually reach the room service:
+# the Azure alerts cover cost, traffic and CPU, all of which looked healthy
+# while caddy was down for six hours after a reboot. This asks the service
+# the way a browser would, from outside, every 30 minutes.
+#
+# One issue per outage rather than a failed run per check: the first failed
+# check opens an issue (GitHub emails the repo's watchers), and the first
+# check that passes afterwards comments with the downtime and closes it.
+# Scheduled runs can start late when GitHub is busy, so treat this as a
+# "within about 30-45 minutes" alarm, not a precise one.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      simulate_outage:
+        description: Check an address that never answers, to test the outage issue and its email
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # .invalid never resolves, so a simulated outage fails like a dead host.
+      API_URL: ${{ inputs.simulate_outage && 'https://simulated-outage.invalid' || vars.VITE_API_URL }}
+      SITE_URL: https://rgblife.github.io/estimation-room/
+      LABEL: outage
+    steps:
+      - name: Check the room service and the site
+        id: probe
+        run: |
+          # Three tries 20s apart, so one dropped request isn't an outage.
+          probe() {
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$1" || true)
+              [ "$code" = 200 ] && { echo "ok"; return; }
+              [ "$attempt" -lt 3 ] && sleep 20
+            done
+            echo "HTTP $code"
+          }
+          api=$(probe "$API_URL/health/ready")
+          site=$(probe "$SITE_URL")
+          echo "Room service ($API_URL/health/ready): $api"
+          echo "Site ($SITE_URL): $site"
+          problems=""
+          [ "$api" = ok ] || problems="$problems- Room service \`$API_URL/health/ready\`: $api (000 means no connection at all)"$'\n'
+          [ "$site" = ok ] || problems="$problems- Site \`$SITE_URL\`: $site"$'\n'
+          { echo 'problems<<EOF'; printf '%s' "$problems"; echo 'EOF'; } >> "$GITHUB_OUTPUT"
+
+      - name: Open or close the outage issue
+        env:
+          PROBLEMS: ${{ steps.probe.outputs.problems }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create "$LABEL" --color B60205 --description "Opened and closed by the uptime check" 2>/dev/null || true
+          open=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number // empty')
+          now=$(date -u '+%Y-%m-%d %H:%M UTC')
+          if [ -n "$PROBLEMS" ]; then
+            if [ -z "$open" ]; then
+              gh issue create --label "$LABEL" --title "Estimation Room is down (since $now)" --body "$(printf '%s\n%s\n%s\n\n%s\n\n%s\n' \
+                "The uptime check could not reach:" "" "$PROBLEMS" \
+                "If the room service is refusing connections, check caddy first: \`docker ps -a\` on the VM (see the backend's OPERATIONS.md)." \
+                "This issue closes itself when a check passes again. [Failed run]($RUN_URL)")"
+            fi
+            echo "::error::Estimation Room is not reachable"
+          elif [ -n "$open" ]; then
+            opened=$(gh issue view "$open" --json createdAt --jq .createdAt)
+            minutes=$(( ($(date -u +%s) - $(date -u -d "$opened" +%s)) / 60 ))
+            gh issue close "$open" --comment "Back up at $now, about $minutes minutes after this was opened. [Passing run]($RUN_URL)"
+          fi
