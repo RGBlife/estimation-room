@@ -268,7 +268,10 @@ const Seat = memo(function Seat({ seat, reverse, canTarget, onThrowAt, registerS
   // of vote-card color, instead of relying on a subtle ring around cards that
   // are already accent-colored.
   const dimmed = seat.dimmed;
-  const isLongLabel = !!seat.voteValue && seat.voteValue.length > LONG_LABEL_THRESHOLD;
+  // Only a revealed value can be long. Before the reveal the room service
+  // sends other people's votes as the placeholder "voted", which is over the
+  // threshold and used to triple every other player's face-down card.
+  const isLongLabel = seat.showValue && !!seat.voteValue && seat.voteValue.length > LONG_LABEL_THRESHOLD;
   // Never wider than the seat it belongs to: a 3x-widened card used to spill
   // over the neighbouring seats, which is most obvious in the smaller tiers
   // where the multiplied width exceeds the whole seat slot.

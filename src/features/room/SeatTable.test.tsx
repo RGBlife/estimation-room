@@ -143,6 +143,28 @@ describe('early reveal and nudging', () => {
   });
 });
 
+describe('card width', () => {
+  const cardWidths = () => screen.getAllByText('✓').map(face => face.closest<HTMLElement>('[style*="perspective"]')!.style.width);
+
+  it('keeps face-down cards standard width while the room service masks votes as "voted"', () => {
+    renderSeatTable({
+      participants: { a: participant({ vote: '5' }), b: participant({ name: 'Bo', vote: 'voted' }), c: participant({ name: 'Cy', vote: 'voted' }) },
+      anyVote: true, allVoted: true,
+    });
+    const [mine, ...others] = cardWidths();
+    expect(others).toEqual([mine, mine]);
+  });
+
+  it('still widens a long label once it is revealed', () => {
+    renderSeatTable({
+      participants: { a: participant({ vote: '5' }), b: participant({ name: 'Bo', vote: 'Needs breaking down' }) },
+      isRevealed: true, anyVote: true, allVoted: true,
+    });
+    const width = (text: string) => parseFloat(screen.getByText(text).style.width);
+    expect(width('Needs breaking down')).toBeGreaterThan(width('5'));
+  });
+});
+
 it('does not republish a remote collision from every viewer', () => {
   const onMarkWasted = vi.fn();
   renderSeatTable({
