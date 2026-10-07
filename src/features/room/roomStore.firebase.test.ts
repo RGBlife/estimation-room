@@ -14,7 +14,8 @@ vi.mock('../../shared/lib/firebase.ts', () => ({
 }));
 
 vi.mock('firebase/firestore', () => ({
-  doc: vi.fn(),
+  doc: vi.fn(() => ({ kind: 'room' })),
+  collection: vi.fn(() => ({ kind: 'tickets' })),
   onSnapshot: vi.fn(() => vi.fn()),
 }));
 
@@ -232,17 +233,19 @@ it('resubscribes after the room listener fails, and clears the warning once a sn
   vi.useFakeTimers();
   try {
     const { onSnapshot } = await import('firebase/firestore');
-    const listen = vi.mocked(onSnapshot);
-    listen.mockClear();
+    const all = vi.mocked(onSnapshot);
+    all.mockClear();
+    // Joining also listens to the backlog; these tests are about the room.
+    const listen = { get mock() { return { calls: all.mock.calls.filter(c => (c[0] as { kind?: string })?.kind === 'room') }; } };
     joinRoomAction.mockResolvedValueOnce(undefined);
     useRoomStore.setState({ uid: 'u1', room: null, roomCode: null, error: null });
     await useRoomStore.getState().joinRoom('ABCD', { name: 'Sam', avatar: {} as never, isObserver: false, deck: 'fibonacci' });
-    expect(listen).toHaveBeenCalledTimes(1);
+    expect(listen.mock.calls).toHaveLength(1);
     const [, , fail] = listen.mock.calls[0] as unknown as [unknown, unknown, (e: Error) => void];
     fail(new Error('unavailable'));
     expect(useRoomStore.getState().error).toMatch(/Reconnecting/);
     vi.advanceTimersByTime(1000);
-    expect(listen).toHaveBeenCalledTimes(2);
+    expect(listen.mock.calls).toHaveLength(2);
     const [, next] = listen.mock.calls[1] as unknown as [unknown, (snap: unknown) => void];
     next({ exists: () => true, data: () => ({ code: 'ABCD', participants: { u1: {} } }) });
     expect(useRoomStore.getState().error).toBeNull();
@@ -256,8 +259,10 @@ it('stops trying to resubscribe once the player has left', async () => {
   vi.useFakeTimers();
   try {
     const { onSnapshot } = await import('firebase/firestore');
-    const listen = vi.mocked(onSnapshot);
-    listen.mockClear();
+    const all = vi.mocked(onSnapshot);
+    all.mockClear();
+    // Joining also listens to the backlog; these tests are about the room.
+    const listen = { get mock() { return { calls: all.mock.calls.filter(c => (c[0] as { kind?: string })?.kind === 'room') }; } };
     joinRoomAction.mockResolvedValueOnce(undefined);
     useRoomStore.setState({ uid: 'u1', room: null, roomCode: null, error: null });
     await useRoomStore.getState().joinRoom('ABCD', { name: 'Sam', avatar: {} as never, isObserver: false, deck: 'fibonacci' });
@@ -265,7 +270,35 @@ it('stops trying to resubscribe once the player has left', async () => {
     fail(new Error('unavailable'));
     await useRoomStore.getState().leave();
     vi.advanceTimersByTime(15000);
-    expect(listen).toHaveBeenCalledTimes(1);
+    expect(listen.mock.calls).toHaveLength(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('listens to the backlog once joined, retries a denial while still in the room, and clears it on leaving', async () => {
+  vi.useFakeTimers();
+  try {
+    const { onSnapshot } = await import('firebase/firestore');
+    const all = vi.mocked(onSnapshot);
+    all.mockClear();
+    const ticketListens = () => all.mock.calls.filter(c => (c[0] as { kind?: string })?.kind === 'tickets');
+    joinRoomAction.mockResolvedValueOnce(undefined);
+    useRoomStore.setState({ uid: 'u1', room: null, roomCode: null, error: null, tickets: [] });
+    await useRoomStore.getState().joinRoom('ABCD', { name: 'Sam', avatar: {} as never, isObserver: false, deck: 'fibonacci' });
+    expect(ticketListens()).toHaveLength(1);
+    const [, , deny] = ticketListens()[0] as unknown as [unknown, unknown, (e: Error) => void];
+    deny(new Error('permission-denied'));
+    vi.advanceTimersByTime(2000);
+    expect(ticketListens()).toHaveLength(2);
+    const [, deliver] = ticketListens()[1] as unknown as [unknown, (snap: unknown) => void];
+    const added = { uid: 'u1', name: 'Sam', at: 1 };
+    deliver({ docs: [{ id: 'b', data: () => ({ title: 'Second', position: 2, added }) }, { id: 'a', data: () => ({ title: 'First', position: 1, added }) }] });
+    expect(useRoomStore.getState().tickets.map(t => [t.id, t.title])).toEqual([['a', 'First'], ['b', 'Second']]);
+    await useRoomStore.getState().leave();
+    expect(useRoomStore.getState().tickets).toEqual([]);
+    vi.advanceTimersByTime(10000);
+    expect(ticketListens()).toHaveLength(2);
   } finally {
     vi.useRealTimers();
   }

@@ -1,5 +1,5 @@
 import {
-  doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteField, runTransaction,
+  doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteField, runTransaction, writeBatch,
 } from 'firebase/firestore';
 import {
   ref as rtdbRef, onDisconnect, set as rtdbSet, remove as rtdbRemove, push,
@@ -12,8 +12,9 @@ import type { JoinPayload, CardValue, RoomDoc, DeckId, AvatarOptions, RoomPeek }
 
 import { normalizeTeamName } from '../../shared/lib/teamName.ts';
 
-import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
-import { applyReadinessChange, resetReadiness, validateTicket } from '../planning/planning.ts';
+import type { Author, BacklogChange, BacklogTicket, ReadinessChange } from '../../types/planning.ts';
+import { applyReadinessChange, resetReadiness } from '../planning/planning.ts';
+import { addHighlight, batchDrafts, consensus, createTickets, editTicket, removeHighlight } from '../planning/backlog.ts';
 
 const MAX_CREATE_ATTEMPTS = 3;
 
@@ -89,8 +90,15 @@ export async function setDeckAction(roomCode: string, room: RoomDoc, deckId: Dec
   });
 }
 
-export async function revealAction(roomCode: string): Promise<void> {
-  await updateDoc(doc(db, 'rooms', roomCode), { isRevealed: true });
+// With a ticket at the table, the reveal also records what the table agreed
+// on that ticket, in the same write, so the backlog moves it to Estimated.
+export async function revealAction(roomCode: string, room?: RoomDoc | null): Promise<void> {
+  const value = room?.activeTicketId ? consensus(Object.values(room.participants).map(p => p.vote)) : null;
+  if (!room?.activeTicketId || !value) { await updateDoc(doc(db, 'rooms', roomCode), { isRevealed: true }); return; }
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'rooms', roomCode), { isRevealed: true });
+  batch.update(ticketRef(roomCode, room.activeTicketId), { estimate: { value, at: Date.now() } });
+  await batch.commit();
 }
 
 export async function startNextRoundAction(roomCode: string, room: RoomDoc): Promise<void> {
@@ -202,20 +210,76 @@ export async function changeReadinessAction(uid: string, code: string, change: R
   });
 }
 
-export async function selectTicketAction(uid: string, code: string, ticket: PlanningTicket | null): Promise<void> {
-  const selected = ticket ? validateTicket(ticket) : null;
+// The reset is part of the same write as the selection: no client can vote on
+// a new ticket while still seeing estimates from the previous one.
+const roundReset = (room: RoomDoc) => ({
+  readiness: resetReadiness(room.readiness ?? {}),
+  isRevealed: false,
+  participants: Object.fromEntries(Object.entries(room.participants).map(([id, p]) => [id, { ...p, vote: null }])),
+});
+
+export async function selectTicketAction(uid: string, code: string, ticketId: string | null): Promise<void> {
   await runTransaction(db, async transaction => {
     const ref = doc(db, 'rooms', code);
     const snap = await transaction.get(ref);
     const room = snap.exists() ? snap.data() as RoomDoc : null;
     if (!room?.participants[uid] || room.creatorId !== uid) throw new Error('Only the room creator can select a ticket');
-    // Selection and reset are one write: no client can vote on a new ticket
-    // while still seeing estimates from the previous one.
-    transaction.update(ref, {
-      activeTicket: selected ?? deleteField(),
-      readiness: resetReadiness(room.readiness ?? {}),
-      isRevealed: false,
-      participants: Object.fromEntries(Object.entries(room.participants).map(([id, p]) => [id, { ...p, vote: null }])),
-    });
+    if (ticketId && !(await transaction.get(doc(db, 'rooms', code, 'tickets', ticketId))).exists()) throw new Error('This ticket was removed. Try again.');
+    transaction.update(ref, { activeTicketId: ticketId ?? deleteField(), activeTicket: deleteField(), ...roundReset(room) });
   });
+}
+
+// Tickets live in their own documents under the room, readable only by its
+// participants (the room document itself is readable by code). The id is
+// the document id, so it is not stored twice.
+const ticketRef = (code: string, id: string) => doc(db, 'rooms', code, 'tickets', id);
+const stored = ({ id: _id, ...ticket }: BacklogTicket) => ticket;
+
+export async function changeBacklogAction(uid: string, code: string, room: RoomDoc | null, tickets: BacklogTicket[], change: BacklogChange): Promise<void> {
+  const me = room?.participants[uid];
+  if (!room || !me) throw new Error('You are no longer in the room');
+  const author: Author = { uid, name: me.name, at: Date.now() };
+  switch (change.operation) {
+    case 'add': {
+      // The cap is enforced here and by the room service; Firestore rules
+      // cannot count a collection.
+      let current = tickets;
+      for (const drafts of batchDrafts(change.tickets)) {
+        const created = createTickets(current, drafts, author);
+        const batch = writeBatch(db);
+        for (const ticket of created) batch.set(ticketRef(code, ticket.id), stored(ticket));
+        await batch.commit();
+        current = [...current, ...created];
+      }
+      return;
+    }
+    case 'clear': {
+      if (room.creatorId !== uid) throw new Error('Only the room creator can clear the backlog');
+      const batch = writeBatch(db);
+      for (const ticket of tickets) batch.delete(ticketRef(code, ticket.id));
+      if (room.activeTicketId) batch.update(doc(db, 'rooms', code), { activeTicketId: deleteField(), ...roundReset(room) });
+      await batch.commit();
+      return;
+    }
+    case 'remove': {
+      if (change.id === room.activeTicketId) throw new Error('This ticket is at the table. Clear it first.');
+      const batch = writeBatch(db);
+      batch.delete(ticketRef(code, change.id));
+      await batch.commit();
+      return;
+    }
+    default:
+      // Read inside the transaction so two people editing one ticket cannot
+      // undo each other's change from a stale copy.
+      await runTransaction(db, async transaction => {
+        const ref = ticketRef(code, change.id);
+        const snap = await transaction.get(ref);
+        if (!snap.exists()) throw new Error('This ticket was removed. Try again.');
+        const ticket = { id: snap.id, ...snap.data() } as BacklogTicket;
+        const next = change.operation === 'edit' ? editTicket(ticket, change.field, change.value, author)
+          : change.operation === 'highlight' ? addHighlight(ticket, change.highlightId, change.start, change.end, author)
+          : removeHighlight(ticket, change.highlightId);
+        if (next !== ticket) transaction.set(ref, stored(next));
+      });
+  }
 }

@@ -133,35 +133,130 @@ service cloud.firestore {
       ;
     }
 
-    function validTicket(ticket) {
-      return ticket is map
-        && ticket.keys().hasOnly(['key', 'title', 'description', 'team', 'status', 'source'])
-        && validPlanningText(ticket.key, 40)
-        && validPlanningText(ticket.title, 200)
-        && validPlanningText(ticket.description, 4000)
-        && validPlanningText(ticket.team, 80)
-        && ticket.status in ['Backlog', 'Ready', 'In progress']
-        && ticket.source in ['demo', 'jira'];
+    // A selection names a ticket in this room's backlog. The legacy snapshot
+    // (activeTicket) can only be kept as it was or cleared.
+    function validSelection(roomCode, before, after) {
+      return (!('activeTicketId' in after) || (
+          after.activeTicketId is string && after.activeTicketId.matches('[a-zA-Z0-9_-]{1,48}')
+          && exists(/databases/$(database)/documents/rooms/$(roomCode)/tickets/$(after.activeTicketId))))
+        && (!('activeTicket' in after) || after.activeTicket == before.get('activeTicket', null));
     }
 
-    function validPlanningUpdate() {
+    function validPlanningUpdate(roomCode) {
       let before = resource.data;
       let after = request.resource.data;
       let changed = after.diff(before).affectedKeys();
       // Checked first so ordinary votes and joins, which this rule never
       // allows, stop here instead of spending the shared expression budget.
-      return changed.hasAny(['readiness', 'activeTicket'])
+      return changed.hasAny(['readiness', 'activeTicket', 'activeTicketId'])
         && request.auth.uid in before.participants
-        && changed.hasOnly(['readiness', 'activeTicket', 'isRevealed', 'participants'])
+        && changed.hasOnly(['readiness', 'activeTicket', 'activeTicketId', 'isRevealed', 'participants'])
         && (changed.hasOnly(['readiness']) || (
           request.auth.uid == before.creatorId
           && after.isRevealed == false
           && after.participants.keys().toSet() == before.participants.keys().toSet()
-          && (!('activeTicket' in after) || validTicket(after.activeTicket))
+          && validSelection(roomCode, before, after)
         ))
         // Validate once after the authorization branches, including when the
         // same write both selects a ticket and resets a full checklist.
         && validReadiness(after.readiness);
+    }
+
+    // -- Backlog tickets: rooms/{code}/tickets/{id}. Mirrors backlog.ts.
+
+    function optionalText(t, field, max) {
+      return !(field in t) || validPlanningText(t[field], max);
+    }
+
+    // Any author a valid write could have recorded.
+    function storedAuthor(a) {
+      return a is map && a.keys().hasAll(['uid', 'name', 'at']) && a.keys().hasOnly(['uid', 'name', 'at'])
+        && a.uid is string && a.uid.size() <= 128
+        && a.name is string && a.name.size() >= 1 && a.name.size() <= 40
+        && a.at is int;
+    }
+
+    // The author of this write: the caller, under their name in the room, now.
+    function validAuthor(a, room) {
+      return storedAuthor(a)
+        && a.uid == request.auth.uid
+        && a.name == room.participants[request.auth.uid].name
+        && a.at > request.time.toMillis() - 300000 && a.at < request.time.toMillis() + 300000;
+    }
+
+    function validHighlight(h, length) {
+      return h is map && h.keys().hasAll(['id', 'start', 'end', 'by']) && h.keys().hasOnly(['id', 'start', 'end', 'by'])
+        && h.id is string && h.id.matches('[a-zA-Z0-9_-]{1,48}')
+        && h.start is int && h.end is int && h.start >= 0 && h.end > h.start && h.end <= length
+        && storedAuthor(h.by);
+    }
+
+    function validHighlights(t) {
+      let hs = t.get('highlights', []);
+      let n = hs.size();
+      let length = t.get('description', '').size();
+      return hs is list && n <= 12
+        && (n <= 0 || validHighlight(hs[0], length))
+        && (n <= 1 || validHighlight(hs[1], length))
+        && (n <= 2 || validHighlight(hs[2], length))
+        && (n <= 3 || validHighlight(hs[3], length))
+        && (n <= 4 || validHighlight(hs[4], length))
+        && (n <= 5 || validHighlight(hs[5], length))
+        && (n <= 6 || validHighlight(hs[6], length))
+        && (n <= 7 || validHighlight(hs[7], length))
+        && (n <= 8 || validHighlight(hs[8], length))
+        && (n <= 9 || validHighlight(hs[9], length))
+        && (n <= 10 || validHighlight(hs[10], length))
+        && (n <= 11 || validHighlight(hs[11], length));
+    }
+
+    function validBacklogTicket(t) {
+      return t.keys().hasAll(['title', 'position', 'added'])
+        && t.keys().hasOnly(['key', 'title', 'description', 'status', 'position', 'added', 'edited', 'highlights', 'estimate'])
+        && validPlanningText(t.title, 200)
+        && optionalText(t, 'key', 40)
+        && optionalText(t, 'description', 2000)
+        && optionalText(t, 'status', 40)
+        && t.position is int && t.position >= 0 && t.position <= 1000000
+        && storedAuthor(t.added)
+        && (!('edited' in t) || (t.edited is map && t.edited.keys().hasOnly(['key', 'title', 'description'])))
+        && (!('estimate' in t) || (t.estimate is map && t.estimate.keys().hasOnly(['value', 'at'])
+          && validPlanningText(t.estimate.value, 40) && t.estimate.at is int))
+        && validHighlights(t);
+    }
+
+    // The reveal records the agreed estimate on the ticket at the table, in
+    // the same batch that reveals the room.
+    function validEstimate(roomCode, ticketId) {
+      let room = getAfter(/databases/$(database)/documents/rooms/$(roomCode)).data;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estimate'])
+        && room.isRevealed == true && room.get('activeTicketId', '') == ticketId
+        && request.resource.data.estimate.at > request.time.toMillis() - 300000
+        && request.resource.data.estimate.at < request.time.toMillis() + 300000;
+    }
+
+    // An edit changes text fields and records the caller as their editor,
+    // moving or dropping highlights with the description. A highlight change
+    // adds exactly one, by the caller, or removes exactly one.
+    function validTicketUpdate(room) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      let fields = changed.intersection(['key', 'title', 'description'].toSet());
+      let editors = after.get('edited', {}).diff(before.get('edited', {})).affectedKeys();
+      let was = before.get('highlights', []);
+      let now = after.get('highlights', []);
+      let added = now.removeAll(was);
+      return changed.hasOnly(['key', 'title', 'description', 'edited', 'highlights'])
+        // Editors change exactly with their fields: an old entry cannot
+        // vouch for a new edit.
+        && editors == fields
+        && (!changed.hasAny(['key']) || validAuthor(after.edited.key, room))
+        && (!changed.hasAny(['title']) || validAuthor(after.edited.title, room))
+        && (!changed.hasAny(['description']) || validAuthor(after.edited.description, room))
+        && (!changed.hasAny(['highlights']) || changed.hasAny(['description'])
+          || (now.size() == was.size() + 1 && now.hasAll(was) && added.size() == 1 && validAuthor(added[0].by, room))
+          || (now.size() == was.size() - 1 && was.hasAll(now)));
     }
 
     function myIncomingParticipant() {
@@ -175,7 +270,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && validTeamName()
-        && !incomingData().keys().hasAny(['readiness', 'activeTicket'])
+        && !incomingData().keys().hasAny(['readiness', 'activeTicket', 'activeTicketId'])
         && incomingData().code == roomCode
         && incomingData().isRevealed == false
         && incomingData().creatorId == request.auth.uid
@@ -187,11 +282,11 @@ service cloud.firestore {
       // Readiness is shared by participants; a ticket selection belongs to
       // the creator and atomically starts a new round. Neither can rename a
       // room, transfer ownership, or change its deck.
-      allow update: if isSignedIn() && validPlanningUpdate();
+      allow update: if isSignedIn() && validPlanningUpdate(roomCode);
 
       // Keep planning fields out of all existing join/vote/leave paths.
       allow update: if isSignedIn()
-        && !incomingData().diff(existingData()).affectedKeys().hasAny(['readiness', 'activeTicket']) && (
+        && !incomingData().diff(existingData()).affectedKeys().hasAny(['readiness', 'activeTicket', 'activeTicketId']) && (
         // Naming is independent of votes and cannot transfer ownership.
         (request.auth.uid == existingData().creatorId
           && incomingData().diff(existingData()).affectedKeys().hasOnly(['teamName'])
@@ -304,6 +399,30 @@ service cloud.firestore {
         request.auth.uid in existingData().participants
         || existingData().participants.size() == 0
       );
+
+      // The backlog is for the people at the table only: unlike the room
+      // document, a room code alone does not reveal it. Leaving the room
+      // ends access. Deleted with the room by the expiry job.
+      match /tickets/{ticketId} {
+        function room() {
+          return get(/databases/$(database)/documents/rooms/$(roomCode)).data;
+        }
+        function isMember() {
+          return isSignedIn() && request.auth.uid in room().participants;
+        }
+        allow get, list: if isMember();
+        allow create: if isMember()
+          && ticketId.matches('[a-zA-Z0-9_-]{1,48}')
+          && validBacklogTicket(incomingData())
+          && validAuthor(incomingData().added, room())
+          && !incomingData().keys().hasAny(['edited', 'highlights']);
+        allow update: if isMember()
+          && validBacklogTicket(incomingData())
+          && (validTicketUpdate(room()) || validEstimate(roomCode, ticketId));
+        // getAfter: clearing the backlog drops the selection in the same batch.
+        allow delete: if isMember()
+          && getAfter(/databases/$(database)/documents/rooms/$(roomCode)).data.get('activeTicketId', '') != ticketId;
+      }
     }
   }
 }

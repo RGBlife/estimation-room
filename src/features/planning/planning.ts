@@ -1,4 +1,4 @@
-import type { PlanningTicket, Readiness, ReadinessChange } from '../../types/planning.ts';
+import type { Readiness, ReadinessChange } from '../../types/planning.ts';
 
 export const MAX_CRITERIA = 12;
 export const MAX_CRITERION_LENGTH = 160;
@@ -32,9 +32,5 @@ export function applyReadinessChange(current: Readiness, change: ReadinessChange
     }
   }
   return validateReadiness(next);
-}
-export function validateTicket(ticket: PlanningTicket): PlanningTicket {
-  if (!ticket || !['demo', 'jira'].includes(ticket.source) || !['Backlog', 'Ready', 'In progress'].includes(ticket.status)) throw new Error('Invalid ticket');
-  return { key: text(ticket.key, 40), title: text(ticket.title, 200), description: text(ticket.description, 4000), team: text(ticket.team, 80), status: ticket.status, source: ticket.source };
 }
 export const resetReadiness = (items: Readiness): Readiness => Object.fromEntries(Object.entries(items).map(([id, item]) => [id, { ...item, checked: false }]));

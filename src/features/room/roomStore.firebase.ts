@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
+import type { BacklogChange, BacklogTicket, ReadinessChange } from '../../types/planning.ts';
 import {
-  doc, onSnapshot, type Unsubscribe as FirestoreUnsubscribe,
+  collection, doc, onSnapshot, type Unsubscribe as FirestoreUnsubscribe,
 } from 'firebase/firestore';
+import { sortBacklog } from '../planning/backlog.ts';
 import {
   ref as rtdbRef, query, orderByChild, startAt, onChildAdded, type Unsubscribe as RtdbUnsubscribe,
 } from 'firebase/database';
@@ -12,7 +13,7 @@ import { saveLastRoomCode } from '../join/profile.ts';
 import { clearMyPresence, trackPresence, teardownPresence } from './roomStore.presence.ts';
 import {
   updateAvatarAction, createRoomAction, joinRoomAction, setRoleAction, castVoteAction, setDeckAction,
-  changeReadinessAction, selectTicketAction, renameRoomAction, revealAction, startNextRoundAction, throwWeaponAction, leaveAction, peekRoomAction,
+  changeReadinessAction, selectTicketAction, changeBacklogAction, renameRoomAction, revealAction, startNextRoundAction, throwWeaponAction, leaveAction, peekRoomAction,
 } from './roomStore.actions.ts';
 import {
   startDriving, publishDriverState, stopDriving, subscribeDrivers, teardownGta,
@@ -34,6 +35,7 @@ interface RoomState {
   tableCracks: TableCrackEvent[];
   tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
   tableWasted: WastedMap;
+  tickets: BacklogTicket[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -43,7 +45,8 @@ interface RoomState {
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
   changeReadiness: (change: ReadinessChange) => Promise<void>;
-  selectTicket: (ticket: PlanningTicket | null) => Promise<void>;
+  changeBacklog: (change: BacklogChange) => Promise<void>;
+  selectTicket: (ticketId: string | null) => Promise<void>;
   renameRoom: (teamName: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
@@ -65,6 +68,8 @@ interface RoomState {
 // "a room is currently joined," not to any component's mount lifecycle --
 // join/leave actions start and stop them, not React effects.
 let snapshotUnsubscribe: FirestoreUnsubscribe | null = null;
+let ticketsUnsubscribe: FirestoreUnsubscribe | null = null;
+let ticketsRetry: ReturnType<typeof setTimeout> | null = null;
 let throwsUnsubscribe: RtdbUnsubscribe | null = null;
 let throwsSubscribeStartAt = 0;
 let resubscribeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -83,9 +88,28 @@ function teardown(set: (partial: Partial<RoomState>) => void): void {
   if (resubscribeTimer) { clearTimeout(resubscribeTimer); resubscribeTimer = null; }
   resubscribeAttempt = 0;
   if (throwsUnsubscribe) { throwsUnsubscribe(); throwsUnsubscribe = null; }
+  stopTickets();
   teardownPresence();
   teardownGta();
-  set({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: ZERO_PIECE_MOVE, tableWasted: {} });
+  set({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: ZERO_PIECE_MOVE, tableWasted: {}, tickets: [] });
+}
+
+function stopTickets(): void {
+  if (ticketsUnsubscribe) { ticketsUnsubscribe(); ticketsUnsubscribe = null; }
+  if (ticketsRetry) { clearTimeout(ticketsRetry); ticketsRetry = null; }
+}
+
+// Tickets are readable only by participants, so the listener starts once the
+// join has been written. A denial (a join not yet visible to the rules, or a
+// dropped connection) retries while this room is still the one joined.
+function subscribeTickets(code: string, get: () => RoomState, set: (partial: Partial<RoomState>) => void): void {
+  stopTickets();
+  ticketsUnsubscribe = onSnapshot(collection(db, 'rooms', code, 'tickets'), snap => {
+    set({ tickets: sortBacklog(snap.docs.map(d => ({ id: d.id, ...d.data() }) as BacklogTicket)) });
+  }, () => {
+    ticketsUnsubscribe = null;
+    ticketsRetry = setTimeout(() => { ticketsRetry = null; if (get().roomCode === code) subscribeTickets(code, get, set); }, 2000);
+  });
 }
 
 // Subscribes to newly-thrown weapon events for the room. Uses startAt(now)
@@ -165,6 +189,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   tableCracks: [],
   tablePieceMove: ZERO_PIECE_MOVE,
   tableWasted: {},
+  tickets: [],
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {
@@ -187,6 +212,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     subscribeDrivers(code, set);
     subscribeTableCracks(code, set);
     subscribeTableDamage(code, set);
+    subscribeTickets(code, get, set);
     return code;
   },
 
@@ -201,6 +227,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     subscribeDrivers(code, set);
     subscribeTableCracks(code, set);
     subscribeTableDamage(code, set);
+    subscribeTickets(code, get, set);
   },
 
   peekRoom: code => peekRoomAction(code.toUpperCase(), get().uid),
@@ -229,10 +256,16 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     await changeReadinessAction(uid, roomCode, change);
   },
 
-  selectTicket: async ticket => {
+  changeBacklog: async change => {
+    const { uid, roomCode, room, tickets } = get();
+    if (!uid || !roomCode) throw new Error('You are no longer in the room');
+    await changeBacklogAction(uid, roomCode, room, tickets, change);
+  },
+
+  selectTicket: async ticketId => {
     const { uid, roomCode } = get();
     if (!uid || !roomCode) throw new Error('You are no longer in the room');
-    await selectTicketAction(uid, roomCode, ticket);
+    await selectTicketAction(uid, roomCode, ticketId);
     if (get().roomCode === roomCode) resetTableDamage(roomCode);
   },
 
@@ -250,9 +283,9 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   reveal: async () => {
-    const { roomCode } = get();
+    const { roomCode, room } = get();
     if (!roomCode) return;
-    await revealAction(roomCode);
+    await revealAction(roomCode, room);
   },
 
   startNextRound: async () => {
