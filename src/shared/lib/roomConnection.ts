@@ -1,6 +1,7 @@
 import type { JoinPayload, RoomDoc, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+import type { BacklogTicket } from '../../types/planning.ts';
 
 type Message =
   | { type: 'ready'; uid: string }
@@ -11,6 +12,10 @@ type Message =
   | { type: 'drivers'; drivers: Record<string, DriverState> }
   | { type: 'crack'; item: TableCrackEvent }
   | { type: 'table'; tableCracks: TableCrackEvent[]; tablePieceMove: { left: TablePieceMove; right: TablePieceMove }; tableWasted: WastedMap }
+  // The backlog arrives in slices on joining; `reset` starts a fresh copy and
+  // `done` marks the last slice. Changes after that arrive as `tickets`.
+  | { type: 'backlog'; tickets: BacklogTicket[]; reset: boolean; done: boolean }
+  | { type: 'tickets'; tickets: BacklogTicket[]; removed: string[] }
   | { type: 'closed'; reason: string };
 type Ack = Extract<Message, { type: 'ack' }>;
 const SESSION_KEY = 'sp_session_v1';

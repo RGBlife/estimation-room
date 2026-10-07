@@ -74,7 +74,7 @@ it('sends shared checklist changes and ticket selection without optimistic round
   await useRoomStore.getState().changeReadiness(change);
   expect(mock.command).toHaveBeenLastCalledWith('readiness', change);
   await useRoomStore.getState().selectTicket(null);
-  expect(mock.command).toHaveBeenLastCalledWith('ticket', { ticket: null });
+  expect(mock.command).toHaveBeenLastCalledWith('ticket', { id: null });
   mock.command.mockRejectedValueOnce(new Error('Only the room creator can select a ticket'));
   await expect(useRoomStore.getState().selectTicket(null)).rejects.toThrow('creator');
 });
@@ -104,4 +104,19 @@ describe('driver updates', () => {
     mock.onMessage!({ type: 'driver', uid: 'd1', driver: null });
     expect(useRoomStore.getState().drivers).toEqual({});
   });
+});
+
+it('sends imports in batches the service accepts and assembles the backlog from slices', async () => {
+  const tickets = Array.from({ length: 30 }, (_, i) => ({ id: `t${i}`, title: `Ticket ${i}`, description: 'x'.repeat(400) }));
+  await useRoomStore.getState().changeBacklog({ operation: 'add', tickets });
+  const batches = mock.command.mock.calls.filter(([action]) => action === 'backlog').map(([, data]) => data.tickets);
+  expect(batches.flat()).toEqual(tickets);
+  expect(batches.every(batch => new TextEncoder().encode(JSON.stringify(batch)).length < 8192)).toBe(true);
+  const ticket = (id: string, position: number) => ({ id, title: id, position, added: { uid: 'u1', name: 'Ada', at: 1 } });
+  mock.onMessage!({ type: 'backlog', tickets: [ticket('b', 2)], reset: true, done: false });
+  expect(useRoomStore.getState().tickets).toEqual([]);
+  mock.onMessage!({ type: 'backlog', tickets: [ticket('a', 1)], reset: false, done: true });
+  expect(useRoomStore.getState().tickets.map(t => t.id)).toEqual(['a', 'b']);
+  mock.onMessage!({ type: 'tickets', tickets: [{ ...ticket('a', 1), title: 'Edited' }, ticket('c', 3)], removed: ['b'] });
+  expect(useRoomStore.getState().tickets.map(t => t.title)).toEqual(['Edited', 'c']);
 });

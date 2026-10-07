@@ -47,6 +47,9 @@ export interface Participant {
 
 export interface RoomDoc {
   readiness?: Readiness;
+  // The backlog ticket at the table. Only its id: the ticket itself is
+  // delivered separately, to participants only.
+  activeTicketId?: string;
   activeTicket?: PlanningTicket;
   teamName?: string;
   code: string;

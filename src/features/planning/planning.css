@@ -11,8 +11,6 @@
 .sp-planning-tools button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--sp-text-dim); cursor: pointer; font-size: 13px; font-weight: 600; }
 .sp-planning-tools button:hover { background: var(--sp-panel-2); }
 .sp-planning-tools button span { color: var(--sp-accent-text); font-variant-numeric: tabular-nums; }
-.sp-soon-short { display: none; }
-.sp-soon { position: relative; padding: 2px 7px; border: 1px solid var(--sp-border-strong); border-radius: 999px; color: var(--sp-text-faint); font-size: 11px; font-weight: 600; white-space: nowrap; }
 /* The edge establishes where each tool lives: readiness left, tickets right.
    A native modal retains focus trapping and keeps the table inert underneath. */
 .sp-planning-window { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(620px, calc(100% - 48px)); max-width: none; height: 100dvh; max-height: 100dvh; padding: 0; overflow-y: auto; overscroll-behavior: contain; border: 0; border-left: 1px solid var(--sp-border-strong); border-radius: 0; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --drawer-shift: 100%; }
@@ -72,16 +70,11 @@
 .sp-planning-empty h3 { margin-bottom: 8px; font-size: 18px; font-weight: 600; }
 .sp-planning-empty p { max-width: 42ch; margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: var(--sp-text-faint); }
 .sp-planning-error { margin-top: 14px; color: var(--sp-warn-text); font-size: 14px; }
-.sp-ticket-connection { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 28px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel-2); font-size: 13px; }
-.sp-ticket-connection strong, .sp-ticket-connection span { display: block; }
-.sp-ticket-connection span { margin-top: 2px; color: var(--sp-text-faint); }
-.sp-demo-toggle { display: flex; align-items: center; flex: none; gap: 8px; min-height: 44px; cursor: pointer; }
-.sp-demo-toggle input { width: 18px; height: 18px; accent-color: var(--sp-accent); }
 .sp-ticket-browser { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); min-height: 390px; }
 .sp-ticket-list-pane { border-right: 1px solid var(--sp-border); min-width: 0; }
 .sp-ticket-list-pane > .sp-planning-empty { padding: 28px; }
 .sp-ticket-filters { display: flex; flex-direction: column; gap: 8px; padding: 20px; }
-.sp-ticket-list { list-style: none; padding: 0 12px 16px; margin: 0; max-height: 370px; overflow-y: auto; }
+.sp-ticket-list { list-style: none; padding: 0 12px; margin: 0; }
 .sp-ticket-list button { width: 100%; padding: 14px 12px; border: 1px solid transparent; border-bottom-color: var(--sp-border); border-radius: 7px; text-align: left; color: var(--sp-text); background: transparent; cursor: pointer; }
 .sp-ticket-list button:hover { background: var(--sp-panel-2); }
 .sp-ticket-list button[aria-pressed=true] { background: var(--sp-accent-panel-2); border-color: var(--sp-accent-border); }
@@ -94,7 +87,6 @@
 .sp-ticket-description { white-space: pre-wrap; margin: 24px 0; font-size: 14px; line-height: 1.65; }
 .sp-ticket-select { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--sp-border); }
 .sp-ticket-select p { margin-bottom: 12px; color: var(--sp-text-faint); font-size: 12px; line-height: 1.5; }
-.sp-ticket-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 28px; border-top: 1px solid var(--sp-border); font-size: 13px; }
 /* The ready check floats over the left of the table: frosted, so the room
    stays visible through it, and small enough to leave the seats clear. */
 .sp-checklist, .sp-checklist-pill { position: absolute; top: calc(100% + 12px); left: 16px; border: 1px solid color-mix(in srgb, var(--sp-border-strong) 70%, transparent); background: color-mix(in srgb, var(--sp-panel) 68%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4); box-shadow: 0 8px 28px -12px #0005; color: var(--sp-text); animation: sp-checklist-in 220ms cubic-bezier(.2, .8, .2, 1) both; }
@@ -140,19 +132,14 @@
   .sp-planning-tools { gap: 0; }
   .sp-planning-tools button { padding: 0 8px; }
   .sp-planning-tools:first-child { margin-left: -8px; }
-  /* Visually hidden, still read out: the short label is aria-hidden. */
-  .sp-soon-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .sp-soon-short { display: inline; }
   /* No spare table on a phone; the strip's Readiness button opens the list. */
   .sp-checklist, .sp-checklist-pill { display: none; }
   .sp-planning-window, .sp-planning-window[data-wide='true'] { width: 100%; border: 0; }
   .sp-planning-window-heading, .sp-readiness-body, .sp-ticket-detail { padding: 18px; }
   .sp-planning-window input:not([type=checkbox]), .sp-planning-window select, .sp-planning-window textarea { font-size: 16px; }
   .sp-readiness-progress > span { max-width: 15ch; text-align: right; }
-  .sp-ticket-connection { padding: 12px 18px; flex-wrap: wrap; gap: 4px; }
   .sp-ticket-browser { display: flex; flex-direction: column; }
   .sp-ticket-list-pane { border-right: 0; border-bottom: 1px solid var(--sp-border); }
   .sp-ticket-list { max-height: 235px; }
   .sp-ticket-detail > h3 { font-size: 25px; }
-  .sp-ticket-footer { padding: 14px 18px; flex-wrap: wrap; }
 }

@@ -8,9 +8,12 @@ const transactionGet = vi.fn();
 const transactionUpdate = vi.fn();
 
 vi.mock('../../shared/lib/firebase.ts', () => ({ db: {}, auth: {}, rtdb: {} }));
+const transactionSet = vi.fn();
+const batch = { set: vi.fn(), delete: vi.fn(), update: vi.fn(), commit: vi.fn(async () => {}) };
 vi.mock('firebase/firestore', () => ({
-  runTransaction: vi.fn(async (_db, callback) => callback({ get: transactionGet, update: transactionUpdate })),
-  doc: vi.fn((_db, _col, id) => ({ id })),
+  runTransaction: vi.fn(async (_db, callback) => callback({ get: transactionGet, update: transactionUpdate, set: transactionSet })),
+  writeBatch: vi.fn(() => batch),
+  doc: vi.fn((_db, _col, id, _sub, ticketId) => (ticketId ? { id: ticketId, room: id } : { id })),
   updateDoc: (...args: unknown[]) => updateDoc(...args),
   setDoc: vi.fn(),
   getDoc: vi.fn(),
@@ -19,7 +22,7 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(() => 'DELETE'),
 }));
 
-const { setDeckAction, renameRoomAction, createRoomAction, changeReadinessAction, selectTicketAction, leaveAction } = await import('./roomStore.actions.ts');
+const { setDeckAction, renameRoomAction, createRoomAction, changeReadinessAction, selectTicketAction, changeBacklogAction, leaveAction } = await import('./roomStore.actions.ts');
 const firestore = await import('firebase/firestore');
 
 const room = {
@@ -87,9 +90,32 @@ it('changes readiness against the transaction snapshot and atomically resets whe
   await expect(selectTicketAction('u2', 'ABCD', null)).rejects.toThrow('creator');
   await selectTicketAction('u1', 'ABCD', null);
   expect(transactionUpdate).toHaveBeenLastCalledWith({ id: 'ABCD' }, {
-    activeTicket: 'DELETE', readiness: { a: { text: 'Ready', checked: false } }, isRevealed: false,
+    activeTicketId: 'DELETE', activeTicket: 'DELETE', readiness: { a: { text: 'Ready', checked: false } }, isRevealed: false,
     participants: { u1: { name: 'Ada', vote: null }, u2: { name: 'Bo', vote: null } },
   });
+  transactionGet.mockResolvedValueOnce({ exists: () => true, data: () => snapshot }).mockResolvedValueOnce({ exists: () => false });
+  await expect(selectTicketAction('u1', 'ABCD', 'gone')).rejects.toThrow('removed');
+});
+
+it('writes backlog changes as their author, one ticket document each', async () => {
+  vi.clearAllMocks();
+  const room = { code: 'ABCD', creatorId: 'u1', activeTicketId: 't1', participants: { u1: { name: 'Ada' }, u2: { name: 'Bo' } } } as never;
+  await changeBacklogAction('u2', 'ABCD', room, [], { operation: 'add', tickets: [{ id: 't1', key: ' WEB-1 ', title: 'Keep filters' }] });
+  expect(batch.set).toHaveBeenCalledWith({ id: 't1', room: 'ABCD' }, expect.objectContaining({ key: 'WEB-1', title: 'Keep filters', position: 1, added: expect.objectContaining({ uid: 'u2', name: 'Bo' }) }));
+  expect(batch.set.mock.calls[0][1]).not.toHaveProperty('id');
+  const stored = { title: 'Keep filters', description: 'Restore the search.', position: 1, added: { uid: 'u2', name: 'Bo', at: 1 } };
+  transactionGet.mockResolvedValue({ exists: () => true, id: 't1', data: () => stored });
+  await changeBacklogAction('u1', 'ABCD', room, [], { operation: 'edit', id: 't1', field: 'title', value: 'Keep search filters' });
+  expect(transactionSet).toHaveBeenLastCalledWith({ id: 't1', room: 'ABCD' }, expect.objectContaining({ title: 'Keep search filters', edited: { title: expect.objectContaining({ uid: 'u1', name: 'Ada' }) } }));
+  await changeBacklogAction('u2', 'ABCD', room, [], { operation: 'highlight', id: 't1', highlightId: 'h1', start: 0, end: 7 });
+  expect(transactionSet.mock.lastCall![1].highlights).toEqual([expect.objectContaining({ start: 0, end: 7, by: expect.objectContaining({ name: 'Bo' }) })]);
+  await expect(changeBacklogAction('u2', 'ABCD', room, [], { operation: 'remove', id: 't1' })).rejects.toThrow('at the table');
+  await expect(changeBacklogAction('u2', 'ABCD', room, [], { operation: 'clear' })).rejects.toThrow('creator');
+  await expect(changeBacklogAction('u3', 'ABCD', room, [], { operation: 'clear' })).rejects.toThrow('no longer');
+  batch.update.mockClear();
+  await changeBacklogAction('u1', 'ABCD', { ...(room as object), readiness: {} } as never, [{ id: 't1', ...stored }], { operation: 'clear' });
+  expect(batch.delete).toHaveBeenCalledWith({ id: 't1', room: 'ABCD' });
+  expect(batch.update).toHaveBeenCalledWith({ id: 'ABCD' }, expect.objectContaining({ activeTicketId: 'DELETE', isRevealed: false }));
 });
 
 describe('leaveAction', () => {

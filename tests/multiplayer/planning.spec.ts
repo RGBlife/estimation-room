@@ -1,14 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 
 async function ready(page: Page) {
-  await page.goto('/?jiraDemo=1');
+  await page.goto('/');
   await expect.poll(() => page.evaluate(async () => {
     const path = '/src/features/room/roomStore.ts';
     return !!(await import(path)).useRoomStore.getState().uid;
   }), { timeout: 30000 }).toBe(true);
 }
 
-test('two browsers share readiness and estimate the selected ticket', async ({ browser }) => {
+const paste = (page: Page, text: string) => page.evaluate(value => {
+  const data = new DataTransfer();
+  data.setData('text/plain', value);
+  document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+}, text);
+
+test('two browsers share readiness and a backlog, and estimate the selected ticket', async ({ browser }) => {
   const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
   try {
     const [host, guest] = await Promise.all(contexts.map(c => c.newPage()));
@@ -42,13 +48,48 @@ test('two browsers share readiness and estimate the selected ticket', async ({ b
       await (await import(path)).useRoomStore.getState().castVote('5');
     })));
     await host.getByRole('button', { name: 'Reveal votes', exact: true }).click();
+
+    // The host adds two tickets; the guest sees them arrive.
     await host.getByRole('button', { name: 'Tickets', exact: true }).click();
-    await host.getByLabel('Filter by team').selectOption('Web experience');
-    await host.getByLabel('Filter by status').selectOption('Backlog');
-    await host.getByRole('button', { name: /WEB-142/ }).click();
-    await host.getByRole('button', { name: 'Start estimating', exact: true }).click();
+    const hostTickets = host.getByRole('dialog', { name: 'Tickets', exact: true });
+    await hostTickets.getByLabel('Paste tickets or drop a CSV').focus();
+    await paste(host, 'WEB-142 Keep filters when returning\nWEB-148 Keyboard navigation in the menu');
+    await hostTickets.getByRole('button', { name: 'Add 2 tickets' }).click();
+    await expect(guest.getByRole('button', { name: 'Tickets 2', exact: true })).toBeVisible();
+    await hostTickets.getByRole('button', { name: 'Add a description' }).click();
+    await hostTickets.getByLabel('Description').fill('Restore the search and the scroll position after going back.');
+    await hostTickets.getByRole('button', { name: 'Save', exact: true }).click();
+
+    // The guest edits and highlights; the host sees who did what.
+    await guest.getByRole('button', { name: 'Tickets 2', exact: true }).click();
+    const guestTickets = guest.getByRole('dialog', { name: 'Tickets', exact: true });
+    await expect(guestTickets.getByText('Restore the search and the scroll position after going back.')).toBeVisible();
+    await guestTickets.getByRole('button', { name: 'Keep filters when returning', exact: true }).click();
+    await guestTickets.getByLabel('title', { exact: true }).fill('Keep filters after going back');
+    await guestTickets.getByLabel('title', { exact: true }).press('Enter');
+    await guestTickets.locator('.sp-ticket-description').evaluate(el => {
+      const node = el.firstChild!;
+      const start = node.textContent!.indexOf('scroll position');
+      const range = document.createRange();
+      range.setStart(node, start); range.setEnd(node, start + 'scroll position'.length);
+      getSelection()!.removeAllRanges(); getSelection()!.addRange(range);
+    });
+    await guestTickets.locator('.sp-ticket-description').dispatchEvent('pointerup');
+    await expect(hostTickets.getByRole('heading', { name: 'Keep filters after going back' })).toBeVisible();
+    await expect(hostTickets.getByText('Guest edited the title')).toBeVisible();
+    await expect(hostTickets.getByRole('mark')).toHaveText('scroll position');
+    await expect(hostTickets.getByRole('button', { name: /^Highlighted by Guest/ })).toBeVisible();
+    await expect(guestTickets.getByRole('button', { name: 'Start estimating' })).toHaveCount(0);
+    await guestTickets.getByRole('button', { name: 'Close tickets' }).click();
+    // Descriptions travel with the backlog, never in the room record.
+    expect(await guest.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts';
+      return JSON.stringify((await import(path)).useRoomStore.getState().room);
+    })).not.toContain('scroll position');
+
+    await hostTickets.getByRole('button', { name: 'Start estimating', exact: true }).click();
     for (const p of [host, guest]) {
-      await expect(p.getByRole('button', { name: /WEB-142.*Keep filters/ })).toBeVisible();
+      await expect(p.getByRole('button', { name: 'WEB-142 Keep filters after going back', exact: true })).toBeVisible();
       await expect(p.getByRole('button', { name: 'Readiness 0/4' })).toBeVisible();
       await expect(p.getByRole('button', { name: 'Reveal votes', exact: true })).toBeDisabled();
     }
@@ -56,8 +97,18 @@ test('two browsers share readiness and estimate the selected ticket', async ({ b
       const path = '/src/features/room/roomStore.ts';
       try { await (await import(path)).useRoomStore.getState().selectTicket(null); return false; } catch { return true; }
     }), { timeout: 30000 }).toBe(true);
+    // A reveal with the ticket at the table records what the table agreed.
+    await Promise.all([host, guest].map(p => p.evaluate(async () => {
+      const path = '/src/features/room/roomStore.ts';
+      await (await import(path)).useRoomStore.getState().castVote('8');
+    })));
+    await host.getByRole('button', { name: 'Reveal votes', exact: true }).click();
+    await guest.getByRole('button', { name: 'Tickets 2', exact: true }).click();
+    await expect(guest.getByRole('dialog', { name: 'Tickets', exact: true }).getByText('Estimated 8')).toBeVisible();
+    await guest.getByRole('button', { name: 'Close tickets' }).click();
     await guest.reload();
-    await expect(guest.getByRole('button', { name: /WEB-142.*Keep filters/ })).toBeVisible();
+    await expect(guest.getByRole('button', { name: 'WEB-142 Keep filters after going back', exact: true })).toBeVisible();
+    await expect(guest.getByRole('button', { name: 'Tickets 2', exact: true })).toBeVisible();
     await Promise.all([host, guest].map(p => p.getByRole('button', { name: 'Leave room', exact: true }).click()));
     // Presets are device-wide: a different room gets the saved criteria.
     await host.getByRole('button', { name: 'or create a new room' }).click();

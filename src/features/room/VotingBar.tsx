@@ -4,6 +4,7 @@ import type { DeckDefinition } from './decks.ts';
 import type { DistributionGroup, CustomVoteGroup } from './stats.ts';
 import CustomVoteInput from './CustomVoteInput.tsx';
 import CustomResultsList from './CustomResultsList.tsx';
+import NextRoundAction, { type NextTicket } from './NextRoundAction.tsx';
 
 const MAX_BAR_HEIGHT = 64;
 const MIN_BAR_HEIGHT = 18;
@@ -39,13 +40,14 @@ interface DistributionBarProps {
   modeIsTie: boolean;
   flaggedCount: number;
   onStartNextRound: () => void;
+  nextTicket?: NextTicket | null;
   hoveredValue: CardValue | null;
   onHoverValue: (value: CardValue | null) => void;
 }
 
 function DistributionBar({
   deck, distribution, hasAverage, average, isWideSpread, mode, modeIsTie, flaggedCount,
-  onStartNextRound, hoveredValue, onHoverValue,
+  onStartNextRound, nextTicket, hoveredValue, onHoverValue,
 }: DistributionBarProps) {
   const maxCount = Math.max(1, ...distribution.map(d => d.count));
   const totalVotes = distribution.reduce((sum, d) => sum + d.count, 0);
@@ -122,15 +124,7 @@ function DistributionBar({
           the gap either side is worth more as seat space. */}
       {!short && <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />}
 
-      <div className="sp-kbd-hint-wrap">
-        <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-sp-sm">
-          Enter
-        </div>
-        <button
-          onClick={onStartNextRound}
-          className="cursor-pointer rounded-lg border-none bg-sp-accent px-4.5 py-2.5 font-sp-font text-sm font-bold text-sp-bg"
-        >Start next round</button>
-      </div>
+      <NextRoundAction onStartNextRound={onStartNextRound} nextTicket={nextTicket} />
     </div>
   );
 }
@@ -203,6 +197,8 @@ interface VotingBarProps {
   modeIsTie: boolean;
   flaggedCount: number;
   onStartNextRound: () => void;
+  // The host's next backlog ticket, when one is waiting.
+  nextTicket?: NextTicket | null;
   hoveredValue: CardValue | null;
   onHoverValue: (value: CardValue | null) => void;
   onHeightChange?: (height: number) => void;
@@ -211,7 +207,7 @@ interface VotingBarProps {
 export default function VotingBar({
   deck, isObserver, myVote, isRevealed, onSelect, onJoinVoting,
   distribution, customGroups, hasAverage, average, isWideSpread, mode, modeIsTie, flaggedCount,
-  onStartNextRound, hoveredValue, onHoverValue, onHeightChange,
+  onStartNextRound, nextTicket, hoveredValue, onHoverValue, onHeightChange,
 }: VotingBarProps) {
   const isCustom = deck.values === null;
 
@@ -246,7 +242,7 @@ export default function VotingBar({
   const awaitingLateVote = isRevealed && !isObserver && myVote == null;
   const results = (
     deck.resultKind === 'freeText' ? (
-      <CustomResultsList groups={customGroups} onStartNextRound={onStartNextRound} />
+      <CustomResultsList groups={customGroups} onStartNextRound={onStartNextRound} nextTicket={nextTicket} />
     ) : (
       <DistributionBar
         deck={deck}
@@ -258,6 +254,7 @@ export default function VotingBar({
         modeIsTie={modeIsTie}
         flaggedCount={flaggedCount}
         onStartNextRound={onStartNextRound}
+        nextTicket={nextTicket}
         hoveredValue={hoveredValue}
         onHoverValue={onHoverValue}
       />

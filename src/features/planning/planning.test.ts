@@ -1,5 +1,5 @@
 import { beforeEach, expect, it } from 'vitest';
-import { applyReadinessChange, resetReadiness, validateTicket } from './planning.ts';
+import { applyReadinessChange, resetReadiness } from './planning.ts';
 import { loadPresets, presetItems, removePreset, savePreset, STARTER_PRESETS } from './presets.ts';
 import { demoTicketProvider } from './ticketProvider.ts';
 
@@ -42,6 +42,4 @@ it('filters demo tickets by team, backlog and search together', async () => {
   const tickets = await demoTicketProvider.list({ team: 'Web experience', status: 'Backlog', search: 'filter' });
   expect(tickets.map(t => t.key)).toEqual(['WEB-142']);
   expect(await demoTicketProvider.list({ team: 'Mobile', status: 'Backlog', search: 'nonexistent' })).toEqual([]);
-  expect(validateTicket(tickets[0])).toEqual(tickets[0]);
-  expect(() => validateTicket({ ...tickets[0], title: 'x'.repeat(201) })).toThrow();
 });

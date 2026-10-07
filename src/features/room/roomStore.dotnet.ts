@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
+import type { BacklogChange, BacklogTicket, ReadinessChange } from '../../types/planning.ts';
+import { batchDrafts, sortBacklog } from '../planning/backlog.ts';
 import { normalizeTeamName } from '../../shared/lib/teamName.ts';
 import { RoomConnection } from '../../shared/lib/roomConnection.ts';
 import { saveLastRoomCode, saveProfile } from '../join/profile.ts';
@@ -20,6 +21,7 @@ interface RoomState {
   tableCracks: TableCrackEvent[];
   tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
   tableWasted: WastedMap;
+  tickets: BacklogTicket[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -29,7 +31,8 @@ interface RoomState {
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
   changeReadiness: (change: ReadinessChange) => Promise<void>;
-  selectTicket: (ticket: PlanningTicket | null) => Promise<void>;
+  changeBacklog: (change: BacklogChange) => Promise<void>;
+  selectTicket: (ticketId: string | null) => Promise<void>;
   renameRoom: (teamName: string) => Promise<void>;
   setDeck: (deckId: DeckId) => Promise<void>;
   reveal: () => Promise<void>;
@@ -48,7 +51,10 @@ interface RoomState {
 
 
 const zeroPieces = () => ({ left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } });
-const emptyLiveState = () => ({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: zeroPieces(), tableWasted: {} });
+const emptyLiveState = () => ({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: zeroPieces(), tableWasted: {}, tickets: [] });
+// Slices of the backlog collect here until the last one lands, so the list
+// never shows half a backlog after joining or reconnecting.
+let incomingBacklog: Map<string, BacklogTicket> | null = null;
 let driving = false;
 let lastDrive: Omit<DriverState, 'uid'> | null = null;
 let lastDriveAt = 0;
@@ -98,6 +104,17 @@ export const useRoomStore = create<RoomState>((set, get) => {
         else if (!driverFlushTimer) driverFlushTimer = setTimeout(flush, DRIVER_BATCH_MS);
         break;
       }
+      case 'backlog':
+        if (message.reset || !incomingBacklog) incomingBacklog = new Map();
+        for (const ticket of message.tickets) incomingBacklog.set(ticket.id, ticket);
+        if (message.done) { set({ tickets: sortBacklog(incomingBacklog.values()) }); incomingBacklog = null; }
+        break;
+      case 'tickets': set(s => {
+        const next = new Map(s.tickets.map(t => [t.id, t]));
+        for (const id of message.removed) next.delete(id);
+        for (const ticket of message.tickets) next.set(ticket.id, ticket);
+        return { tickets: sortBacklog(next.values()) };
+      }); break;
       case 'crack': set(s => ({ tableCracks: [...s.tableCracks.slice(-127), message.item] })); break;
       case 'table': set({ tableCracks: message.tableCracks, tablePieceMove: message.tablePieceMove, tableWasted: message.tableWasted }); break;
       case 'closed':
@@ -135,7 +152,13 @@ export const useRoomStore = create<RoomState>((set, get) => {
     setRole: async isObserver => { await command('role', { isObserver }); connection.updateProfile({ isObserver }); },
     castVote: async value => { await command('vote', { value }); },
     changeReadiness: async change => { await command('readiness', change); },
-    selectTicket: async ticket => { await command('ticket', { ticket }); },
+    changeBacklog: async change => {
+      if (change.operation !== 'add') { await command('backlog', change); return; }
+      // In order, one batch at a time: a rejected batch stops the rest, and
+      // the error says why (usually the room's backlog being full).
+      for (const tickets of batchDrafts(change.tickets)) await command('backlog', { operation: 'add', tickets });
+    },
+    selectTicket: async id => { await command('ticket', { id }); },
     renameRoom: async teamName => { await command('rename', { teamName: normalizeTeamName(teamName) ?? null }); },
     setDeck: async deck => { await command('deck', { deck }); },
     reveal: async () => { await command('reveal'); },

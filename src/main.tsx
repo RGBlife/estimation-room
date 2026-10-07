@@ -18,6 +18,27 @@ if (import.meta.env.DEV) {
   themes['./styles/themes.css']?.();
 }
 
+// Dev-only typeface comparison: ?font=barlow|instrument|figtree swaps the
+// families for this page load, so pairings can be judged in the real UI.
+if (import.meta.env.DEV) {
+  const fonts: Record<string, [string, string, string]> = {
+    barlow: ['Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800', 'Barlow', 'Barlow Condensed'],
+    instrument: ['Instrument+Sans:wght@400..700&family=Instrument+Serif', 'Instrument Sans', 'Instrument Serif'],
+    figtree: ['Figtree:wght@400..800', 'Figtree', 'Figtree'],
+  };
+  const choice = fonts[new URLSearchParams(window.location.search).get('font') ?? ''];
+  if (choice) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${choice[0]}&display=swap`;
+    document.head.append(link);
+    const root = document.documentElement.style;
+    root.setProperty('--sp-font', `'${choice[1]}', sans-serif`);
+    root.setProperty('--sp-display', `'${choice[2]}', sans-serif`);
+    root.setProperty('--sp-mono', `'${choice[2]}', sans-serif`);
+  }
+}
+
 // Dev-only component stages for layout checks. Lazy imports keep each stage
 // isolated and omit the harnesses from production builds.
 const visualTest = import.meta.env.DEV

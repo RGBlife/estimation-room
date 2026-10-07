@@ -9,8 +9,9 @@
 // stops being written to all the same.
 //
 // Each delete is conditional on the updateTime just read, so a room someone
-// rejoins while this runs is kept. The room's Realtime Database leftovers
-// (table damage, throws, drivers, presence) go with it.
+// rejoins while this runs is kept. Its backlog tickets are deleted in the
+// same commit, so a kept room keeps them too. The room's Realtime Database
+// leftovers (table damage, throws, drivers, presence) go with it.
 //
 // Environment:
 //   FIREBASE_SERVICE_ACCOUNT   service-account key JSON (production)
@@ -78,15 +79,42 @@ async function* listRooms(token) {
   } while (pageToken);
 }
 
-async function deleteRoom(token, room) {
+async function listTickets(token, code) {
+  const names = [];
+  let pageToken = '';
+  do {
+    const url = `${firestoreBase}/rooms/${code}/tickets?pageSize=300&mask.fieldPaths=position${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
+    const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error(`Listing tickets failed: ${response.status} ${await response.text()}`);
+    const page = await response.json();
+    names.push(...(page.documents ?? []).map(d => d.name));
+    pageToken = page.nextPageToken ?? '';
+  } while (pageToken);
+  return names;
+}
+
+const commit = (token, writes) => fetch(`${firestoreBase}:commit`, {
+  method: 'POST',
+  headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+  body: JSON.stringify({ writes }),
+});
+
+async function deleteRoom(token, room, tickets) {
   // A commit rather than a plain DELETE: the precondition travels in the
   // body, which the emulator honours too (it ignores it as a query string).
-  const response = await fetch(`${firestoreBase}:commit`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ writes: [{ delete: room.name, currentDocument: { updateTime: room.updateTime } }] }),
-  });
-  if (response.ok) return 'deleted';
+  // Commits hold 500 writes; the app keeps a backlog to 50 tickets, and any
+  // beyond the first batch follow once the room itself is gone.
+  const response = await commit(token, [
+    { delete: room.name, currentDocument: { updateTime: room.updateTime } },
+    ...tickets.slice(0, 400).map(name => ({ delete: name })),
+  ]);
+  if (response.ok) {
+    for (let i = 400; i < tickets.length; i += 400) {
+      const rest = await commit(token, tickets.slice(i, i + 400).map(name => ({ delete: name })));
+      if (!rest.ok) throw new Error(`Deleting tickets of ${room.name} failed: ${rest.status} ${await rest.text()}`);
+    }
+    return 'deleted';
+  }
   const body = await response.text();
   // The room was written after we listed it -- someone is using it again.
   if (/FAILED_PRECONDITION/.test(body)) return 'touched';
@@ -114,12 +142,13 @@ for await (const room of listRooms(token)) {
   counts.expired++;
   const code = room.name.split('/').pop();
   const idleDays = Math.floor((Date.now() - Date.parse(room.updateTime)) / DAY_MS);
-  if (dryRun) { console.log(`would delete ${code} (idle ${idleDays} days)`); continue; }
-  const outcome = await deleteRoom(token, room);
+  const tickets = await listTickets(token, code);
+  if (dryRun) { console.log(`would delete ${code} (idle ${idleDays} days, ${tickets.length} tickets)`); continue; }
+  const outcome = await deleteRoom(token, room, tickets);
   counts[outcome]++;
   if (outcome === 'deleted') {
     await deleteLeftovers(token, code);
-    console.log(`deleted ${code} (idle ${idleDays} days)`);
+    console.log(`deleted ${code} (idle ${idleDays} days, ${tickets.length} tickets)`);
   } else {
     console.log(`kept ${code}: used again while this ran`);
   }

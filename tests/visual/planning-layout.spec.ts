@@ -36,11 +36,11 @@ async function checkFloatingChecklist(page: Page, theme: string) {
 
 for (const theme of ['light', 'dark']) {
   test(`readiness and ticket windows work in ${theme}`, async ({ page }) => {
-    await page.goto('/?visual-test=room&jiraDemo=1&teamName=Trailblazers');
+    await page.goto('/?visual-test=room&tickets=demo&controls=0&teamName=Trailblazers');
     await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
     // Each button sits on the side its drawer opens from.
     const middle = page.viewportSize()!.width / 2;
-    const ticketsButton = (await page.getByRole('button', { name: 'Tickets', exact: true }).boundingBox())!;
+    const ticketsButton = (await page.getByRole('button', { name: /^Tickets/ }).boundingBox())!;
     const readinessButton = (await page.getByRole('button', { name: /Readiness/ }).boundingBox())!;
     expect(readinessButton.x + readinessButton.width).toBeLessThan(middle);
     expect(ticketsButton.x).toBeGreaterThan(middle);
@@ -63,15 +63,14 @@ for (const theme of ['light', 'dark']) {
     await readiness.getByRole('button', { name: 'Close ticket readiness' }).click();
     await expect(page.getByRole('button', { name: /Readiness/ })).toBeFocused();
     await checkFloatingChecklist(page, theme);
-    await page.getByRole('button', { name: 'Tickets', exact: true }).click();
+    await page.getByRole('button', { name: 'Tickets 6', exact: true }).click();
     const tickets = page.getByRole('dialog', { name: 'Tickets', exact: true });
     await expect(tickets).toHaveAttribute('data-side', 'right');
     await expect.poll(async () => { const box = (await tickets.boundingBox())!; return Math.round(box.x + box.width); }).toBe(page.viewportSize()!.width);
     expect((await tickets.boundingBox())!.height).toBe(page.viewportSize()!.height);
-    await tickets.getByLabel('Filter by team').selectOption('Web experience');
-    await tickets.getByLabel('Filter by status').selectOption('Backlog');
-    await tickets.getByRole('button', { name: /WEB-142/ }).click();
+    await tickets.getByRole('button', { name: /^WEB-142 .*Keep filters/ }).click();
     await expect(tickets.getByRole('heading', { name: 'Keep filters when returning to search results' })).toBeVisible();
+    await expect(tickets.getByRole('mark')).toHaveCount(2);
     expect(await tickets.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`tickets-right-${theme}.png`) });
     await tickets.getByRole('button', { name: 'Start estimating', exact: true }).click();
@@ -84,15 +83,63 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
-test('Jira remains an honest connection placeholder until demo mode is enabled', async ({ page }) => {
+const jiraExport = [
+  'Summary,Issue key,Issue Type,Status,Assignee,Reporter,Description',
+  '"Keep filters, please",WEB-142,Story,Backlog,Ada Lovelace,Bo Ng,"Ask ada@example.com before changing the back button."',
+  'Keyboard navigation in the account menu,WEB-148,Story,Ready,,,Arrow keys move between items.',
+].join('\n');
+
+const paste = (page: Page, text: string) => page.evaluate(value => {
+  const data = new DataTransfer();
+  data.setData('text/plain', value);
+  document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+}, text);
+
+test('a guest imports, edits and highlights tickets; only the creator brings one to the table', async ({ page }) => {
   await page.goto('/?visual-test=room&host=0');
   await page.getByRole('button', { name: 'Tickets', exact: true }).click();
-  await expect(page.getByText('Your backlog belongs here')).toBeVisible();
-  await page.getByLabel('Use demo tickets').check();
-  await page.getByLabel('Search tickets').fill('no matches');
-  await expect(page.getByText('No matching tickets')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear filters' }).click();
-  await page.getByRole('button', { name: /APP-83/ }).click();
-  await expect(page.getByRole('button', { name: 'Start estimating' })).toHaveCount(0);
-  await expect(page.getByText('The room creator chooses the ticket. Everyone can review it and vote.')).toBeVisible();
+  const tickets = page.getByRole('dialog', { name: 'Tickets', exact: true });
+  await tickets.getByLabel('Paste tickets or drop a CSV').focus();
+  await paste(page, jiraExport);
+  const review = tickets.getByRole('region', { name: 'Review tickets' });
+  await expect(review.getByText('2 tickets from a Jira export')).toBeVisible();
+  await expect(review.getByText(/Assignee, Reporter and 2 other columns stay on this device/)).toBeVisible();
+  await expect(review.getByText('Masked 1 email address in descriptions.')).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('import-review.png') });
+  await review.getByRole('button', { name: 'Add 2 tickets' }).click();
+  await expect(tickets.getByRole('heading', { name: 'Keep filters, please' })).toBeVisible();
+  await expect(tickets.getByText('Ask [email] before changing the back button.')).toBeVisible();
+  await expect(tickets.getByText('Ada Lovelace')).toHaveCount(0);
+
+  await tickets.getByRole('button', { name: 'Keep filters, please', exact: true }).click();
+  await tickets.getByLabel('title', { exact: true }).fill('Keep filters when going back');
+  await tickets.getByLabel('title', { exact: true }).press('Enter');
+  await expect(tickets.getByText('You edited the title just now')).toBeVisible();
+
+  await tickets.locator('.sp-ticket-description').evaluate(el => {
+    const node = el.firstChild!;
+    const start = node.textContent!.indexOf('back button');
+    const range = document.createRange();
+    range.setStart(node, start); range.setEnd(node, start + 'back button'.length);
+    getSelection()!.removeAllRanges(); getSelection()!.addRange(range);
+  });
+  // Selecting is highlighting: finishing the selection marks it.
+  await tickets.locator('.sp-ticket-description').dispatchEvent('pointerup');
+  await expect(tickets.getByRole('status')).toContainText('Highlighted for everyone');
+  await expect(tickets.getByRole('mark')).toHaveText('back button');
+  await tickets.getByRole('button', { name: 'Highlighted by you just now' }).click();
+  await expect(tickets.getByRole('group', { name: 'Highlight' })).toContainText('Highlighted by you just now');
+  await page.screenshot({ path: test.info().outputPath('ticket-attribution.png') });
+
+  await expect(tickets.getByRole('button', { name: 'Start estimating' })).toHaveCount(0);
+  await expect(tickets.getByText('The room creator brings tickets to the table.')).toBeVisible();
+  await expect(tickets.getByRole('button', { name: 'Clear backlog' })).toHaveCount(0);
+
+  // The same export again: what is already in the backlog is left unticked.
+  await tickets.getByRole('button', { name: 'Add tickets' }).click();
+  await tickets.getByLabel('Paste tickets or drop a CSV').focus();
+  await paste(page, jiraExport);
+  await expect(review.getByText('In backlog')).toHaveCount(2);
+  await expect(review.getByRole('button', { name: 'Add 0 tickets' })).toBeDisabled();
+  expect(await tickets.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
