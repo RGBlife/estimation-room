@@ -97,6 +97,18 @@ describe('VotingBar', () => {
     expect(props.onStartNextRound).toHaveBeenCalledOnce();
   });
 
+  it('offers the host the next backlog ticket, keeping a re-vote beside it', async () => {
+    const user = userEvent.setup();
+    const onStart = vi.fn();
+    const { props } = renderVotingBar({ isRevealed: true, nextTicket: { key: 'WEB-148', title: 'Keyboard navigation', onStart } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start next ticket: WEB-148 Keyboard navigation' })).toBeInTheDocument());
+    expect(screen.queryByText('Start next round')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Start next ticket: WEB-148 Keyboard navigation' }));
+    expect(onStart).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Vote again on this one' }));
+    expect(props.onStartNextRound).toHaveBeenCalledOnce();
+  });
+
   it('renders the T-shirt deck cards', () => {
     renderVotingBar({ deck: DECKS.tshirt });
     for (const value of ['XS', 'S', 'M', 'L', 'XL', 'XXL']) {

@@ -38,6 +38,8 @@ export default function App() {
   const castVote = useRoomStore(s => s.castVote);
   const changeReadiness = useRoomStore(s => s.changeReadiness);
   const selectTicket = useRoomStore(s => s.selectTicket);
+  const changeBacklog = useRoomStore(s => s.changeBacklog);
+  const tickets = useRoomStore(s => s.tickets);
   const renameRoom = useRoomStore(s => s.renameRoom);
   const setDeck = useRoomStore(s => s.setDeck);
   const reveal = useRoomStore(s => s.reveal);
@@ -58,10 +60,10 @@ export default function App() {
   // Store actions never change identity, so one object serves every render
   // and RoomScreen's callbacks built on it stay stable too.
   const actions = useMemo(() => ({
-    updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
+    updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, changeBacklog, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
     startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
   }), [
-    updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
+    updateAvatar, setRole, castVote, setDeck, renameRoom, changeReadiness, changeBacklog, selectTicket, reveal, startNextRound, leave, throwWeapon, dismissThrow,
     startDrive, publishDrive, stopDrive, publishCrack, publishPieceMove, markPlayerWasted, resetTable,
   ]);
 
@@ -202,6 +204,7 @@ export default function App() {
           roomCode={roomCode!}
           uid={uid}
           throws={throws}
+          tickets={tickets}
           connectionError={error}
           actions={actions}
           theme={theme}

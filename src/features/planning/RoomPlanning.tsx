@@ -1,24 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RoomDoc } from '../../types/room.ts';
-import type { PlanningTicket, ReadinessChange } from '../../types/planning.ts';
+import type { BacklogChange, BacklogTicket, ReadinessChange } from '../../types/planning.ts';
 import ReadinessChecklist from './ReadinessChecklist.tsx';
 import ReadinessWindow from './ReadinessWindow.tsx';
 import TicketsWindow from './TicketsWindow.tsx';
 import './planning.css';
 
-// Tickets come only from the demo provider for now, and that exists only in
-// development builds. Everywhere else the feature is labelled as coming, so
-// nobody opens an empty drawer expecting their backlog.
-const TICKETS_COMING_SOON = !import.meta.env.DEV;
-
-export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHeightChange, ticketsComingSoon = TICKETS_COMING_SOON }: {
-  room: Pick<RoomDoc, 'readiness' | 'activeTicket'>; isCreator: boolean;
-  onChange: (change: ReadinessChange) => Promise<void>; onSelect: (ticket: PlanningTicket | null) => Promise<void>;
+export default function RoomPlanning({ room, uid, tickets, isCreator, onChange, onBacklogChange, onSelect, onHeightChange }: {
+  room: Pick<RoomDoc, 'readiness' | 'activeTicket' | 'activeTicketId' | 'participants'>; uid: string | null;
+  tickets: BacklogTicket[]; isCreator: boolean;
+  onChange: (change: ReadinessChange) => Promise<void>;
+  onBacklogChange: (change: BacklogChange) => Promise<void>;
+  onSelect: (ticketId: string | null) => Promise<void>;
   // Reports the strip's height so the table can leave it out of its vertical
   // budget; otherwise the strip pushes the bottom seat row behind the results.
   onHeightChange?: (height: number) => void;
-  // Overridable so the dev harness can show the production state.
-  ticketsComingSoon?: boolean;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -40,6 +36,8 @@ export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHe
   const items = room.readiness ?? {};
   const count = Object.keys(items).length;
   const checked = Object.values(items).filter(item => item.checked).length;
+  // The backlog entry at the table, or the snapshot an older build chose.
+  const atTable = tickets.find(t => t.id === room.activeTicketId) ?? room.activeTicket;
   return (
     <>
       {/* Each button sits on the edge its drawer opens from: readiness left,
@@ -50,18 +48,19 @@ export default function RoomPlanning({ room, isCreator, onChange, onSelect, onHe
           <button onClick={() => setPanel('readiness')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m3 6 2 2 4-4M12 6h9M3 13h5m4 0h9M3 20h5m4 0h9" /></svg>Readiness{count > 0 && <span>{checked}/{count}</span>}</button>
         </div>
         <button className="sp-at-table" onClick={() => setPanel('tickets')}>
-          {room.activeTicket ? <><strong>{room.activeTicket.key}</strong><span>{room.activeTicket.title}</span>{room.activeTicket.source === 'demo' && <small>Demo</small>}</>
-            : <span>No ticket selected <small>{ticketsComingSoon ? 'Ticket planning is coming soon' : 'Open tickets to plan the next round'}</small></span>}
+          {atTable ? <>{atTable.key && <strong>{atTable.key}</strong>}<span>{atTable.title}</span></>
+            : <span>No ticket selected <small>{tickets.length ? 'Choose one from the backlog' : 'Add tickets to plan the next round'}</small></span>}
         </button>
         <div className="sp-planning-tools">
-          <button onClick={() => setPanel('tickets')}>Tickets{ticketsComingSoon && <small className="sp-soon"><span className="sp-soon-long">Coming soon</span><span className="sp-soon-short" aria-hidden="true">Soon</span></small>}</button>
+          <button onClick={() => setPanel('tickets')}>Tickets{tickets.length > 0 && <span>{tickets.length}</span>}</button>
         </div>
         {/* Out of the way while a drawer is open; the setup drawer has the
             same list, and two copies would compete for the same ticks. */}
         {count > 0 && !panel && <ReadinessChecklist items={items} onChange={onChange} onEdit={() => setPanel('readiness')} />}
       </div>
       {panel === 'readiness' && <ReadinessWindow items={items} onChange={onChange} closing={closing} onClose={() => setClosing(true)} />}
-      {panel === 'tickets' && <TicketsWindow activeTicket={room.activeTicket} isCreator={isCreator} onSelect={onSelect} closing={closing} onClose={() => setClosing(true)} />}
+      {panel === 'tickets' && <TicketsWindow tickets={tickets} activeTicketId={room.activeTicketId} legacyTicket={room.activeTicketId ? undefined : room.activeTicket}
+        uid={uid} participants={room.participants} isCreator={isCreator} onChange={onBacklogChange} onSelect={onSelect} closing={closing} onClose={() => setClosing(true)} />}
     </>
   );
 }

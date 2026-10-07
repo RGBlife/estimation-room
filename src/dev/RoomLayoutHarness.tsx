@@ -1,11 +1,13 @@
 import RoomPlanning from '../features/planning/RoomPlanning.tsx';
 import { applyReadinessChange, resetReadiness } from '../features/planning/planning.ts';
-import type { PlanningTicket, Readiness } from '../types/planning.ts';
+import { applyBacklogChange, consensus, createTickets, editTicket, addHighlight } from '../features/planning/backlog.ts';
+import { DEMO_DRAFTS } from '../features/planning/ticketProvider.ts';
+import type { BacklogTicket, Readiness } from '../types/planning.ts';
 import RoomAvatarEditor from '../features/room/RoomAvatarEditor.tsx';
 import { participantAvatarSrc } from '../features/avatar/index.js';
 import type { AvatarOptions } from '../types/room.ts';
 import { loadTheme, saveTheme, type Theme } from '../shared/lib/theme.ts';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SeatTable from '../features/room/SeatTable.tsx';
 import VotingBar from '../features/room/VotingBar.tsx';
 import RoomHeader from '../features/room/RoomHeader.tsx';
@@ -31,16 +33,25 @@ import type { ThrowEvent } from '../types/throws.ts';
 
 const VOTE_VALUES = DECKS.fibonacci.values!.map(v => v.value);
 
-function fixtureParticipants(seats: number, observers: number, voted: number): Record<string, Participant> {
+// With a seeded backlog the table votes like a team converging on a number,
+// a different spread each round, so reveals give a meaningful estimate.
+const ROUND_VOTES = [['5', '8', '5', '3', '5', '8', '5', '13'], ['3', '3', '2', '3', '5', '3', '2', '3'], ['8', '13', '8', '8', '5', '13', '8', '8']];
+
+// One avatar per seat for the page's life, so a vote landing doesn't
+// redraw everyone's face.
+const seatAvatars: AvatarOptions[] = [];
+const seatAvatar = (i: number) => (seatAvatars[i] ??= randomAvatar());
+
+function fixtureParticipants(seats: number, observers: number, voted: number, values: string[] = VOTE_VALUES): Record<string, Participant> {
   const out: Record<string, Participant> = {};
   for (let i = 0; i < seats + observers; i++) {
     const isObserver = i >= seats;
     out[`p${i}`] = {
       name: `Player ${i + 1}`,
-      avatar: randomAvatar(),
+      avatar: seatAvatar(i),
       joinedAt: i,
       isObserver,
-      vote: isObserver || i >= voted ? null : VOTE_VALUES[i % VOTE_VALUES.length],
+      vote: isObserver || i >= voted ? null : values[i % values.length],
     };
   }
   return out;
@@ -101,11 +112,31 @@ export default function RoomLayoutHarness() {
   const observers = Number(params.get('observers') || 0);
   const [voted, setVoted] = useState(Number(params.get('voted') ?? seats));
   const [readiness, setReadiness] = useState<Readiness>({});
-  const [activeTicket, setActiveTicket] = useState<PlanningTicket>();
+  const [activeTicketId, setActiveTicketId] = useState<string>();
+  // ?tickets=demo seeds a backlog others have already worked on, so their
+  // edits and highlights can be seen; ?tickets=live also has someone edit
+  // and highlight the first ticket shortly after the drawer opens.
+  const [tickets, setTickets] = useState<BacklogTicket[]>(() => seedBacklog(params.get('tickets')));
+  const ticketMode = params.get('tickets');
+  const harnessNext = tickets.find(t => t.id !== activeTicketId && !t.estimate);
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    if (ticketMode !== 'live') return;
+    const timer = setTimeout(() => setTickets(current => current.map((t, i) => i !== 0 ? t
+      : addHighlight(editTicket(t, 'title', 'Keep filters and scroll position when returning', { uid: 'p2', name: 'Priya', at: Date.now() }), 'live1', t.description!.indexOf('Back navigation'), t.description!.indexOf('Back navigation') + 'Back navigation restores the search and filters.'.length, { uid: 'p2', name: 'Priya', at: Date.now() }))), 2500);
+    return () => clearTimeout(timer);
+  }, [ticketMode]);
   const [nudgedName, setNudgedName] = useState<string | null>(null);
   const [teamName, setTeamName] = useState(params.get('teamName')?.slice(0, 40) || undefined);
   const [deckId, setDeckId] = useState<DeckId>((params.get('deck') as DeckId) || ALL_DECK_IDS[0]);
   const [revealed, setRevealed] = useState(params.get('revealed') === '1');
+  // After a ticket is brought to the table or a new round starts, the rest
+  // of the table votes one by one, so the round can be revealed.
+  useEffect(() => {
+    if (!ticketMode || revealed || voted >= seats) return;
+    const timer = setTimeout(() => setVoted(v => v + 1), 450);
+    return () => clearTimeout(timer);
+  }, [ticketMode, revealed, voted, seats]);
   const [toastOpen, setToastOpen] = useState(false);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
   const [planningHeight, setPlanningHeight] = useState(0);
@@ -145,11 +176,11 @@ export default function RoomLayoutHarness() {
   const [localVote, setLocalVote] = useState<string | null>(null);
   const deck = DECKS[deckId];
   const participants = useMemo(() => {
-    const fixtures = fixtureParticipants(seats, observers, voted);
+    const fixtures = fixtureParticipants(seats, observers, voted, ticketMode ? ROUND_VOTES[round % ROUND_VOTES.length] : undefined);
     if (editedAvatar && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], avatar: editedAvatar };
     if (localVote != null && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], vote: localVote };
     return fixtures;
-  }, [seats, observers, voted, editedAvatar, myUid, localVote]);
+  }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round]);
   const me = participants[myUid];
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];
@@ -192,11 +223,11 @@ export default function RoomLayoutHarness() {
         onLeave={() => {}}
       />
 
-      <RoomPlanning room={{ readiness, activeTicket }} isCreator={params.get('host') !== '0'}
+      <RoomPlanning room={{ readiness, activeTicketId, participants }} uid={myUid} tickets={tickets} isCreator={params.get('host') !== '0'}
         onChange={async change => setReadiness(current => applyReadinessChange(current, change))}
-        onSelect={async ticket => { setActiveTicket(ticket ?? undefined); setReadiness(resetReadiness); setRevealed(false); setVoted(0); setLocalVote(null); setTableCracks([]); setTableWasted({}); }}
-        onHeightChange={handlePlanningHeightChange}
-        ticketsComingSoon={params.get('ticketsSoon') === '1'} />
+        onBacklogChange={async change => setTickets(current => applyBacklogChange(current, change, { uid: myUid, name: participants[myUid]?.name ?? 'You', at: Date.now() }, activeTicketId))}
+        onSelect={async id => { setActiveTicketId(id ?? undefined); setReadiness(resetReadiness); setRevealed(false); setVoted(0); setLocalVote(null); setTableCracks([]); setTableWasted({}); }}
+        onHeightChange={handlePlanningHeightChange} />
 
       {/* The harness's own controls, taken out of flow deliberately. In flow
           they cost ~30px of column height that the real app doesn't have, so
@@ -204,8 +235,9 @@ export default function RoomLayoutHarness() {
           one users get -- the harness would report seats behind the results
           panel that are actually fine in production. Overlaid at the top-left
           instead, where they stay clickable without distorting the layout
-          under test. */}
-      <div style={params.get('jiraDemo') === '1' ? { display: 'none' } : undefined} className="pointer-events-none absolute top-32 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
+          under test. ?controls=0 hides them, for specs that use the floating
+          checklist beneath them. */}
+      <div style={params.get('controls') === '0' ? { display: 'none' } : undefined} className="pointer-events-none absolute top-32 left-0 z-50 flex flex-wrap items-center gap-2 px-3 py-2 [&>*]:pointer-events-auto">
         <button
           data-testid="toggle-reveal"
           onClick={() => setRevealed(r => !r)}
@@ -310,7 +342,12 @@ export default function RoomLayoutHarness() {
         anyVote={voted > 0}
         allVoted={voted >= seats}
         onNudge={id => setNudgedName(participants[id].name)}
-        onReveal={() => setRevealed(true)}
+        onReveal={() => {
+          setRevealed(true);
+          // As both backends do: the reveal records the agreed estimate.
+          const value = consensus(Object.values(participants).map(p => p.vote));
+          if (activeTicketId && value) setTickets(current => current.map(t => t.id === activeTicketId ? { ...t, estimate: { value, at: Date.now() } } : t));
+        }}
         canTarget={!!equippedWeaponId}
         // Real throws rather than a no-op: ThrowOverlay's flight/impact math
         // reads the live avatar and stage rects, which are exactly what the
@@ -372,11 +409,36 @@ export default function RoomLayoutHarness() {
         mode={stats.mode}
         modeIsTie={stats.modeIsTie}
         flaggedCount={stats.flaggedCount}
-        onStartNextRound={() => setRevealed(false)}
+        onStartNextRound={() => {
+          setRevealed(false);
+          if (ticketMode) { setVoted(0); setLocalVote(null); setRound(r => r + 1); }
+        }}
+        nextTicket={harnessNext && params.get('host') !== '0' ? {
+          key: harnessNext.key, title: harnessNext.title,
+          onStart: () => { setActiveTicketId(harnessNext.id); setReadiness(resetReadiness); setRevealed(false); setVoted(0); setLocalVote(null); setRound(r => r + 1); setTableCracks([]); setTableWasted({}); },
+        } : null}
         hoveredValue={null}
         onHoverValue={() => {}}
         onHeightChange={handleVotingBarHeightChange}
       />
     </div>
   );
+}
+
+function seedBacklog(mode: string | null): BacklogTicket[] {
+  if (mode !== 'demo' && mode !== 'live') return [];
+  const hour = 60 * 60 * 1000;
+  const at = (uid: string, name: string, ago: number) => ({ uid, name, at: Date.now() - ago });
+  let tickets = createTickets([], DEMO_DRAFTS.map((d, i) => ({ ...d, id: `demo${i}` })), at('p1', 'Sam', 3 * hour));
+  tickets = tickets.map((t, i) => {
+    const mark = (ticket: BacklogTicket, id: string, phrase: string, by: ReturnType<typeof at>) => {
+      const start = ticket.description!.indexOf(phrase);
+      return addHighlight(ticket, id, start, start + phrase.length, by);
+    };
+    if (i === 0) return mark(mark(t, 'h1', 'People lose their search context after opening a result.', at('p3', 'Mo', 40 * 60 * 1000)), 'h2', 'Sharing the URL preserves filter choices.', at('p1', 'Sam', 12 * 60 * 1000));
+    if (i === 5) return { ...t, estimate: { value: '8', at: Date.now() - 50 * 60 * 1000 } };
+    if (i === 2) return editTicket(t, 'description', `${t.description}\n\nDecision: last write wins for now; revisit after beta.`, at('p4', 'Lea', 25 * 60 * 1000));
+    return t;
+  });
+  return tickets;
 }

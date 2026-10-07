@@ -32,7 +32,8 @@ const OVERLAY_GAP = 12;
 
 interface RoomActions {
   changeReadiness: (change: import('../../types/planning.ts').ReadinessChange) => Promise<void>;
-  selectTicket: (ticket: import('../../types/planning.ts').PlanningTicket | null) => Promise<void>;
+  changeBacklog: (change: import('../../types/planning.ts').BacklogChange) => Promise<void>;
+  selectTicket: (ticketId: string | null) => Promise<void>;
   updateAvatar: (avatar: AvatarOptions) => Promise<void>;
   setRole: (isObserver: boolean) => Promise<void>;
   castVote: (value: CardValue) => Promise<void>;
@@ -57,6 +58,7 @@ interface RoomScreenProps {
   roomCode: string;
   uid: string | null;
   throws: ThrowEvent[];
+  tickets: import('../../types/planning.ts').BacklogTicket[];
   // The backend's latest error, e.g. the room connection dropping. The room
   // keeps showing its last known state meanwhile, so it has to be said.
   connectionError?: string | null;
@@ -66,7 +68,7 @@ interface RoomScreenProps {
 }
 
 export default function RoomScreen({
-  room, roomCode, uid, throws, connectionError, actions, theme, onToggleTheme,
+  room, roomCode, uid, throws, tickets, connectionError, actions, theme, onToggleTheme,
 }: RoomScreenProps) {
   const { copied, copy } = useClipboard();
   const [roundPending, setRoundPending] = useState(false);
@@ -156,6 +158,16 @@ export default function RoomScreen({
     runRoundAction(actions.startNextRound, "Couldn't start the next round — try again.");
   }, [runRoundAction, actions]);
 
+  // Working through a backlog: the host's way out of a reveal brings up the
+  // first ticket still to estimate, with the usual fresh round.
+  const upNext = isCreator ? tickets.find(t => t.id !== room.activeTicketId && !t.estimate) : undefined;
+  const upNextId = upNext?.id;
+  const handleStartNextTicket = useCallback(() => {
+    if (upNextId) runRoundAction(() => actions.selectTicket(upNextId), "Couldn't start the next ticket — try again.");
+  }, [runRoundAction, actions, upNextId]);
+  const nextTicket = useMemo(() => upNext ? { key: upNext.key, title: upNext.title, onStart: handleStartNextTicket } : null,
+    [upNext?.key, upNext?.title, handleStartNextTicket]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const {
     weaponTrayOpen, equippedWeaponId, weaponTipRendered, weaponTipClosing,
     openTray, closeTray, selectWeapon, cancelTargeting, dismissWeaponTip, throwAt,
@@ -177,7 +189,7 @@ export default function RoomScreen({
     isRevealed, allVoted, anyVote, isObserver,
     canVoteAfterReveal: isRevealed && !isObserver && me.vote == null,
     deckValues: deck.values?.map((v) => v.value) ?? null,
-    onReveal: handleReveal, onStartNextRound: handleStartNextRound, onCastVote: handleCastVote,
+    onReveal: handleReveal, onStartNextRound: nextTicket ? handleStartNextTicket : handleStartNextRound, onCastVote: handleCastVote,
   });
 
   const handleSwitchDeck = useCallback((deckId: DeckId) => {
@@ -254,7 +266,7 @@ export default function RoomScreen({
         onHeightChange={handleHeaderHeightChange}
       />
 
-      <RoomPlanning key={roomCode} room={room} isCreator={isCreator} onChange={actions.changeReadiness} onSelect={actions.selectTicket} onHeightChange={handlePlanningHeightChange} />
+      <RoomPlanning key={roomCode} room={room} uid={uid} tickets={tickets} isCreator={isCreator} onChange={actions.changeReadiness} onBacklogChange={actions.changeBacklog} onSelect={actions.selectTicket} onHeightChange={handlePlanningHeightChange} />
 
       <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} bottom={aboveBar} />
 
@@ -337,6 +349,7 @@ export default function RoomScreen({
         modeIsTie={modeIsTie}
         flaggedCount={flaggedCount}
         onStartNextRound={handleStartNextRound}
+        nextTicket={nextTicket}
         hoveredValue={hoveredVoteValue}
         onHoverValue={setHoveredVoteValue}
         onHeightChange={handleVotingBarHeightChange}

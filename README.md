@@ -198,7 +198,9 @@ Options, cheapest first:
   handling onto the user and won't scale past "people who trust this app".
 
 Worth scoping read-only import first: it's most of the value, needs no
-write scopes, and defers the trickiest permissions conversation.
+write scopes, and defers the trickiest permissions conversation. Manual import
+(paste and CSV) already fills the room's shared backlog, so a tracker adapter
+only has to list issues as drafts for the same review step.
 
 ### Rounds and history
 
@@ -266,20 +268,37 @@ services' live rendering or clear their preview caches.
 
 ### Readiness and ticket planning
 
-Each room has a **Readiness** drawer opening from the right and a **Tickets**
-drawer opening from the left. Everyone in the
-room can edit or check readiness criteria. Presets save the criteria (without
-checks) on this browser and can be applied in any room. Reusing a preset name
-updates it. Selecting a ticket is a host action: it shows the ticket to everyone
-and clears votes, reveal state, and readiness checks together.
+Each room has a **Readiness** drawer opening from the left and a **Tickets**
+drawer opening from the right. Everyone in the room can edit or check
+readiness criteria. Presets save the criteria (without checks) on this
+browser and can be applied in any room. Reusing a preset name updates it.
 
-Jira authentication and API access are not connected yet. In development, open
-**Tickets → Use demo tickets** to filter sample issues by team, status/backlog,
-and search, preview details, and start estimating. `?jiraDemo=1` enables that
-option initially. For a preview without a backend, visit
-`/?visual-test=room&jiraDemo=1`. The demo switch is omitted from production builds;
-selected demo issues are always labelled as demo data. No estimates are written
-back to Jira.
+**Tickets** is the room's shared backlog. Anyone at the table can add tickets
+by pasting (a Jira CSV export, rows copied from Jira or a spreadsheet, one
+ticket per line, or Jira issue links), by dropping or choosing a CSV,
+or one by hand. Imports are read in the browser and reviewed before anyone
+else sees them; only the key, title and description are kept, and contact
+details in descriptions are masked unless the importer keeps the originals.
+Everyone can edit a ticket's key, title and description, and selecting text
+highlights it for everyone (with a moment to undo); each field shows who last
+changed it, and a change made by someone else flashes in their colour. The
+list groups itself: the ticket at the table, Up next, and Estimated, which a
+ticket joins when its round is revealed, showing the most common vote. After a
+reveal, the host's main action is **Start next ticket**, which brings up the
+first ticket in Up next (Enter does the same); **Vote again on this one**
+re-runs the round on the same ticket. Selecting a ticket is a host action: it shows
+the ticket to everyone and clears votes, reveal state, and readiness checks
+together. No estimates are written back to Jira yet; a tracker connection will
+add issues to the same backlog (`TicketProvider` in `ticketProvider.ts`).
+
+For a preview without a backend,
+visit `/?visual-test=room&tickets=demo` (a backlog others have worked on) or
+`&tickets=live` (someone edits and highlights while you watch). There, the
+rest of the table votes after a ticket is brought to it or a new round
+starts, and a reveal records the estimate, so the whole flow can be tried. In
+development, **From Jira? See how to export → Use sample tickets** fills the
+import review with sample issues. To compare typefaces in the real UI, add
+`?font=barlow`, `?font=instrument` or `?font=figtree` to any development URL.
 
 Both the Firebase rules and .NET service implement shared planning state. Deploy
 the matching backend changes with the frontend. Run the focused browser checks

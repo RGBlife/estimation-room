@@ -1,13 +1,15 @@
 import type { CustomVoteGroup } from './stats.ts';
+import NextRoundAction, { type NextTicket } from './NextRoundAction.tsx';
 
 interface CustomResultsListProps {
   groups: CustomVoteGroup[];
   onStartNextRound: () => void;
+  nextTicket?: NextTicket | null;
 }
 
 // Replaces the bar-chart distribution for the Custom/Flexible deck: a plain
 // grouped list, identical answers counted together, top group accent-bordered.
-export default function CustomResultsList({ groups, onStartNextRound }: CustomResultsListProps) {
+export default function CustomResultsList({ groups, onStartNextRound, nextTicket }: CustomResultsListProps) {
   return (
     <div className="flex w-full max-w-[420px] flex-col items-center gap-3.5 py-1">
       <div className="flex w-full flex-col gap-2">
@@ -31,15 +33,7 @@ export default function CustomResultsList({ groups, onStartNextRound }: CustomRe
 
       <div className="h-px w-[120px] max-w-[60%] bg-sp-border" />
 
-      <div className="sp-kbd-hint-wrap">
-        <div className="sp-kbd-hint rounded-md border border-sp-border-strong bg-sp-panel-3 px-1.5 py-0.5 text-[11px] font-semibold text-sp-text-dim shadow-sp-sm">
-          Enter
-        </div>
-        <button
-          onClick={onStartNextRound}
-          className="cursor-pointer rounded-lg border-none bg-sp-accent px-4.5 py-2.5 font-sp-font text-sm font-bold text-sp-bg"
-        >Start next round</button>
-      </div>
+      <NextRoundAction onStartNextRound={onStartNextRound} nextTicket={nextTicket} />
     </div>
   );
 }
