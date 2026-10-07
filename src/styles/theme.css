@@ -38,9 +38,11 @@
   --sp-shadow-md: 0 10px 28px oklch(0 0 0 / 0.35);
   --sp-shadow-lg: 0 12px 28px oklch(0 0 0 / 0.4);
   --sp-shadow-up: 0 -10px 30px oklch(0 0 0 / 0.4);
-  --sp-font: 'Barlow', sans-serif;
-  --sp-display: 'Barlow Condensed', sans-serif;
-  --sp-mono: 'Barlow Condensed', sans-serif;
+  /* Hanken Grotesk for reading; Bricolage Grotesque, with its card-table
+     character, for headings, numbers and labels. */
+  --sp-font: 'Hanken Grotesk', sans-serif;
+  --sp-display: 'Bricolage Grotesque', sans-serif;
+  --sp-mono: 'Bricolage Grotesque', sans-serif;
 }
 
 :root[data-theme='light'] {
