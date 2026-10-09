@@ -19,7 +19,7 @@ class Socket {
 }
 let stop: (() => void) | undefined;
 beforeEach(() => {
-  sessionStorage.clear(); Socket.instances = [];
+  sessionStorage.clear(); localStorage.clear(); Socket.instances = [];
   vi.stubGlobal('WebSocket', Socket);
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ uid: 'u1', token: 'signed-token' }) }));
 });
@@ -59,6 +59,25 @@ describe('room connection', () => {
     const replacement = Socket.instances[1]; replacement.onopen?.(); replacement.receive({ type: 'ready', uid: 'u1' });
     expect(replacement.sent.filter(s => s.action).map(s => s.action)).toEqual(['join']);
     replacement.receive({ type: 'ack', id: replacement.sent.at(-1)!.id, code: 'ABCD' });
+  });
+  it('keeps the player the service issues across reconnects and a reset', async () => {
+    const receive = vi.fn();
+    stop = new RoomConnection(receive, vi.fn(), vi.fn()).start();
+    await vi.waitFor(() => expect(Socket.instances).toHaveLength(1));
+    const first = Socket.instances[0]; first.onopen?.();
+    expect(first.sent[0]).toEqual({ token: 'signed-token' });
+    first.receive({ type: 'ready', uid: 'u1', player: 'player-1' });
+    expect(localStorage.getItem('sp_player_v1')).toBe('player-1');
+    const profile = { type: 'profile', profile: { coins: 0, achievements: {} } };
+    first.receive(profile);
+    expect(receive).toHaveBeenCalledWith(profile);
+    // A reset elsewhere hands this tab the new player; the store never sees the token.
+    first.receive({ type: 'player', token: 'player-2' });
+    expect(receive).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('sp_player_v1')).toBe('player-2');
+    vi.useFakeTimers(); first.close(); await vi.advanceTimersByTimeAsync(1000);
+    const second = Socket.instances[1]; second.onopen?.();
+    expect(second.sent[0]).toEqual({ token: 'signed-token', player: 'player-2' });
   });
   it('bounds outgoing traffic and expires unanswered requests', async () => {
     const { connection, socket } = await setup(); vi.useFakeTimers();

@@ -8,6 +8,7 @@ import { normalizeAvatar } from '../avatar/avatar.ts';
 import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+import type { PlayerProfile } from '../../types/player.ts';
 import { recordDriverSample, forgetDriver, forgetAllDrivers } from './remoteDriverSamples.ts';
 
 interface RoomState {
@@ -22,6 +23,9 @@ interface RoomState {
   tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
   tableWasted: WastedMap;
   tickets: BacklogTicket[];
+  // This browser's progress (coins, achievements), null until the room
+  // service has sent it. Kept across rooms: it belongs to the player.
+  profile: PlayerProfile | null;
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -47,6 +51,8 @@ interface RoomState {
   publishPieceMove: (side: 'left' | 'right', move: TablePieceMove) => void;
   markPlayerWasted: (targetUid: string) => void;
   resetTable: () => void;
+  // Deletes this browser's progress; the service starts it over as a new player.
+  resetProgress: () => Promise<void>;
 }
 
 
@@ -80,6 +86,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
   const connection = new RoomConnection(message => {
     switch (message.type) {
       case 'room': set({ room: message.room, roomCode: message.room.code, error: null }); break;
+      case 'profile': set({ profile: message.profile }); break;
       case 'throw': set(s => ({ throws: [...s.throws.slice(-63), message.item] })); break;
       case 'drivers':
         clearDriverBatch();
@@ -136,7 +143,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     return joinedCode;
   };
   return {
-    uid: null, room: null, roomCode: null, error: null, notice: null, ...emptyLiveState(),
+    uid: null, room: null, roomCode: null, error: null, notice: null, profile: null, ...emptyLiveState(),
     initAuth: () => connection.start(),
     createRoom: payload => join('create', payload),
     joinRoom: async (code, payload) => { await join('join', payload, code); },
@@ -180,6 +187,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     publishPieceMove: (side, move) => transient('piece', { side, move }),
     markPlayerWasted: targetUid => transient('wasted', { targetUid }),
     resetTable: () => transient('reset'),
+    resetProgress: async () => { await command('resetProgress'); },
     leave: async () => {
       connection.forgetRoom(); driving = false; clearDriverBatch();
       try { if (connection.connected && get().roomCode) await command('leave'); }

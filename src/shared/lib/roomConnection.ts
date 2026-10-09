@@ -2,9 +2,14 @@ import type { JoinPayload, RoomDoc, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { BacklogTicket } from '../../types/planning.ts';
+import type { PlayerProfile } from '../../types/player.ts';
 
 type Message =
-  | { type: 'ready'; uid: string }
+  // `player` is a newly issued player token, when the one sent was missing or unreadable.
+  | { type: 'ready'; uid: string; player?: string | null }
+  // A replacement player token, after this browser's progress was reset.
+  | { type: 'player'; token: string }
+  | { type: 'profile'; profile: PlayerProfile }
   | { type: 'ack'; id: string; code?: string; room?: RoomPeek | null; error?: string }
   | { type: 'room'; room: RoomDoc }
   | { type: 'throw'; item: ThrowEvent }
@@ -19,6 +24,10 @@ type Message =
   | { type: 'closed'; reason: string };
 type Ack = Extract<Message, { type: 'ack' }>;
 const SESSION_KEY = 'sp_session_v1';
+// Unlike the session (one per tab, so two tabs are two seats), the player is
+// shared by every tab of the browser and outlives them: it is whose progress
+// coins and achievements belong to.
+const PLAYER_KEY = 'sp_player_v1';
 
 // One authenticated connection per tab. Mutations are acknowledged and never
 // blindly replayed after a disconnect; only room membership is restored.
@@ -37,6 +46,9 @@ export class RoomConnection {
   private sessionRequest: Promise<{ uid: string; token: string }> | null = null;
   private retryAfterMs = 0;
   private session: { uid: string; token: string } | null = null;
+  // Kept here as well as in storage, so a browser that refuses local storage
+  // still keeps one player for as long as the tab is open.
+  private player: string | null = null;
   private room: { code: string; payload: JoinPayload } | null = null;
   private pending = new Map<string, { resolve: (ack: Ack) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   private base = apiBase();
@@ -55,6 +67,14 @@ export class RoomConnection {
   rememberRoom(code: string, payload: JoinPayload) { this.room = { code, payload }; }
   updateProfile(payload: Partial<JoinPayload>) { if (this.room) this.room.payload = { ...this.room.payload, ...payload }; }
   forgetRoom() { this.room = null; }
+  private readPlayer() {
+    try { this.player = localStorage.getItem(PLAYER_KEY) ?? this.player; } catch { /* private browsing */ }
+    return this.player;
+  }
+  private savePlayer(token: string) {
+    this.player = token;
+    try { localStorage.setItem(PLAYER_KEY, token); } catch { /* in-memory player */ }
+  }
   private rejectPending() {
     for (const request of this.pending.values()) { clearTimeout(request.timer); request.reject(new Error('Connection interrupted. Please try again.')); }
     this.pending.clear();
@@ -80,12 +100,14 @@ export class RoomConnection {
       let authenticated = false;
       let connectedAt = 0;
       const authTimeout = setTimeout(() => socket.close(), 12000);
-      socket.onopen = () => socket.send(JSON.stringify({ token: session.token }));
+      // Read at each connection: another tab may have been given a new player since.
+      socket.onopen = () => socket.send(JSON.stringify({ token: session.token, player: this.readPlayer() ?? undefined }));
       socket.onmessage = event => {
         if (generation !== this.generation) return;
         const message = JSON.parse(event.data) as Message;
         if (message.type === 'ready') {
           authenticated = true; connectedAt = performance.now(); clearTimeout(authTimeout); this.ready = true;
+          if (message.player) this.savePlayer(message.player);
           this.identity(message.uid); this.error(null);
           clearInterval(this.heartbeat);
           this.heartbeat = setInterval(() => { void this.command('ping').catch(() => socket.close()); }, 25000);
@@ -102,7 +124,8 @@ export class RoomConnection {
             clearTimeout(request.timer); this.pending.delete(message.id);
             if (message.error) request.reject(new Error(message.error)); else request.resolve(message);
           }
-        } else this.receive(message);
+        } else if (message.type === 'player') this.savePlayer(message.token);
+        else this.receive(message);
       };
       socket.onclose = event => {
         clearTimeout(authTimeout);

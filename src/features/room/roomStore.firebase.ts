@@ -23,6 +23,7 @@ import {
 import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+import type { PlayerProfile } from '../../types/player.ts';
 
 interface RoomState {
   uid: string | null;
@@ -36,6 +37,8 @@ interface RoomState {
   tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
   tableWasted: WastedMap;
   tickets: BacklogTicket[];
+  // Player progress lives in the room service only; this backend has none.
+  profile: PlayerProfile | null;
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -61,6 +64,7 @@ interface RoomState {
   publishPieceMove: (side: 'left' | 'right', move: TablePieceMove) => void;
   markPlayerWasted: (targetUid: string) => void;
   resetTable: () => void;
+  resetProgress: () => Promise<void>;
 }
 
 // Listener handles for the room doc / throws subscriptions. Like
@@ -190,6 +194,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   tablePieceMove: ZERO_PIECE_MOVE,
   tableWasted: {},
   tickets: [],
+  profile: null,
+  resetProgress: async () => {},
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {
