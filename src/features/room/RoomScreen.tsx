@@ -12,6 +12,7 @@ import RoomHeader from './RoomHeader.tsx';
 import WeaponTipBanner from './WeaponTipBanner.tsx';
 import Toast from './Toast.tsx';
 import { useAchievements } from '../achievements/useAchievements.tsx';
+import { useToolbox } from '../toolbox/useToolbox.tsx';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts.ts';
 import { useWeaponTargeting } from './useWeaponTargeting.ts';
 import { useDeckSwitchToast } from './useDeckSwitchToast.ts';
@@ -92,6 +93,11 @@ export default function RoomScreen({
     unlocked: useRoomStore(s => s.unlocked),
     onShown: useRoomStore(s => s.dismissUnlocked),
     onReset: useRoomStore(s => s.resetProgress),
+  });
+  const toolbox = useToolbox({
+    profile: useRoomStore(s => s.profile),
+    isRevealed: room.isRevealed,
+    playSorted: useRoomStore(s => s.playSorted),
   });
   const participants: Record<string, Participant> = useMemo(() => FAKE_PARTICIPANTS
     ? { ...FAKE_PARTICIPANTS, ...room.participants }
@@ -271,6 +277,7 @@ export default function RoomScreen({
         onSwitchRole={(nextIsObserver) => runAction(() => actions.setRole(nextIsObserver), "Couldn't switch role — check your connection.")}
         onLeave={actions.leave}
         achievements={achievements.header}
+        toolbox={toolbox.header}
         onHeightChange={handleHeaderHeightChange}
       />
 
@@ -279,6 +286,7 @@ export default function RoomScreen({
       <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} bottom={aboveBar} />
 
       {achievements.render((headerHeight || HEADER_FALLBACK) + planningHeight + OVERLAY_GAP)}
+      {toolbox.render()}
 
       <WeaponTipBanner
         equippedWeaponId={equippedWeaponId}

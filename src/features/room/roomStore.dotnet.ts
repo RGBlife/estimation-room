@@ -9,6 +9,7 @@ import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek }
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { PlayerProfile } from '../../types/player.ts';
+import type { SortedMove, SortedView } from '../../types/games.ts';
 import { recordDriverSample, forgetDriver, forgetAllDrivers } from './remoteDriverSamples.ts';
 
 interface RoomState {
@@ -57,6 +58,8 @@ interface RoomState {
   resetProgress: () => Promise<void>;
   // The oldest unlock has been announced.
   dismissUnlocked: () => void;
+  // One move in Sorted; resolves to the player's board.
+  playSorted: (move: SortedMove) => Promise<SortedView>;
 }
 
 
@@ -194,6 +197,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     resetTable: () => transient('reset'),
     resetProgress: async () => { await command('resetProgress'); set({ unlocked: [] }); },
     dismissUnlocked: () => set(s => ({ unlocked: s.unlocked.slice(1) })),
+    playSorted: async move => (await command('sorted', move)).game as SortedView,
     leave: async () => {
       connection.forgetRoom(); driving = false; clearDriverBatch();
       try { if (connection.connected && get().roomCode) await command('leave'); }

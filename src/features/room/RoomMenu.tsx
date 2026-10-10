@@ -13,6 +13,8 @@ interface RoomMenuItem {
   selected?: boolean;
   // Quiet text at the row's end, e.g. a count.
   detail?: string;
+  // Shown but not available yet; `detail` says when it will be.
+  disabled?: boolean;
 }
 
 interface RoomMenuGroup {
@@ -102,9 +104,10 @@ export default function RoomMenu({ items, groups = [], size = 44 }: RoomMenuProp
             <button
               key={item.label}
               role="menuitem"
+              disabled={item.disabled}
               onClick={() => { setOpen(false); triggerRef.current?.focus(); item.onSelect(); }}
-              className={`flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-2 border-none border-b border-sp-border bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold last:border-b-0 ${
-                item.accent ? 'text-sp-accent-text' : 'text-sp-text-dim'
+              className={`flex min-h-[44px] w-full items-center justify-between gap-2 border-none border-b border-sp-border bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold last:border-b-0 ${
+                item.disabled ? 'cursor-default text-sp-text-faint' : item.accent ? 'cursor-pointer text-sp-accent-text' : 'cursor-pointer text-sp-text-dim'
               }`}
             >
               <span className="truncate">{item.label}</span>

@@ -62,6 +62,11 @@ describe('room API store', () => {
     expect(mock.command).toHaveBeenCalledWith('resetProgress', {});
     expect(useRoomStore.getState().unlocked).toEqual([]);
   });
+  it('plays Sorted through the service and hands back the board', async () => {
+    mock.command.mockResolvedValueOnce({ game: { id: 's001', tiles: [] } });
+    await expect(useRoomStore.getState().playSorted({ operation: 'guess', items: ['A', 'B', 'C', 'D'] })).resolves.toEqual({ id: 's001', tiles: [] });
+    expect(mock.command).toHaveBeenCalledWith('sorted', { operation: 'guess', items: ['A', 'B', 'C', 'D'] });
+  });
   it('clears own wasted state when starting a drive and throttles unchanged positions', () => {
     const state = useRoomStore.getState();
     state.startDrive();

@@ -1,0 +1,77 @@
+/* The Toolbox: a games window over the dimmed table, in the room's own
+   panel and accent colours. Sorted's four difficulty colours are the one
+   new set of colours, light enough to carry dark ink in either theme. */
+.sp-toolbox { width: min(860px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); margin: auto; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --sp-level-0: #F2D16B; --sp-level-1: #A6CB7E; --sp-level-2: #A3BFEA; --sp-level-3: #C0A0DE; --sp-level-ink: #213754; }
+.sp-toolbox[open] { animation: sp-toolbox-in 200ms cubic-bezier(.2, .8, .2, 1) both; }
+.sp-toolbox[open][data-closing='true'] { animation: sp-toolbox-out 160ms ease-in both; }
+.sp-toolbox::backdrop { background: #0006; }
+@keyframes sp-toolbox-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes sp-toolbox-out { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .sp-toolbox[open], .sp-toolbox[open][data-closing='true'] { animation-duration: 1ms; } }
+
+.sp-toolbox-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 16px 16px 16px 24px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel); }
+.sp-toolbox-heading h2 { flex: 1; margin: 0; font-family: var(--sp-display); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.sp-toolbox-coins { padding: 5px 11px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.sp-toolbox-body { display: grid; grid-template-columns: 190px 1fr; min-height: 460px; }
+.sp-toolbox-games { padding: 16px 12px; border-right: 1px solid var(--sp-border); }
+.sp-toolbox-games h3 { margin: 10px 12px 6px; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); }
+.sp-toolbox-games ul { margin: 0 0 8px; padding: 0; list-style: none; }
+.sp-toolbox-games button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--sp-text-dim); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.sp-toolbox-games button[aria-current='true'] { background: var(--sp-accent-panel); color: var(--sp-text); box-shadow: inset 3px 0 0 var(--sp-accent); }
+.sp-toolbox-games button:disabled { cursor: default; color: var(--sp-text-faint); }
+.sp-toolbox-games small { font-size: 11px; font-weight: 500; }
+.sp-toolbox-game { min-width: 0; padding: 20px 24px 24px; }
+.sp-toolbox-error { margin: 12px 0 0; color: var(--sp-warn-text); font-size: 13px; }
+
+/* Narrow: the game list becomes a row of chips above the board. */
+@media (max-width: 640px) {
+  .sp-toolbox-body { grid-template-columns: 1fr; min-height: 0; }
+  .sp-toolbox-games { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--sp-border); }
+  .sp-toolbox-games > div { display: contents; }
+  .sp-toolbox-games h3 { display: none; }
+  .sp-toolbox-games ul { display: contents; }
+  .sp-toolbox-games button { flex-direction: row; align-items: center; gap: 6px; width: auto; white-space: nowrap; }
+  .sp-toolbox-game { padding: 16px 12px 18px; }
+}
+
+/* Sorted */
+.sp-sorted { display: flex; flex-direction: column; gap: 14px; }
+.sp-sorted-heading h3 { margin: 0; font-family: var(--sp-display); font-size: 20px; font-weight: 700; }
+.sp-sorted-hint { margin: 2px 0 0; font-size: 13px; color: var(--sp-text-faint); }
+.sp-sorted-bands { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.sp-sorted-band { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 64px; padding: 8px 12px; border-radius: 9px; color: var(--sp-level-ink); text-align: center; animation: sp-sorted-found 260ms ease-out both; }
+.sp-sorted-band[data-level='0'] { background: var(--sp-level-0); }
+.sp-sorted-band[data-level='1'] { background: var(--sp-level-1); }
+.sp-sorted-band[data-level='2'] { background: var(--sp-level-2); }
+.sp-sorted-band[data-level='3'] { background: var(--sp-level-3); }
+.sp-sorted-band[data-missed='true'] { opacity: .75; }
+.sp-sorted-band strong { font-family: var(--sp-display); font-size: 15px; font-weight: 700; }
+.sp-sorted-band span { font-size: 13px; }
+@keyframes sp-sorted-found { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+
+.sp-sorted-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.sp-sorted-tile { min-height: 64px; padding: 6px; border: 1px solid var(--sp-card-idle-border); border-radius: 9px; background: var(--sp-card-bg); color: var(--sp-text); font-family: var(--sp-display); font-size: clamp(11px, 1.6vw, 15px); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; cursor: pointer; transition: background 120ms, color 120ms, transform 120ms; }
+.sp-sorted-tile:hover:not(:disabled) { border-color: var(--sp-border-stronger); }
+.sp-sorted-tile[aria-pressed='true'] { border-color: transparent; background: var(--sp-accent); color: var(--sp-bg); }
+.sp-sorted-tile:disabled:not([aria-pressed='true']) { cursor: default; }
+.sp-sorted-tile:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
+.sp-sorted-tile[data-miss='0'] { animation: sp-sorted-shake-a 360ms ease-in-out; }
+.sp-sorted-tile[data-miss='1'] { animation: sp-sorted-shake-b 360ms ease-in-out; }
+@keyframes sp-sorted-shake-a { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+@keyframes sp-sorted-shake-b { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+@media (max-width: 640px) { .sp-sorted-tile { min-height: 58px; font-size: 12px; } }
+@media (prefers-reduced-motion: reduce) { .sp-sorted-tile, .sp-sorted-band { animation: none !important; transition: none; } }
+
+.sp-sorted-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; font-size: 13px; color: var(--sp-text-dim); }
+.sp-sorted-lives { display: flex; align-items: center; gap: 6px; }
+.sp-sorted-lives i { width: 11px; height: 11px; border-radius: 50%; background: var(--sp-text-dim); }
+.sp-sorted-lives i[data-spent='true'] { background: transparent; box-shadow: inset 0 0 0 1.5px var(--sp-border-stronger); }
+.sp-sorted-feedback { font-weight: 700; color: var(--sp-text); }
+.sp-sorted-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+
+.sp-sorted-result { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sp-sorted-result .sp-sorted-bands { align-self: stretch; }
+.sp-sorted-outcome { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0 0; text-align: center; }
+.sp-sorted-outcome strong { font-family: var(--sp-display); font-size: 22px; font-weight: 700; }
+.sp-sorted-outcome span { font-size: 14px; color: var(--sp-text-dim); }

@@ -11,7 +11,8 @@ type Message =
   | { type: 'player'; token: string }
   // `unlocked` names achievements just earned, for this tab to announce.
   | { type: 'profile'; profile: PlayerProfile; unlocked?: string[] }
-  | { type: 'ack'; id: string; code?: string; room?: RoomPeek | null; error?: string }
+  // `game` is the player's board after a game move.
+  | { type: 'ack'; id: string; code?: string; room?: RoomPeek | null; game?: unknown; error?: string }
   | { type: 'room'; room: RoomDoc }
   | { type: 'throw'; item: ThrowEvent }
   | { type: 'driver'; uid: string; driver: DriverState | null }

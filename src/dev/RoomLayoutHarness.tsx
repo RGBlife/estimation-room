@@ -23,6 +23,8 @@ import type { ThrowEvent } from '../types/throws.ts';
 import type { PlayerProfile } from '../types/player.ts';
 import { useAchievements } from '../features/achievements/useAchievements.tsx';
 import { ACHIEVEMENTS } from '../features/achievements/catalogue.ts';
+import { useToolbox } from '../features/toolbox/useToolbox.tsx';
+import { fakeSorted } from './fakeSorted.ts';
 
 // Dev-only, network-free stage for the *whole room layout* -- header, seats,
 // table and voting bar composed the way RoomScreen composes them, but with
@@ -154,7 +156,7 @@ export default function RoomLayoutHarness() {
   // ?progress=N seeds N earned achievements (every other one, so earned,
   // locked and secret cards sit side by side); ?unlock=id,id queues unlocks
   // to announce; ?achievements=open (or reset) opens the drawer.
-  const [profile, setProfile] = useState<PlayerProfile>(() => seedProfile(Number(params.get('progress') || 0)));
+  const [profile, setProfile] = useState<PlayerProfile>(() => ({ ...seedProfile(Number(params.get('progress') || 0)), coins: Number(params.get('coins') || 0) }));
   const [unlockQueue, setUnlockQueue] = useState<string[]>(() => params.get('unlock')?.split(',').filter(Boolean) ?? []);
   const achievementsPanel = params.get('achievements');
   const achievements = useAchievements({
@@ -164,6 +166,11 @@ export default function RoomLayoutHarness() {
     onReset: async () => setProfile({ coins: 0, achievements: {} }),
     initialPanel: achievementsPanel === 'open' ? 'list' : achievementsPanel === 'reset' ? 'reset' : undefined,
   });
+  // ?toolbox=open opens the Toolbox (with ?revealed=1, as games are only
+  // between rounds); ?coins=N seeds a balance; ?found=N starts Sorted with
+  // N groups already found.
+  const [playSorted] = useState(() => fakeSorted(paid => setProfile(p => ({ ...p, coins: p.coins + paid })), Number(params.get('found') || 0)));
+  const toolbox = useToolbox({ profile, isRevealed: revealed, playSorted, initiallyOpen: params.get('toolbox') === 'open' });
   // Real weapon/driving state rather than no-op stubs, so the interaction
   // between the two (see RoomScreen.handleStartDriving) can actually be
   // exercised here instead of only reasoned about.
@@ -246,6 +253,7 @@ export default function RoomLayoutHarness() {
         onSwitchRole={() => {}}
         onLeave={() => {}}
         achievements={achievements.header}
+        toolbox={toolbox.header}
         onHeightChange={setHeaderHeight}
       />
 
@@ -356,6 +364,7 @@ export default function RoomLayoutHarness() {
 
       {nudgedName && <p role="status" className="text-center text-sm text-sp-text-dim">Preview: nudged {nudgedName}</p>}
       {achievements.render((headerHeight || 64) + planningHeight + 12)}
+      {toolbox.render()}
       <Toast
         message="Deck switched to Powers of 2 — everyone's vote was reset"
         rendered={toastOpen}
