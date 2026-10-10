@@ -53,7 +53,7 @@ interface RoomHeaderProps {
   achievements?: { unlocked: number; total: number; onOpen: () => void; onReset?: () => void };
   // The games, likewise only where the room service runs them. Available
   // between rounds; the balance shows once there is one.
-  toolbox?: { coins: number; available: boolean; alert?: string; onOpen: () => void };
+  arcade?: { coins: number; available: boolean; alert?: string; onOpen: () => void };
   // Reports the header's rendered height so overlays positioned beneath it
   // (WeaponTipBanner) can sit below wherever it actually ends. It wraps to
   // several rows on a narrow screen, so a fixed offset lands mid-header.
@@ -66,18 +66,18 @@ export default function RoomHeader({
   avatarUrl, onEditAvatar, roomCode, teamName, onRename, copied, onCopy, isCreator,
   theme, onToggleTheme, isObserver, deck, onSwitchDeck, equippedWeaponId, onCancelTargeting, onOpenWeaponTray,
   isRevealed, isDriving, onStartDriving,
-  onSwitchRole, onLeave, achievements, toolbox, onHeightChange,
+  onSwitchRole, onLeave, achievements, arcade, onHeightChange,
 }: RoomHeaderProps) {
   // Progress lives behind the menu on every screen size: it's for between
   // rounds, not something the header should spend space on.
   const progressItems = [
     ...(achievements ? [{ label: '🏆 Achievements', detail: `${achievements.unlocked} of ${achievements.total}`, onSelect: achievements.onOpen }] : []),
-    ...(toolbox ? [{
-      label: '🧰 Toolbox',
-      detail: !toolbox.available ? 'After the reveal' : toolbox.alert ?? (toolbox.coins > 0 ? `🪙 ${toolbox.coins}` : undefined),
-      accent: toolbox.available && !!toolbox.alert,
-      disabled: !toolbox.available,
-      onSelect: toolbox.onOpen,
+    ...(arcade ? [{
+      label: '🕹 Arcade',
+      detail: !arcade.available ? 'After the reveal' : arcade.alert ?? (arcade.coins > 0 ? `🪙 ${arcade.coins}` : undefined),
+      accent: arcade.available && !!arcade.alert,
+      disabled: !arcade.available,
+      onSelect: arcade.onOpen,
     }] : []),
     ...(achievements?.onReset ? [{ label: 'Reset my progress', onSelect: achievements.onReset }] : []),
   ];

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SortedGame from './SortedGame.tsx';
-import ToolboxWindow from './ToolboxWindow.tsx';
+import ArcadeWindow from './ArcadeWindow.tsx';
 import DuelGame from './DuelGame.tsx';
 import ChallengeCard from './ChallengeCard.tsx';
 import RareFindGame from './RareFindGame.tsx';
@@ -71,24 +71,24 @@ describe('SortedGame', () => {
   });
 });
 
-describe('ToolboxWindow', () => {
+describe('ArcadeWindow', () => {
   it('shows the balance only once there is one', () => {
-    const { rerender } = render(<ToolboxWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    const { rerender } = render(<ArcadeWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
     expect(screen.queryByLabelText(/coins/)).not.toBeInTheDocument();
-    rerender(<ToolboxWindow coins={45} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    rerender(<ArcadeWindow coins={45} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
     expect(screen.getByLabelText('45 coins')).toBeInTheDocument();
   });
   it('lists every game, marking the one open', () => {
-    render(<ToolboxWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    render(<ArcadeWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
     expect(screen.getByRole('button', { name: 'Sorted' })).toHaveAttribute('aria-current', 'true');
     for (const name of ['Rare Find', 'Noughts and crosses', 'Battleship']) expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-current');
   });
 });
 
-describe('ToolboxWindow game list', () => {
+describe('ArcadeWindow game list', () => {
   it('switches game, and marks one with something waiting', () => {
     const select = vi.fn();
-    render(<ToolboxWindow coins={0} game="sorted" onSelectGame={select} waiting={['noughts']} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    render(<ArcadeWindow coins={0} game="sorted" onSelectGame={select} waiting={['noughts']} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
     fireEvent.click(screen.getByRole('button', { name: /Noughts and crosses/ }));
     expect(select).toHaveBeenCalledWith('noughts');
     expect(screen.getByRole('button', { name: /Noughts and crosses/ })).toHaveAccessibleName('Noughts and crosses (waiting for you)');

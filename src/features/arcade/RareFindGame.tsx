@@ -50,7 +50,7 @@ export default function RareFindGame({ play }: { play: (move: RareMove) => Promi
     </div>
   );
   if (!view) {
-    return <div className="sp-sorted">{heading}{error ? <p role="alert" className="sp-toolbox-error">{error}</p> : <p className="sp-sorted-hint">Finding a question…</p>}</div>;
+    return <div className="sp-sorted">{heading}{error ? <p role="alert" className="sp-arcade-error">{error}</p> : <p className="sp-sorted-hint">Finding a question…</p>}</div>;
   }
 
   const submit = (event: FormEvent) => {
@@ -97,7 +97,7 @@ export default function RareFindGame({ play }: { play: (move: RareMove) => Promi
           <button type="button" className="sp-planning-primary" disabled={busy} onClick={() => void run({ operation: 'next' })}>Next question</button>
         </div>
       )}
-      {error && <p role="alert" className="sp-toolbox-error">{error}</p>}
+      {error && <p role="alert" className="sp-arcade-error">{error}</p>}
       <p className="sp-rare-credit">
         Counts from players here and the <a href={NORMS_URL} target="_blank" rel="noreferrer">category norms</a> by Banks and Connell (CC BY 4.0).
       </p>

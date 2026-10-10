@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DUEL_GAMES, OFFER_MS, formatSeconds, useCountdown } from './duels.ts';
 import type { DuelView } from '../../types/games.ts';
-import './toolbox.css';
+import './arcade.css';
 
 interface ChallengeCardProps {
   // The challenge waiting for an answer, or null for no card.
@@ -43,7 +43,7 @@ export default function ChallengeCard({ duel, coins, onAnswer, top }: ChallengeC
           {short ? `You need 🪙 ${duel.stake}` : 'Accept'}
         </button>
       </div>
-      {error && <p role="alert" className="sp-toolbox-error">{error}</p>}
+      {error && <p role="alert" className="sp-arcade-error">{error}</p>}
       {left !== undefined && (
         <div className="sp-challenge-timer" role="timer" aria-label={`${formatSeconds(left)} left to answer`}>
           <span style={{ width: `${(left / OFFER_MS) * 100}%` }} />

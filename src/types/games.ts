@@ -1,4 +1,4 @@
-// Games in the Toolbox. The room service runs them and keeps the answers;
+// Games in the Arcade. The room service runs them and keeps the answers;
 // the page only ever sees a player's own board.
 
 export interface SortedGroup {

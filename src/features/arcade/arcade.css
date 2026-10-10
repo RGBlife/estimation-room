@@ -1,36 +1,36 @@
-/* The Toolbox: a games window over the dimmed table, in the room's own
+/* The Arcade: a games window over the dimmed table, in the room's own
    panel and accent colours. Sorted's four difficulty colours are the one
    new set of colours, light enough to carry dark ink in either theme. */
-.sp-toolbox { width: min(860px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); margin: auto; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --sp-level-0: #F2D16B; --sp-level-1: #A6CB7E; --sp-level-2: #A3BFEA; --sp-level-3: #C0A0DE; --sp-level-ink: #213754; }
-.sp-toolbox[open] { animation: sp-toolbox-in 200ms cubic-bezier(.2, .8, .2, 1) both; }
-.sp-toolbox[open][data-closing='true'] { animation: sp-toolbox-out 160ms ease-in both; }
-.sp-toolbox::backdrop { background: #0006; }
-@keyframes sp-toolbox-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
-@keyframes sp-toolbox-out { to { opacity: 0; transform: translateY(8px) scale(.98); } }
-@media (prefers-reduced-motion: reduce) { .sp-toolbox[open], .sp-toolbox[open][data-closing='true'] { animation-duration: 1ms; } }
+.sp-arcade { width: min(860px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); margin: auto; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --sp-level-0: #F2D16B; --sp-level-1: #A6CB7E; --sp-level-2: #A3BFEA; --sp-level-3: #C0A0DE; --sp-level-ink: #213754; }
+.sp-arcade[open] { animation: sp-arcade-in 200ms cubic-bezier(.2, .8, .2, 1) both; }
+.sp-arcade[open][data-closing='true'] { animation: sp-arcade-out 160ms ease-in both; }
+.sp-arcade::backdrop { background: #0006; }
+@keyframes sp-arcade-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes sp-arcade-out { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .sp-arcade[open], .sp-arcade[open][data-closing='true'] { animation-duration: 1ms; } }
 
-.sp-toolbox-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 16px 16px 16px 24px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel); }
-.sp-toolbox-heading h2 { flex: 1; margin: 0; font-family: var(--sp-display); font-size: 26px; font-weight: 700; line-height: 1.1; }
-.sp-toolbox-coins { padding: 5px 11px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sp-arcade-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 16px 16px 16px 24px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel); }
+.sp-arcade-heading h2 { flex: 1; margin: 0; font-family: var(--sp-display); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.sp-arcade-coins { padding: 5px 11px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.sp-toolbox-body { display: grid; grid-template-columns: 190px 1fr; min-height: 460px; }
-.sp-toolbox-games { padding: 16px 12px; border-right: 1px solid var(--sp-border); }
-.sp-toolbox-games h3 { margin: 10px 12px 6px; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); }
-.sp-toolbox-games ul { margin: 0 0 8px; padding: 0; list-style: none; }
-.sp-toolbox-games button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--sp-text-dim); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
-.sp-toolbox-games button[aria-current='true'] { background: var(--sp-accent-panel); color: var(--sp-text); box-shadow: inset 3px 0 0 var(--sp-accent); }
-.sp-toolbox-game { min-width: 0; padding: 20px 24px 24px; }
-.sp-toolbox-error { margin: 12px 0 0; color: var(--sp-warn-text); font-size: 13px; }
+.sp-arcade-body { display: grid; grid-template-columns: 190px 1fr; min-height: 460px; }
+.sp-arcade-games { padding: 16px 12px; border-right: 1px solid var(--sp-border); }
+.sp-arcade-games h3 { margin: 10px 12px 6px; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); }
+.sp-arcade-games ul { margin: 0 0 8px; padding: 0; list-style: none; }
+.sp-arcade-games button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--sp-text-dim); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.sp-arcade-games button[aria-current='true'] { background: var(--sp-accent-panel); color: var(--sp-text); box-shadow: inset 3px 0 0 var(--sp-accent); }
+.sp-arcade-game { min-width: 0; padding: 20px 24px 24px; }
+.sp-arcade-error { margin: 12px 0 0; color: var(--sp-warn-text); font-size: 13px; }
 
 /* Narrow: the game list becomes a row of chips above the board. */
 @media (max-width: 640px) {
-  .sp-toolbox-body { grid-template-columns: 1fr; min-height: 0; }
-  .sp-toolbox-games { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--sp-border); }
-  .sp-toolbox-games > div { display: contents; }
-  .sp-toolbox-games h3 { display: none; }
-  .sp-toolbox-games ul { display: contents; }
-  .sp-toolbox-games button { flex-direction: row; align-items: center; gap: 6px; width: auto; white-space: nowrap; }
-  .sp-toolbox-game { padding: 16px 12px 18px; }
+  .sp-arcade-body { grid-template-columns: 1fr; min-height: 0; }
+  .sp-arcade-games { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--sp-border); }
+  .sp-arcade-games > div { display: contents; }
+  .sp-arcade-games h3 { display: none; }
+  .sp-arcade-games ul { display: contents; }
+  .sp-arcade-games button { flex-direction: row; align-items: center; gap: 6px; width: auto; white-space: nowrap; }
+  .sp-arcade-game { padding: 16px 12px 18px; }
 }
 
 /* Sorted */
@@ -75,9 +75,9 @@
 .sp-sorted-outcome span { font-size: 14px; color: var(--sp-text-dim); }
 
 /* A dot on a game with something waiting for you. */
-.sp-toolbox-games button { position: relative; }
-.sp-toolbox-waiting { position: absolute; top: 50%; right: 10px; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--sp-accent); }
-@media (max-width: 640px) { .sp-toolbox-waiting { position: static; display: inline-block; margin: 0 0 1px 6px; vertical-align: middle; } }
+.sp-arcade-games button { position: relative; }
+.sp-arcade-waiting { position: absolute; top: 50%; right: 10px; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--sp-accent); }
+@media (max-width: 640px) { .sp-arcade-waiting { position: static; display: inline-block; margin: 0 0 1px 6px; vertical-align: middle; } }
 
 /* Noughts and crosses: crosses in the accent colour, noughts in ink. */
 .sp-duel { display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -134,7 +134,7 @@
 .sp-challenge-text strong { font-family: var(--sp-display); font-size: 17px; font-weight: 700; line-height: 1.2; }
 .sp-challenge-text span { color: var(--sp-text-faint); font-size: 12px; line-height: 1.35; }
 .sp-challenge-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 4px 12px 12px; }
-.sp-challenge-card .sp-toolbox-error { margin: 0; padding: 0 12px 10px; }
+.sp-challenge-card .sp-arcade-error { margin: 0; padding: 0 12px 10px; }
 .sp-challenge-timer { height: 3px; background: var(--sp-bar-track); }
 .sp-challenge-timer span { display: block; height: 100%; background: var(--sp-accent); transition: width 250ms linear; }
 @keyframes sp-challenge-in { from { transform: translateX(calc(100% + 24px)); } to { transform: translateX(0); } }

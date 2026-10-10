@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import ToolboxWindow, { type ToolboxGame } from './ToolboxWindow.tsx';
+import ArcadeWindow, { type ArcadeGame } from './ArcadeWindow.tsx';
 import ChallengeCard from './ChallengeCard.tsx';
 import { incomingChallenge, isMyMove, ownDuel } from './duels.ts';
 import type { PlayerProfile } from '../../types/player.ts';
@@ -13,7 +13,7 @@ const RareFindGame = lazy(() => import('./RareFindGame.tsx'));
 const DuelGame = lazy(() => import('./DuelGame.tsx'));
 
 interface Options {
-  // Null where the room service keeps no progress: then there is no Toolbox.
+  // Null where the room service keeps no progress: then there is no Arcade.
   profile: PlayerProfile | null;
   // Games are for between rounds: open only while the votes are revealed.
   isRevealed: boolean;
@@ -23,17 +23,17 @@ interface Options {
   playSorted: (move: SortedMove) => Promise<SortedView>;
   playRare: (move: RareMove) => Promise<RareView>;
   duel: (move: DuelMove) => Promise<void>;
-  // Open straight away (the dev harness's ?toolbox=open, or =noughts).
+  // Open straight away (the dev harness's ?arcade=open, or =noughts).
   initiallyOpen?: boolean;
-  initialGame?: ToolboxGame;
+  initialGame?: ArcadeGame;
 }
 
-// The Toolbox's menu item for the header, the window, and the card for a
+// The Arcade's menu item for the header, the window, and the card for a
 // challenge to you. The window closes itself when the next round starts;
 // games in play are kept by the service and pick up at the next reveal.
-export function useToolbox({ profile, isRevealed, uid, participants, duels, playSorted, playRare, duel, initiallyOpen = false, initialGame = 'sorted' }: Options) {
+export function useArcade({ profile, isRevealed, uid, participants, duels, playSorted, playRare, duel, initiallyOpen = false, initialGame = 'sorted' }: Options) {
   const [open, setOpen] = useState(initiallyOpen);
-  const [game, setGame] = useState<ToolboxGame>(initialGame);
+  const [game, setGame] = useState<ArcadeGame>(initialGame);
   const [closing, setClosing] = useState(false);
   useEffect(() => {
     if (!closing) return;
@@ -66,7 +66,7 @@ export function useToolbox({ profile, isRevealed, uid, participants, duels, play
       {/* Inside the window the challenge shows on the Noughts and crosses page instead. */}
       {!open && <ChallengeCard duel={incoming} coins={profile.coins} onAnswer={answer} top={top} />}
       {open && (
-        <ToolboxWindow coins={profile.coins} game={game} onSelectGame={setGame} waiting={waiting ? [waiting] : []}
+        <ArcadeWindow coins={profile.coins} game={game} onSelectGame={setGame} waiting={waiting ? [waiting] : []}
           closing={closing} onClose={() => setClosing(true)}>
           <Suspense fallback={<p className="sp-sorted-hint">Loading the game…</p>}>
             {game === 'sorted' && <SortedGame play={playSorted} />}
@@ -75,7 +75,7 @@ export function useToolbox({ profile, isRevealed, uid, participants, duels, play
               <DuelGame key={game} game={game} uid={uid} coins={profile.coins} participants={participants} duels={duels} duel={duel} />
             )}
           </Suspense>
-        </ToolboxWindow>
+        </ArcadeWindow>
       )}
     </>
   );

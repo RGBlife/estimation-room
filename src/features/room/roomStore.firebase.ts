@@ -205,7 +205,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   unlocked: [],
   resetProgress: async () => {},
   dismissUnlocked: () => {},
-  // The Toolbox needs the room service, and is hidden on this backend.
+  // The Arcade needs the room service, and is hidden on this backend.
   playSorted: async () => { throw new Error('Games are not available here'); },
   playRare: async () => { throw new Error('Games are not available here'); },
   duels: [],

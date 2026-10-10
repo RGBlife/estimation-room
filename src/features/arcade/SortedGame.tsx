@@ -64,7 +64,7 @@ export default function SortedGame({ play }: { play: (move: SortedMove) => Promi
   useEffect(() => { void run({ operation: 'open' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!view) {
-    return <div className="sp-sorted">{error ? <p role="alert" className="sp-toolbox-error">{error}</p> : <p className="sp-sorted-hint">Dealing a puzzle…</p>}</div>;
+    return <div className="sp-sorted">{error ? <p role="alert" className="sp-arcade-error">{error}</p> : <p className="sp-sorted-hint">Dealing a puzzle…</p>}</div>;
   }
 
   const toggle = (tile: string) => setSelected(current =>
@@ -116,7 +116,7 @@ export default function SortedGame({ play }: { play: (move: SortedMove) => Promi
           </div>
         </>
       )}
-      {error && <p role="alert" className="sp-toolbox-error">{error}</p>}
+      {error && <p role="alert" className="sp-arcade-error">{error}</p>}
     </div>
   );
 }

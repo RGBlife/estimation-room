@@ -12,7 +12,7 @@ import RoomHeader from './RoomHeader.tsx';
 import WeaponTipBanner from './WeaponTipBanner.tsx';
 import Toast from './Toast.tsx';
 import { useAchievements } from '../achievements/useAchievements.tsx';
-import { useToolbox } from '../toolbox/useToolbox.tsx';
+import { useArcade } from '../arcade/useArcade.tsx';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts.ts';
 import { useWeaponTargeting } from './useWeaponTargeting.ts';
 import { useDeckSwitchToast } from './useDeckSwitchToast.ts';
@@ -97,7 +97,7 @@ export default function RoomScreen({
     onShown: useRoomStore(s => s.dismissUnlocked),
     onReset: useRoomStore(s => s.resetProgress),
   });
-  const toolbox = useToolbox({
+  const arcade = useArcade({
     profile: useRoomStore(s => s.profile),
     isRevealed: room.isRevealed,
     uid,
@@ -285,7 +285,7 @@ export default function RoomScreen({
         onSwitchRole={(nextIsObserver) => runAction(() => actions.setRole(nextIsObserver), "Couldn't switch role — check your connection.")}
         onLeave={actions.leave}
         achievements={achievements.header}
-        toolbox={toolbox.header}
+        arcade={arcade.header}
         onHeightChange={handleHeaderHeightChange}
       />
 
@@ -295,7 +295,7 @@ export default function RoomScreen({
 
       {achievements.render((headerHeight || HEADER_FALLBACK) + planningHeight + OVERLAY_GAP)}
       {/* A challenge card sits below an achievement card when both are up. */}
-      {toolbox.render((headerHeight || HEADER_FALLBACK) + planningHeight + OVERLAY_GAP + (unlockedQueue.length > 0 ? ACHIEVEMENT_CARD_SPACE : 0))}
+      {arcade.render((headerHeight || HEADER_FALLBACK) + planningHeight + OVERLAY_GAP + (unlockedQueue.length > 0 ? ACHIEVEMENT_CARD_SPACE : 0))}
 
       <WeaponTipBanner
         equippedWeaponId={equippedWeaponId}

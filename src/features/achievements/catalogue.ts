@@ -19,7 +19,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'story-pointless', name: 'Story Pointless', icon: '🤷', how: 'Vote ? three rounds running.' },
   { id: 'brew-rocracy', name: 'Brew-rocracy', icon: '☕', how: 'Vote for a coffee break.' },
   { id: 'host-with-the-most', name: 'Host with the Most', icon: '🎩', how: 'Create a room that five people sit at.' },
-  { id: 'pocket-money', name: 'Pocket Money', icon: '🪙', how: 'Earn your first coin in the Toolbox.' },
+  { id: 'pocket-money', name: 'Pocket Money', icon: '🪙', how: 'Earn your first coin in the Arcade.' },
   { id: 'sort-of-genius', name: 'Sort of Genius', icon: '🧩', how: 'Solve a Sorted puzzle without a mistake.' },
   { id: 'noughty-by-nature', name: 'Noughty by Nature', icon: '⭕', how: 'Win a game of noughts and crosses.' },
   { id: 'you-sunk-my-battleship', name: 'You Sunk My Battleship', icon: '🚢', how: 'Win a game of Battleship.' },

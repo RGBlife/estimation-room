@@ -23,7 +23,7 @@ import type { ThrowEvent } from '../types/throws.ts';
 import type { PlayerProfile } from '../types/player.ts';
 import { useAchievements } from '../features/achievements/useAchievements.tsx';
 import { ACHIEVEMENTS } from '../features/achievements/catalogue.ts';
-import { useToolbox } from '../features/toolbox/useToolbox.tsx';
+import { useArcade } from '../features/arcade/useArcade.tsx';
 import { fakeSorted } from './fakeSorted.ts';
 import { fakeDuels } from './fakeDuels.ts';
 import { fakeRare } from './fakeRare.ts';
@@ -211,19 +211,19 @@ export default function RoomLayoutHarness() {
     return fixtures;
   }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round]);
   const me = participants[myUid];
-  // ?toolbox=open opens the Toolbox on Sorted, ?toolbox=rare on Rare Find,
-  // ?toolbox=noughts on Noughts and crosses (with ?revealed=1, as games are only between rounds);
+  // ?arcade=open opens the Arcade on Sorted, ?arcade=rare on Rare Find,
+  // ?arcade=noughts on Noughts and crosses (with ?revealed=1, as games are only between rounds);
   // ?coins=N seeds a balance; ?found=N starts Sorted with N groups found;
   // ?duel=incoming|waiting|playing|won|watch|battleship|battleship-incoming
-  // seeds a duel with p1 (or p2 v p3); ?toolbox=battleship opens on Battleship.
+  // seeds a duel with p1 (or p2 v p3); ?arcade=battleship opens on Battleship.
   const [playSorted] = useState(() => fakeSorted(paid => setProfile(p => ({ ...p, coins: p.coins + paid })), Number(params.get('found') || 0)));
   const [playRare] = useState(() => fakeRare(paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [fakeDuel] = useState(() => fakeDuels(myUid, uid => participants[uid]?.name ?? uid, params.get('duel'), next => setDuels(next), paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [duels, setDuels] = useState<DuelView[]>(fakeDuel.initial);
-  const toolboxParam = params.get('toolbox');
-  const toolbox = useToolbox({
+  const arcadeParam = params.get('arcade');
+  const arcade = useArcade({
     profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, playRare, duel: fakeDuel.duel,
-    initiallyOpen: !!toolboxParam, initialGame: toolboxParam === 'noughts' || toolboxParam === 'rare' || toolboxParam === 'battleship' ? toolboxParam : 'sorted',
+    initiallyOpen: !!arcadeParam, initialGame: arcadeParam === 'noughts' || arcadeParam === 'rare' || arcadeParam === 'battleship' ? arcadeParam : 'sorted',
   });
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];
@@ -265,7 +265,7 @@ export default function RoomLayoutHarness() {
         onSwitchRole={() => {}}
         onLeave={() => {}}
         achievements={achievements.header}
-        toolbox={toolbox.header}
+        arcade={arcade.header}
         onHeightChange={setHeaderHeight}
       />
 
@@ -376,7 +376,7 @@ export default function RoomLayoutHarness() {
 
       {nudgedName && <p role="status" className="text-center text-sm text-sp-text-dim">Preview: nudged {nudgedName}</p>}
       {achievements.render((headerHeight || 64) + planningHeight + 12)}
-      {toolbox.render((headerHeight || 64) + planningHeight + 12 + (unlockQueue.length > 0 ? 104 : 0))}
+      {arcade.render((headerHeight || 64) + planningHeight + 12 + (unlockQueue.length > 0 ? 104 : 0))}
       <Toast
         message="Deck switched to Powers of 2 — everyone's vote was reset"
         rendered={toastOpen}

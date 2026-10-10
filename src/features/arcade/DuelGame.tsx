@@ -140,7 +140,7 @@ export default function DuelGame({ game, uid, coins, participants, duels, duel }
   const mine = ownDuel(duels, uid);
   const watched = duels.find(d => d.id === watching && !(uid && (d.challenger.uid === uid || d.opponent.uid === uid)));
   const others = duels.filter(d => d.status === 'playing' && d.challenger.uid !== uid && d.opponent.uid !== uid);
-  const errorLine = error && <p role="alert" className="sp-toolbox-error">{error}</p>;
+  const errorLine = error && <p role="alert" className="sp-arcade-error">{error}</p>;
 
   const heading = (shown: Game) => (
     <div className="sp-sorted-heading">
