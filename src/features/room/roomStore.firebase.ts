@@ -24,7 +24,7 @@ import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek }
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { PlayerProfile } from '../../types/player.ts';
-import type { SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelMove, DuelView, SortedMove, SortedView } from '../../types/games.ts';
 
 interface RoomState {
   uid: string | null;
@@ -41,6 +41,7 @@ interface RoomState {
   // Player progress lives in the room service only; this backend has none.
   profile: PlayerProfile | null;
   unlocked: string[];
+  duels: DuelView[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -69,6 +70,7 @@ interface RoomState {
   resetProgress: () => Promise<void>;
   dismissUnlocked: () => void;
   playSorted: (move: SortedMove) => Promise<SortedView>;
+  duel: (move: DuelMove) => Promise<void>;
 }
 
 // Listener handles for the room doc / throws subscriptions. Like
@@ -204,6 +206,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   dismissUnlocked: () => {},
   // The Toolbox needs the room service, and is hidden on this backend.
   playSorted: async () => { throw new Error('Games are not available here'); },
+  duels: [],
+  duel: async () => { throw new Error('Games are not available here'); },
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {

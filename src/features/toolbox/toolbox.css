@@ -75,3 +75,69 @@
 .sp-sorted-outcome { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0 0; text-align: center; }
 .sp-sorted-outcome strong { font-family: var(--sp-display); font-size: 22px; font-weight: 700; }
 .sp-sorted-outcome span { font-size: 14px; color: var(--sp-text-dim); }
+
+/* A dot on a game with something waiting for you. */
+.sp-toolbox-games button { position: relative; }
+.sp-toolbox-waiting { position: absolute; top: 50%; right: 10px; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--sp-accent); }
+@media (max-width: 640px) { .sp-toolbox-waiting { position: static; display: inline-block; margin: 0 0 1px 6px; vertical-align: middle; } }
+
+/* Noughts and crosses: crosses in the accent colour, noughts in ink. */
+.sp-duel { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sp-duel-players { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 600; }
+.sp-duel-player { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; color: var(--sp-text-dim); }
+.sp-duel-player[data-turn='true'] { background: var(--sp-accent-panel); color: var(--sp-text); box-shadow: inset 0 0 0 1px var(--sp-accent-border); }
+.sp-duel-player b, .sp-duel-cell { font-family: var(--sp-display); font-weight: 700; }
+.sp-duel-player b[data-mark='X'], .sp-duel-cell[data-mark='X'] { color: var(--sp-accent-text); }
+.sp-duel-player b[data-mark='O'], .sp-duel-cell[data-mark='O'] { color: var(--sp-text); }
+.sp-duel-v { color: var(--sp-text-faint); font-size: 13px; }
+.sp-duel-stake { padding: 3px 9px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sp-duel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(288px, 100%); }
+.sp-duel-cell { aspect-ratio: 1; border: 1px solid var(--sp-card-idle-border); border-radius: 10px; background: var(--sp-card-bg); font-size: clamp(34px, 9vw, 52px); line-height: 1; cursor: pointer; transition: border-color 120ms, background 120ms; }
+.sp-duel-cell:enabled:hover { border-color: var(--sp-accent-border); background: var(--sp-accent-panel); }
+.sp-duel-cell:disabled { cursor: default; }
+.sp-duel-cell:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
+.sp-duel-cell[data-mark] { animation: sp-duel-mark 180ms ease-out both; }
+.sp-duel-cell[data-line] { border-color: var(--sp-accent); background: var(--sp-accent-panel-2); }
+@keyframes sp-duel-mark { from { transform: scale(.85); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sp-duel-cell[data-mark] { animation: none; } }
+.sp-duel-status { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px; min-height: 28px; margin: 0; text-align: center; font-size: 14px; color: var(--sp-text-dim); }
+.sp-duel-status strong { font-family: var(--sp-display); font-size: 19px; font-weight: 700; color: var(--sp-text); }
+.sp-duel-status[data-outcome='won'] strong { color: var(--sp-accent-text); }
+.sp-duel-clock { font-variant-numeric: tabular-nums; }
+.sp-duel-clock[data-low='true'] { color: var(--sp-warn-text); font-weight: 700; }
+
+/* The challenge form. */
+.sp-duel-people { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; border: 0; }
+.sp-duel-people legend { margin-bottom: 6px; padding: 0; font-size: 13px; font-weight: 600; color: var(--sp-text-dim); }
+.sp-duel-person { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; border: 1px solid transparent; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.sp-duel-person:hover:not([data-disabled]) { background: var(--sp-panel-2); }
+.sp-duel-person:has(input:checked) { border-color: var(--sp-accent-border); background: var(--sp-accent-panel); }
+.sp-duel-person:has(input:focus-visible) { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+.sp-duel-person[data-disabled] { cursor: default; color: var(--sp-text-faint); }
+.sp-duel-person input { accent-color: var(--sp-accent); }
+.sp-duel-person img { border-radius: 50%; }
+.sp-duel-person span { flex: 1; }
+.sp-duel-person small { font-size: 12px; font-weight: 500; }
+.sp-duel-stake-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--sp-text-dim); }
+.sp-duel-stake-picker button { min-width: 36px; padding-inline: 0; }
+.sp-duel-stake-picker output { min-width: 64px; font-size: 15px; text-align: center; color: var(--sp-text); font-variant-numeric: tabular-nums; }
+.sp-duel-stake-picker small { flex-basis: 100%; font-weight: 400; color: var(--sp-text-faint); }
+.sp-duel-watch h4 { margin: 4px 0 6px; font-size: 13px; font-weight: 600; color: var(--sp-text-dim); }
+.sp-duel-watch ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.sp-duel-watch li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--sp-border); border-radius: 9px; font-size: 14px; font-weight: 600; }
+
+/* A challenge to you, in the achievement card's corner. */
+.sp-challenge-card { position: fixed; right: 16px; z-index: 40; width: min(330px, calc(100vw - 24px)); overflow: hidden; border: 1px solid var(--sp-accent-border); border-radius: 12px; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-md); animation: sp-challenge-in 280ms cubic-bezier(.2, .8, .2, 1) both; }
+@media (max-width: 900px) { .sp-challenge-card { right: 12px; } }
+.sp-challenge-body { display: flex; align-items: center; gap: 12px; padding: 12px 16px 8px 12px; }
+.sp-challenge-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 10px; background: var(--sp-accent-panel); font-size: 22px; }
+.sp-challenge-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sp-challenge-text small { color: var(--sp-accent-text); font-size: 11px; font-weight: 700; }
+.sp-challenge-text strong { font-family: var(--sp-display); font-size: 17px; font-weight: 700; line-height: 1.2; }
+.sp-challenge-text span { color: var(--sp-text-faint); font-size: 12px; line-height: 1.35; }
+.sp-challenge-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 4px 12px 12px; }
+.sp-challenge-card .sp-toolbox-error { margin: 0; padding: 0 12px 10px; }
+.sp-challenge-timer { height: 3px; background: var(--sp-bar-track); }
+.sp-challenge-timer span { display: block; height: 100%; background: var(--sp-accent); transition: width 250ms linear; }
+@keyframes sp-challenge-in { from { transform: translateX(calc(100% + 24px)); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .sp-challenge-card { animation: none; } .sp-challenge-timer span { transition: none; } }

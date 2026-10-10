@@ -9,7 +9,7 @@ import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek }
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { PlayerProfile } from '../../types/player.ts';
-import type { SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelMove, DuelView, SortedMove, SortedView } from '../../types/games.ts';
 import { recordDriverSample, forgetDriver, forgetAllDrivers } from './remoteDriverSamples.ts';
 
 interface RoomState {
@@ -29,6 +29,8 @@ interface RoomState {
   profile: PlayerProfile | null;
   // Achievements just unlocked and not yet announced, oldest first.
   unlocked: string[];
+  // Challenges and duels at this table, and those finished this round.
+  duels: DuelView[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -60,11 +62,13 @@ interface RoomState {
   dismissUnlocked: () => void;
   // One move in Sorted; resolves to the player's board.
   playSorted: (move: SortedMove) => Promise<SortedView>;
+  // A challenge, an answer to one, or a move in a duel.
+  duel: (move: DuelMove) => Promise<void>;
 }
 
 
 const zeroPieces = () => ({ left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } });
-const emptyLiveState = () => ({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: zeroPieces(), tableWasted: {}, tickets: [] });
+const emptyLiveState = () => ({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: zeroPieces(), tableWasted: {}, tickets: [], duels: [] });
 // Slices of the backlog collect here until the last one lands, so the list
 // never shows half a backlog after joining or reconnecting.
 let incomingBacklog: Map<string, BacklogTicket> | null = null;
@@ -129,6 +133,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
         for (const ticket of message.tickets) next.set(ticket.id, ticket);
         return { tickets: sortBacklog(next.values()) };
       }); break;
+      case 'duels': set({ duels: message.duels }); break;
       case 'crack': set(s => ({ tableCracks: [...s.tableCracks.slice(-127), message.item] })); break;
       case 'table': set({ tableCracks: message.tableCracks, tablePieceMove: message.tablePieceMove, tableWasted: message.tableWasted }); break;
       case 'closed':
@@ -198,6 +203,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     resetProgress: async () => { await command('resetProgress'); set({ unlocked: [] }); },
     dismissUnlocked: () => set(s => ({ unlocked: s.unlocked.slice(1) })),
     playSorted: async move => (await command('sorted', move)).game as SortedView,
+    duel: async move => { await command('duel', move); },
     leave: async () => {
       connection.forgetRoom(); driving = false; clearDriverBatch();
       try { if (connection.connected && get().roomCode) await command('leave'); }

@@ -31,6 +31,8 @@ const VOTING_BAR_FALLBACK = 96;
 const HEADER_FALLBACK = 64;
 // Breathing room between a floating overlay and the bar/header it clears.
 const OVERLAY_GAP = 12;
+// Room for an achievement card above a challenge card, with a gap.
+const ACHIEVEMENT_CARD_SPACE = 104;
 
 interface RoomActions {
   changeReadiness: (change: import('../../types/planning.ts').ReadinessChange) => Promise<void>;
@@ -88,16 +90,21 @@ export default function RoomScreen({
   const [headerHeight, setHeaderHeight] = useState(0);
   const [planningHeight, setPlanningHeight] = useState(0);
   const [isDriving, setIsDriving] = useState(false);
+  const unlockedQueue = useRoomStore(s => s.unlocked);
   const achievements = useAchievements({
     profile: useRoomStore(s => s.profile),
-    unlocked: useRoomStore(s => s.unlocked),
+    unlocked: unlockedQueue,
     onShown: useRoomStore(s => s.dismissUnlocked),
     onReset: useRoomStore(s => s.resetProgress),
   });
   const toolbox = useToolbox({
     profile: useRoomStore(s => s.profile),
     isRevealed: room.isRevealed,
+    uid,
+    participants: room.participants,
+    duels: useRoomStore(s => s.duels),
     playSorted: useRoomStore(s => s.playSorted),
+    duel: useRoomStore(s => s.duel),
   });
   const participants: Record<string, Participant> = useMemo(() => FAKE_PARTICIPANTS
     ? { ...FAKE_PARTICIPANTS, ...room.participants }
@@ -286,7 +293,8 @@ export default function RoomScreen({
       <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} bottom={aboveBar} />
 
       {achievements.render((headerHeight || HEADER_FALLBACK) + planningHeight + OVERLAY_GAP)}
-      {toolbox.render()}
+      {/* A challenge card sits below an achievement card when both are up. */}
+      {toolbox.render((headerHeight || HEADER_FALLBACK) + planningHeight + OVERLAY_GAP + (unlockedQueue.length > 0 ? ACHIEVEMENT_CARD_SPACE : 0))}
 
       <WeaponTipBanner
         equippedWeaponId={equippedWeaponId}

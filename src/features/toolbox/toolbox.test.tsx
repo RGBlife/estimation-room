@@ -2,7 +2,12 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SortedGame from './SortedGame.tsx';
 import ToolboxWindow from './ToolboxWindow.tsx';
-import type { SortedMove, SortedView } from '../../types/games.ts';
+import NoughtsGame from './NoughtsGame.tsx';
+import ChallengeCard from './ChallengeCard.tsx';
+import { duelSummary, formatSeconds } from './duels.ts';
+import { randomAvatar } from '../avatar/avatar.ts';
+import type { Participant } from '../../types/room.ts';
+import type { DuelMove, DuelView, SortedMove, SortedView } from '../../types/games.ts';
 
 beforeAll(() => {
   // jsdom has <dialog> without its modal methods.
@@ -67,14 +72,107 @@ describe('SortedGame', () => {
 
 describe('ToolboxWindow', () => {
   it('shows the balance only once there is one', () => {
-    const { rerender } = render(<ToolboxWindow coins={0} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    const { rerender } = render(<ToolboxWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
     expect(screen.queryByLabelText(/coins/)).not.toBeInTheDocument();
-    rerender(<ToolboxWindow coins={45} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    rerender(<ToolboxWindow coins={45} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
     expect(screen.getByLabelText('45 coins')).toBeInTheDocument();
   });
   it('lists the games, with the ones still to come unavailable', () => {
-    render(<ToolboxWindow coins={0} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    render(<ToolboxWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
     expect(screen.getByRole('button', { name: 'Sorted' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', { name: /Battleship/ })).toBeDisabled();
+  });
+});
+
+describe('ToolboxWindow game list', () => {
+  it('switches game, and marks one with something waiting', () => {
+    const select = vi.fn();
+    render(<ToolboxWindow coins={0} game="sorted" onSelectGame={select} waiting={['noughts']} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
+    fireEvent.click(screen.getByRole('button', { name: /Noughts and crosses/ }));
+    expect(select).toHaveBeenCalledWith('noughts');
+    expect(screen.getByRole('button', { name: /Noughts and crosses/ })).toHaveAccessibleName('Noughts and crosses (waiting for you)');
+  });
+});
+
+const person = (name: string): Participant => ({ name, isObserver: false, vote: null, avatar: randomAvatar() } as Participant);
+const PEOPLE = { me: person('Me'), sam: person('Sam'), alex: person('Alex'), priya: person('Priya') };
+const duelOf = (over: Partial<DuelView> = {}): DuelView => ({
+  id: 'd1', game: 'noughts', status: 'playing', stake: 0, paused: false, board: Array(9).fill(null),
+  challenger: { uid: 'me', name: 'Me', mark: 'X' }, opponent: { uid: 'sam', name: 'Sam', mark: 'O' }, turn: 'me', turnLeftMs: 60_000, ...over,
+});
+
+describe('duelSummary', () => {
+  it('says where a duel stands from each seat', () => {
+    expect(duelSummary(duelOf({ status: 'offered', turn: undefined }), 'me').text).toBe('Waiting for Sam to accept');
+    expect(duelSummary(duelOf({ status: 'offered', turn: undefined }), 'sam').text).toBe('Me challenges you');
+    expect(duelSummary(duelOf(), 'me').text).toBe('Your move');
+    expect(duelSummary(duelOf(), 'sam').text).toBe("Me's move");
+    expect(duelSummary(duelOf({ paused: true }), 'me').text).toBe('Paused until the next reveal');
+    expect(duelSummary(duelOf({ status: 'won', winner: 'me', reason: 'line' }), 'me')).toEqual({ text: 'You won', outcome: 'won' });
+    expect(duelSummary(duelOf({ status: 'won', winner: 'me', reason: 'timeout' }), 'sam')).toEqual({ text: 'You ran out of time', outcome: 'lost' });
+    expect(duelSummary(duelOf({ status: 'won', winner: 'sam', reason: 'left' }), 'alex').text).toBe('Me left the game. Sam wins');
+    expect(duelSummary(duelOf({ status: 'drawn' }), 'me')).toEqual({ text: "It's a draw", outcome: 'drawn' });
+  });
+  it('formats the clock', () => {
+    expect(formatSeconds(60_000)).toBe('1:00');
+    expect(formatSeconds(8_200)).toBe('0:09');
+  });
+});
+
+describe('NoughtsGame', () => {
+  const props = (over: Partial<Parameters<typeof NoughtsGame>[0]> = {}) => ({
+    uid: 'me', coins: 45, participants: PEOPLE, duels: [] as DuelView[], duel: vi.fn(async (_: DuelMove) => {}), ...over,
+  });
+  it('challenges someone free, with a stake up to your own coins', async () => {
+    const p = props({ duels: [duelOf({ challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'priya', name: 'Priya' } })] });
+    render(<NoughtsGame {...p} />);
+    expect(screen.getByRole('radio', { name: /Alex/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('radio', { name: /Sam/ }));
+    for (let i = 0; i < 12; i++) fireEvent.click(screen.getByRole('button', { name: 'Raise the stake' }));
+    expect(screen.getByRole('button', { name: 'Raise the stake' })).toBeDisabled();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send challenge' })); });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', opponent: 'sam', stake: 45 });
+    expect(screen.getByRole('button', { name: 'Watch' })).toBeInTheDocument();
+  });
+  it('keeps the stake out of sight without coins', () => {
+    render(<NoughtsGame {...props({ coins: 0 })} />);
+    expect(screen.queryByText('Stake')).not.toBeInTheDocument();
+  });
+  it('plays a square on your turn only', async () => {
+    const p = props({ duels: [duelOf({ board: ['X', null, null, null, 'O', null, null, null, null] })] });
+    const { rerender } = render(<NoughtsGame {...p} />);
+    expect(screen.getByRole('button', { name: 'Square 1, X' })).toBeDisabled();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Square 9' })); });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'move', id: 'd1', cell: 8 });
+    rerender(<NoughtsGame {...p} duels={[duelOf({ turn: 'sam' })]} />);
+    expect(screen.getByRole('button', { name: 'Square 9' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent("Sam's move");
+  });
+  it("won't accept a stake you can't cover", () => {
+    render(<NoughtsGame {...props({ uid: 'sam', coins: 10, duels: [duelOf({ status: 'offered', stake: 20, turn: undefined })] })} />);
+    expect(screen.getByRole('button', { name: 'You need 🪙 20' })).toBeDisabled();
+  });
+  it('shows the result and what it paid, then offers a new challenge', () => {
+    render(<NoughtsGame {...props({ duels: [duelOf({ status: 'won', winner: 'me', reason: 'line', line: [0, 4, 8], paid: { me: 55, sam: 5 } })] })} />);
+    expect(screen.getByRole('status')).toHaveTextContent('You won');
+    expect(screen.getByText('+55 coins')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'New challenge' }));
+    expect(screen.getByRole('button', { name: 'Send challenge' })).toBeInTheDocument();
+  });
+});
+
+describe('ChallengeCard', () => {
+  it('shows who and what is at stake, and answers', async () => {
+    const answer = vi.fn(async (_: boolean) => {});
+    render(<ChallengeCard duel={duelOf({ status: 'offered', stake: 20, challenger: { uid: 'sam', name: 'Sam' }, opponent: { uid: 'me', name: 'Me' }, offerLeftMs: 30_000 })} coins={45} onAnswer={answer} top={80} />);
+    expect(screen.getByText('Sam challenges you')).toBeInTheDocument();
+    expect(screen.getByText(/20 each, winner takes both/)).toBeInTheDocument();
+    expect(screen.getByRole('timer')).toHaveAccessibleName('0:30 left to answer');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Accept' })); });
+    expect(answer).toHaveBeenCalledWith(true);
+  });
+  it('renders nothing without a challenge', () => {
+    const { container } = render(<ChallengeCard duel={null} coins={0} onAnswer={async () => {}} top={0} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

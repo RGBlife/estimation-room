@@ -67,6 +67,13 @@ describe('room API store', () => {
     await expect(useRoomStore.getState().playSorted({ operation: 'guess', items: ['A', 'B', 'C', 'D'] })).resolves.toEqual({ id: 's001', tiles: [] });
     expect(mock.command).toHaveBeenCalledWith('sorted', { operation: 'guess', items: ['A', 'B', 'C', 'D'] });
   });
+  it('keeps the table\'s duels and sends duel moves', async () => {
+    const duel = { id: 'd1', status: 'offered' };
+    mock.onMessage?.({ type: 'duels', duels: [duel] });
+    expect(useRoomStore.getState().duels).toEqual([duel]);
+    await useRoomStore.getState().duel({ operation: 'accept', id: 'd1' });
+    expect(mock.command).toHaveBeenCalledWith('duel', { operation: 'accept', id: 'd1' });
+  });
   it('clears own wasted state when starting a drive and throttles unchanged positions', () => {
     const state = useRoomStore.getState();
     state.startDrive();

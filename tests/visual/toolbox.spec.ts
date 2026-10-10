@@ -27,3 +27,35 @@ test('a Sorted board fits the window, and a solve pays into the balance', async 
   await expect(toolbox.getByText('Sorted, with no mistakes')).toBeVisible();
   await expect(toolbox.getByLabel('70 coins')).toBeVisible();
 });
+
+test('a challenge card opens the duel on the board', async ({ page }) => {
+  // Still, so the card is measured where it lands rather than sliding in.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&duel=incoming');
+  const card = page.getByRole('region', { name: 'Duel challenge' });
+  await expect(card.getByText('Player 2 challenges you')).toBeVisible();
+  const box = (await card.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await card.getByRole('button', { name: 'Accept' }).click();
+  const toolbox = page.getByRole('dialog', { name: 'Toolbox' });
+  await expect(toolbox.getByRole('group', { name: 'Board' })).toBeVisible();
+  await expect(card).toBeHidden();
+  // Player 2 plays crosses first, in the centre.
+  await expect(toolbox.getByRole('button', { name: 'Square 5, X' })).toBeVisible();
+  const overflow = await checkOverflow(toolbox.getByRole('group', { name: 'Board' }));
+  expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
+});
+
+test('a duel played to a win', async ({ page }) => {
+  // You hold X in the corner, Player 2 O in the centre, and it's your move.
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&toolbox=noughts&duel=playing');
+  const toolbox = page.getByRole('dialog', { name: 'Toolbox' });
+  const square = (n: number) => toolbox.getByRole('button', { name: new RegExp(`^Square ${n}`) });
+  await square(9).click();
+  await expect(square(3)).toHaveAccessibleName('Square 3, O');
+  await square(7).click();
+  await expect(square(2)).toHaveAccessibleName('Square 2, O');
+  await square(4).click();
+  await expect(toolbox.getByRole('status')).toContainText('You won');
+  await expect(toolbox.getByLabel('100 coins')).toBeVisible();
+});
