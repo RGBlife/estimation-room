@@ -72,3 +72,34 @@ export type DuelMove =
   | { operation: 'challenge'; opponent: string; stake: number }
   | { operation: 'accept' | 'decline' | 'cancel' | 'resign'; id: string }
   | { operation: 'move'; id: string; cell: number };
+
+export interface RareAnswerCount {
+  answer: string;
+  count: number;
+}
+
+// A Rare Find question as the service sends it; the counts once answered.
+export interface RareView {
+  category: string;
+  number: number;
+  // "Name a fruit".
+  prompt: string;
+  // Every question has been answered, so this one pays nothing.
+  replay: boolean;
+  // Before answering: how many people have been asked.
+  asked?: number;
+  // Once answered: yours as typed, the norms' spelling it matched, how many
+  // others gave it out of how many asked, and what it paid.
+  answer?: string;
+  match?: string;
+  count?: number;
+  total?: number;
+  paid?: number;
+  // Someone else has given it too, so it counts.
+  valid?: boolean;
+  // From the category norms only; other players' answers are never shown.
+  common?: RareAnswerCount[];
+  rarest?: RareAnswerCount[];
+}
+
+export type RareMove = { operation: 'open' | 'next' } | { operation: 'answer'; answer: string };

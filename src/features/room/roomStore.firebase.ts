@@ -24,7 +24,7 @@ import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek }
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { PlayerProfile } from '../../types/player.ts';
-import type { DuelMove, DuelView, SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
 
 interface RoomState {
   uid: string | null;
@@ -70,6 +70,7 @@ interface RoomState {
   resetProgress: () => Promise<void>;
   dismissUnlocked: () => void;
   playSorted: (move: SortedMove) => Promise<SortedView>;
+  playRare: (move: RareMove) => Promise<RareView>;
   duel: (move: DuelMove) => Promise<void>;
 }
 
@@ -206,6 +207,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   dismissUnlocked: () => {},
   // The Toolbox needs the room service, and is hidden on this backend.
   playSorted: async () => { throw new Error('Games are not available here'); },
+  playRare: async () => { throw new Error('Games are not available here'); },
   duels: [],
   duel: async () => { throw new Error('Games are not available here'); },
 

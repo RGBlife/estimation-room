@@ -141,3 +141,27 @@
 .sp-challenge-timer span { display: block; height: 100%; background: var(--sp-accent); transition: width 250ms linear; }
 @keyframes sp-challenge-in { from { transform: translateX(calc(100% + 24px)); } to { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .sp-challenge-card { animation: none; } .sp-challenge-timer span { transition: none; } }
+
+/* Rare Find */
+.sp-rare-question { padding: 18px 20px; border: 1px solid var(--sp-border); border-radius: 12px; background: var(--sp-panel-2); text-align: center; }
+.sp-rare-prompt { margin: 0; font-family: var(--sp-display); font-size: clamp(22px, 3.4vw, 30px); font-weight: 700; line-height: 1.15; }
+.sp-rare-question .sp-sorted-hint { margin-top: 6px; }
+.sp-rare-form { display: flex; gap: 8px; }
+.sp-rare-input { flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border: 1px solid var(--sp-border-strong); border-radius: 9px; background: var(--sp-card-bg); color: var(--sp-text); font: inherit; font-size: 16px; }
+.sp-rare-input:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+.sp-rare-result { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sp-rare-verdict { display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 0; text-align: center; font-size: 14px; color: var(--sp-text-dim); }
+.sp-rare-verdict strong { font-family: var(--sp-display); font-size: 24px; font-weight: 700; color: var(--sp-text); overflow-wrap: anywhere; }
+.sp-rare-verdict strong::first-letter { text-transform: uppercase; }
+.sp-rare-paid { font-weight: 700; color: var(--sp-accent-text); }
+.sp-rare-meter { width: min(320px, 100%); height: 8px; border-radius: 999px; background: var(--sp-bar-track); overflow: hidden; }
+.sp-rare-meter span { display: block; height: 100%; border-radius: inherit; background: var(--sp-accent); }
+.sp-rare-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-self: stretch; }
+.sp-rare-answers { padding: 10px 14px; border: 1px solid var(--sp-border); border-radius: 10px; }
+.sp-rare-answers h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); }
+.sp-rare-answers ol { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.sp-rare-answers li { display: flex; justify-content: space-between; gap: 8px; }
+.sp-rare-answers li span::first-letter { text-transform: uppercase; }
+.sp-rare-answers b { color: var(--sp-text-faint); font-variant-numeric: tabular-nums; }
+.sp-rare-credit { margin: 4px 0 0; font-size: 11px; color: var(--sp-text-faint); text-align: center; }
+.sp-rare-credit a { color: inherit; }

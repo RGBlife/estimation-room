@@ -59,3 +59,15 @@ test('a duel played to a win', async ({ page }) => {
   await expect(toolbox.getByRole('status')).toContainText('You won');
   await expect(toolbox.getByLabel('100 coins')).toBeVisible();
 });
+
+test('Rare Find asks, then shows how rare the answer was', async ({ page }) => {
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&toolbox=rare');
+  const toolbox = page.getByRole('dialog', { name: 'Toolbox' });
+  await expect(toolbox.getByText('Name a fruit')).toBeVisible();
+  await toolbox.getByLabel('Your answer').fill('Kumquats');
+  await toolbox.getByRole('button', { name: 'Answer' }).click();
+  await expect(toolbox.getByRole('status')).toContainText('1 of 20 people said that');
+  await expect(toolbox.getByLabel('60 coins')).toBeVisible();
+  const overflow = await checkOverflow(toolbox);
+  expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
+});

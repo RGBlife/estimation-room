@@ -4,10 +4,11 @@ import SortedGame from './SortedGame.tsx';
 import ToolboxWindow from './ToolboxWindow.tsx';
 import NoughtsGame from './NoughtsGame.tsx';
 import ChallengeCard from './ChallengeCard.tsx';
+import RareFindGame from './RareFindGame.tsx';
 import { duelSummary, formatSeconds } from './duels.ts';
 import { randomAvatar } from '../avatar/avatar.ts';
 import type { Participant } from '../../types/room.ts';
-import type { DuelMove, DuelView, SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
 
 beforeAll(() => {
   // jsdom has <dialog> without its modal methods.
@@ -81,6 +82,7 @@ describe('ToolboxWindow', () => {
     render(<ToolboxWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
     expect(screen.getByRole('button', { name: 'Sorted' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', { name: /Battleship/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Rare Find' })).toBeEnabled();
   });
 });
 
@@ -174,5 +176,32 @@ describe('ChallengeCard', () => {
   it('renders nothing without a challenge', () => {
     const { container } = render(<ChallengeCard duel={null} coins={0} onAnswer={async () => {}} top={0} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('RareFindGame', () => {
+  const question: RareView = { category: 'fruit', number: 4, prompt: 'Name a fruit', replay: false, asked: 21 };
+  const answered = (over: Partial<RareView> = {}): RareView => ({
+    ...question, asked: undefined, answer: 'Kumquats', match: 'kumquat', count: 1, total: 21, valid: true, paid: 15,
+    common: [{ answer: 'apple', count: 20 }], rarest: [{ answer: 'kumquat', count: 1 }], ...over,
+  });
+  it('asks, sends the answer, and shows how rare it was', async () => {
+    const play = vi.fn(async (move: RareMove) => move.operation === 'answer' ? answered() : question);
+    render(<RareFindGame play={play} />);
+    expect(await screen.findByText('Name a fruit')).toBeInTheDocument();
+    expect(screen.getByText('21 people asked so far')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: '  Kumquats ' } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Answer' })); });
+    expect(play).toHaveBeenLastCalledWith({ operation: 'answer', answer: 'Kumquats' });
+    expect(screen.getByRole('status')).toHaveTextContent('kumquat1 of 21 people said that (5%)+15 coins');
+    expect(screen.getByText('Rarest on the list')).toBeInTheDocument();
+  });
+  it('says when nobody else has given an answer yet', async () => {
+    render(<RareFindGame play={async () => answered({ match: undefined, answer: 'Zorblax', count: 0, valid: false, paid: 1 })} />);
+    expect(await screen.findByText('Nobody else has said that yet. It counts once someone does.')).toBeInTheDocument();
+  });
+  it('credits the category norms', async () => {
+    render(<RareFindGame play={async () => question} />);
+    expect(await screen.findByRole('link', { name: 'category norms' })).toHaveAttribute('href', 'https://osf.io/jgcu6/');
   });
 });

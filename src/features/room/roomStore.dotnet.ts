@@ -9,7 +9,7 @@ import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek }
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { PlayerProfile } from '../../types/player.ts';
-import type { DuelMove, DuelView, SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
 import { recordDriverSample, forgetDriver, forgetAllDrivers } from './remoteDriverSamples.ts';
 
 interface RoomState {
@@ -62,6 +62,8 @@ interface RoomState {
   dismissUnlocked: () => void;
   // One move in Sorted; resolves to the player's board.
   playSorted: (move: SortedMove) => Promise<SortedView>;
+  // One move in Rare Find; resolves to the question and, once answered, the counts.
+  playRare: (move: RareMove) => Promise<RareView>;
   // A challenge, an answer to one, or a move in a duel.
   duel: (move: DuelMove) => Promise<void>;
 }
@@ -203,6 +205,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     resetProgress: async () => { await command('resetProgress'); set({ unlocked: [] }); },
     dismissUnlocked: () => set(s => ({ unlocked: s.unlocked.slice(1) })),
     playSorted: async move => (await command('sorted', move)).game as SortedView,
+    playRare: async move => (await command('rare', move)).game as RareView,
     duel: async move => { await command('duel', move); },
     leave: async () => {
       connection.forgetRoom(); driving = false; clearDriverBatch();

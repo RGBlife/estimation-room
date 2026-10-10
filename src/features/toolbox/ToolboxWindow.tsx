@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import './toolbox.css';
 
-export type ToolboxGame = 'sorted' | 'noughts';
+export type ToolboxGame = 'sorted' | 'rare' | 'noughts';
 
 interface ToolboxWindowProps {
   coins: number;
@@ -17,7 +17,7 @@ interface ToolboxWindowProps {
 // The games, solo and against someone at the table. Those still to come are
 // listed so the shape of the Toolbox is clear.
 const GAMES: { heading: string; games: { name: string; id?: ToolboxGame }[] }[] = [
-  { heading: 'Solo', games: [{ name: 'Sorted', id: 'sorted' }, { name: 'Rarest answer' }] },
+  { heading: 'Solo', games: [{ name: 'Sorted', id: 'sorted' }, { name: 'Rare Find', id: 'rare' }] },
   { heading: 'Duel', games: [{ name: 'Noughts and crosses', id: 'noughts' }, { name: 'Battleship' }] },
 ];
 

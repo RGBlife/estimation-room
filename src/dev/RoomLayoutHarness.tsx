@@ -26,6 +26,7 @@ import { ACHIEVEMENTS } from '../features/achievements/catalogue.ts';
 import { useToolbox } from '../features/toolbox/useToolbox.tsx';
 import { fakeSorted } from './fakeSorted.ts';
 import { fakeDuels } from './fakeDuels.ts';
+import { fakeRare } from './fakeRare.ts';
 import type { DuelView } from '../types/games.ts';
 
 // Dev-only, network-free stage for the *whole room layout* -- header, seats,
@@ -210,17 +211,18 @@ export default function RoomLayoutHarness() {
     return fixtures;
   }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round]);
   const me = participants[myUid];
-  // ?toolbox=open opens the Toolbox on Sorted, ?toolbox=noughts on Noughts
-  // and crosses (with ?revealed=1, as games are only between rounds);
+  // ?toolbox=open opens the Toolbox on Sorted, ?toolbox=rare on Rare Find,
+  // ?toolbox=noughts on Noughts and crosses (with ?revealed=1, as games are only between rounds);
   // ?coins=N seeds a balance; ?found=N starts Sorted with N groups found;
   // ?duel=incoming|waiting|playing|won|watch seeds a duel with p1 (or p2 v p3).
   const [playSorted] = useState(() => fakeSorted(paid => setProfile(p => ({ ...p, coins: p.coins + paid })), Number(params.get('found') || 0)));
+  const [playRare] = useState(() => fakeRare(paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [fakeDuel] = useState(() => fakeDuels(myUid, uid => participants[uid]?.name ?? uid, params.get('duel'), next => setDuels(next), paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [duels, setDuels] = useState<DuelView[]>(fakeDuel.initial);
   const toolboxParam = params.get('toolbox');
   const toolbox = useToolbox({
-    profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, duel: fakeDuel.duel,
-    initiallyOpen: toolboxParam === 'open' || toolboxParam === 'noughts', initialGame: toolboxParam === 'noughts' ? 'noughts' : 'sorted',
+    profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, playRare, duel: fakeDuel.duel,
+    initiallyOpen: !!toolboxParam, initialGame: toolboxParam === 'noughts' || toolboxParam === 'rare' ? toolboxParam : 'sorted',
   });
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];

@@ -22,6 +22,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'pocket-money', name: 'Pocket Money', icon: '🪙', how: 'Earn your first coin in the Toolbox.' },
   { id: 'sort-of-genius', name: 'Sort of Genius', icon: '🧩', how: 'Solve a Sorted puzzle without a mistake.' },
   { id: 'noughty-by-nature', name: 'Noughty by Nature', icon: '⭕', how: 'Win a game of noughts and crosses.' },
+  { id: 'hipster', name: 'Hipster', icon: '🕶️', how: 'In Rare Find, give an answer only one other person gave.' },
   { id: 'high-roller', name: 'High Roller', icon: '🎲', how: 'Win a duel with coins at stake.' },
   { id: 'table-for-none', name: 'Table for None', icon: '🪓', how: 'Break the table in two.', clue: "Some furniture isn't rated for this." },
   { id: 'grand-theft-estimate', name: 'Grand Theft Estimate', icon: '🚗', how: 'Take GTA Mode for a drive.', clue: 'Once the cards are down, the keys are in the ignition.' },

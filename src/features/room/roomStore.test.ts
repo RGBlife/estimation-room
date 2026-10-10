@@ -67,6 +67,11 @@ describe('room API store', () => {
     await expect(useRoomStore.getState().playSorted({ operation: 'guess', items: ['A', 'B', 'C', 'D'] })).resolves.toEqual({ id: 's001', tiles: [] });
     expect(mock.command).toHaveBeenCalledWith('sorted', { operation: 'guess', items: ['A', 'B', 'C', 'D'] });
   });
+  it('plays Rare Find through the service', async () => {
+    mock.command.mockResolvedValueOnce({ game: { category: 'fruit', prompt: 'Name a fruit' } });
+    await expect(useRoomStore.getState().playRare({ operation: 'answer', answer: 'kiwi' })).resolves.toEqual({ category: 'fruit', prompt: 'Name a fruit' });
+    expect(mock.command).toHaveBeenCalledWith('rare', { operation: 'answer', answer: 'kiwi' });
+  });
   it('keeps the table\'s duels and sends duel moves', async () => {
     const duel = { id: 'd1', status: 'offered' };
     mock.onMessage?.({ type: 'duels', duels: [duel] });
