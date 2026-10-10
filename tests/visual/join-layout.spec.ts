@@ -146,5 +146,9 @@ test('team names edit from the header without a rename menu or modal', async ({ 
   await page.keyboard.press('Escape');
   await expect(editor).toBeHidden();
   await expect(page.getByRole('button', { name: 'Rename team New team', exact: true })).toBeFocused();
-  if (page.viewportSize()!.width > 900) await expect(page.getByRole('button', { name: 'Room menu', exact: true })).toHaveCount(0);
+  // On desktop the ☰ holds progress and games only; renaming stays in the header.
+  if (page.viewportSize()!.width > 900) {
+    await page.getByRole('button', { name: 'Room menu', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: /rename/i })).toHaveCount(0);
+  }
 });

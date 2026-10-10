@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { OFFER_MS, formatSeconds, useCountdown } from './duels.ts';
+import { DUEL_GAMES, OFFER_MS, formatSeconds, useCountdown } from './duels.ts';
 import type { DuelView } from '../../types/games.ts';
 import './toolbox.css';
 
@@ -34,7 +34,7 @@ export default function ChallengeCard({ duel, coins, onAnswer, top }: ChallengeC
         <span className="sp-challenge-text">
           <small>Duel challenge</small>
           <strong>{duel.challenger.name} challenges you</strong>
-          <span>Noughts and crosses{duel.stake > 0 ? ` · 🪙 ${duel.stake} each, winner takes both` : ''}</span>
+          <span>{DUEL_GAMES[duel.game].name}{duel.stake > 0 ? ` · 🪙 ${duel.stake} each, winner takes both` : ''}</span>
         </span>
       </div>
       <div className="sp-challenge-actions">

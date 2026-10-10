@@ -1,11 +1,11 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SortedGame from './SortedGame.tsx';
 import ToolboxWindow from './ToolboxWindow.tsx';
-import NoughtsGame from './NoughtsGame.tsx';
+import DuelGame from './DuelGame.tsx';
 import ChallengeCard from './ChallengeCard.tsx';
 import RareFindGame from './RareFindGame.tsx';
-import { duelSummary, formatSeconds } from './duels.ts';
+import { duelSummary, formatSeconds, shotSummary } from './duels.ts';
 import { randomAvatar } from '../avatar/avatar.ts';
 import type { Participant } from '../../types/room.ts';
 import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
@@ -78,11 +78,10 @@ describe('ToolboxWindow', () => {
     rerender(<ToolboxWindow coins={45} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
     expect(screen.getByLabelText('45 coins')).toBeInTheDocument();
   });
-  it('lists the games, with the ones still to come unavailable', () => {
+  it('lists every game, marking the one open', () => {
     render(<ToolboxWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ToolboxWindow>);
     expect(screen.getByRole('button', { name: 'Sorted' })).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByRole('button', { name: /Battleship/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Rare Find' })).toBeEnabled();
+    for (const name of ['Rare Find', 'Noughts and crosses', 'Battleship']) expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-current');
   });
 });
 
@@ -121,41 +120,41 @@ describe('duelSummary', () => {
   });
 });
 
-describe('NoughtsGame', () => {
-  const props = (over: Partial<Parameters<typeof NoughtsGame>[0]> = {}) => ({
-    uid: 'me', coins: 45, participants: PEOPLE, duels: [] as DuelView[], duel: vi.fn(async (_: DuelMove) => {}), ...over,
+describe('DuelGame', () => {
+  const props = (over: Partial<Parameters<typeof DuelGame>[0]> = {}) => ({
+    game: 'noughts' as const, uid: 'me', coins: 45, participants: PEOPLE, duels: [] as DuelView[], duel: vi.fn(async (_: DuelMove) => {}), ...over,
   });
   it('challenges someone free, with a stake up to your own coins', async () => {
     const p = props({ duels: [duelOf({ challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'priya', name: 'Priya' } })] });
-    render(<NoughtsGame {...p} />);
+    render(<DuelGame {...p} />);
     expect(screen.getByRole('radio', { name: /Alex/ })).toBeDisabled();
     fireEvent.click(screen.getByRole('radio', { name: /Sam/ }));
     for (let i = 0; i < 12; i++) fireEvent.click(screen.getByRole('button', { name: 'Raise the stake' }));
     expect(screen.getByRole('button', { name: 'Raise the stake' })).toBeDisabled();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send challenge' })); });
-    expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', opponent: 'sam', stake: 45 });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', game: 'noughts', opponent: 'sam', stake: 45 });
     expect(screen.getByRole('button', { name: 'Watch' })).toBeInTheDocument();
   });
   it('keeps the stake out of sight without coins', () => {
-    render(<NoughtsGame {...props({ coins: 0 })} />);
+    render(<DuelGame {...props({ coins: 0 })} />);
     expect(screen.queryByText('Stake')).not.toBeInTheDocument();
   });
   it('plays a square on your turn only', async () => {
     const p = props({ duels: [duelOf({ board: ['X', null, null, null, 'O', null, null, null, null] })] });
-    const { rerender } = render(<NoughtsGame {...p} />);
+    const { rerender } = render(<DuelGame {...p} />);
     expect(screen.getByRole('button', { name: 'Square 1, X' })).toBeDisabled();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Square 9' })); });
     expect(p.duel).toHaveBeenCalledWith({ operation: 'move', id: 'd1', cell: 8 });
-    rerender(<NoughtsGame {...p} duels={[duelOf({ turn: 'sam' })]} />);
+    rerender(<DuelGame {...p} duels={[duelOf({ turn: 'sam' })]} />);
     expect(screen.getByRole('button', { name: 'Square 9' })).toBeDisabled();
     expect(screen.getByRole('status')).toHaveTextContent("Sam's move");
   });
   it("won't accept a stake you can't cover", () => {
-    render(<NoughtsGame {...props({ uid: 'sam', coins: 10, duels: [duelOf({ status: 'offered', stake: 20, turn: undefined })] })} />);
+    render(<DuelGame {...props({ uid: 'sam', coins: 10, duels: [duelOf({ status: 'offered', stake: 20, turn: undefined })] })} />);
     expect(screen.getByRole('button', { name: 'You need 🪙 20' })).toBeDisabled();
   });
   it('shows the result and what it paid, then offers a new challenge', () => {
-    render(<NoughtsGame {...props({ duels: [duelOf({ status: 'won', winner: 'me', reason: 'line', line: [0, 4, 8], paid: { me: 55, sam: 5 } })] })} />);
+    render(<DuelGame {...props({ duels: [duelOf({ status: 'won', winner: 'me', reason: 'line', line: [0, 4, 8], paid: { me: 55, sam: 5 } })] })} />);
     expect(screen.getByRole('status')).toHaveTextContent('You won');
     expect(screen.getByText('+55 coins')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'New challenge' }));
@@ -203,5 +202,49 @@ describe('RareFindGame', () => {
   it('credits the category norms', async () => {
     render(<RareFindGame play={async () => question} />);
     expect(await screen.findByRole('link', { name: 'category norms' })).toHaveAttribute('href', 'https://osf.io/jgcu6/');
+  });
+});
+
+describe('Battleship', () => {
+  const sea = (over: Partial<DuelView> = {}): DuelView => duelOf({
+    game: 'battleship', board: undefined, stake: 10,
+    challenger: { uid: 'me', name: 'Me' }, opponent: { uid: 'sam', name: 'Sam' },
+    seas: {
+      me: { shots: [{ cell: 0, hit: true }, { cell: 6, hit: false }], sunk: [], fleet: [[0, 1, 2], [9, 15], [20, 21], [33, 34, 35]] },
+      sam: { shots: [{ cell: 7, hit: true }], sunk: [] },
+    },
+    lastShot: { by: 'me', cell: 7, hit: true, sunk: false },
+    ...over,
+  });
+  const props = (duels: DuelView[], uid = 'me') => ({ game: 'battleship' as const, uid, coins: 45, participants: PEOPLE, duels, duel: vi.fn(async (_: DuelMove) => {}) });
+  it('fires into their waters on your turn, and shows your own fleet', async () => {
+    const p = props([sea()]);
+    render(<DuelGame {...p} />);
+    const theirs = screen.getByRole('group', { name: 'Their waters' });
+    const yours = screen.getByRole('group', { name: 'Your fleet' });
+    expect(within(yours).getByRole('button', { name: 'A1, hit' })).toBeDisabled();
+    expect(within(yours).getByRole('button', { name: 'A2, ship' })).toBeInTheDocument();
+    expect(within(theirs).getByRole('button', { name: 'B2, hit' })).toBeDisabled();
+    await act(async () => { fireEvent.click(within(theirs).getByRole('button', { name: 'C3' })); });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'move', id: 'd1', cell: 14 });
+    expect(screen.getByRole('status')).toHaveTextContent('You hit. Fire again.');
+  });
+  it('shows a watcher both seas without ships', () => {
+    render(<DuelGame {...props([duelOf({ ...sea(), challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'priya', name: 'Priya' }, seas: { alex: { shots: [], sunk: [] }, priya: { shots: [{ cell: 3, hit: false }], sunk: [] } } })], 'me')} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Watch' }));
+    expect(screen.getByRole('group', { name: "Alex's fleet" })).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: "Priya's fleet" })).getByRole('button', { name: 'A4, miss' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /ship$/ })).not.toBeInTheDocument();
+  });
+  it('says where the last shot landed', () => {
+    expect(shotSummary(sea({ lastShot: { by: 'sam', cell: 0, hit: true, sunk: true } }), 'me')).toBe('Sam sank a ship.');
+    expect(shotSummary(sea({ lastShot: { by: 'me', cell: 5, hit: false, sunk: false } }), 'me')).toBe('You missed.');
+  });
+  it('challenges to the game on the page', async () => {
+    const p = props([]);
+    render(<DuelGame {...p} />);
+    fireEvent.click(screen.getByRole('radio', { name: /Sam/ }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send challenge' })); });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', game: 'battleship', opponent: 'sam', stake: 0 });
   });
 });

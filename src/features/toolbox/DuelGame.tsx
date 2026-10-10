@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
-import { duelSummary, formatSeconds, isBusy, isLive, ownDuel, useCountdown } from './duels.ts';
+import { DUEL_GAMES, duelSummary, formatSeconds, isBusy, isLive, ownDuel, shotSummary, useCountdown } from './duels.ts';
 import type { Participant } from '../../types/room.ts';
-import type { DuelMove, DuelSide, DuelView } from '../../types/games.ts';
+import type { DuelGame as Game, DuelMove, DuelSea, DuelSide, DuelView } from '../../types/games.ts';
 
 const STAKE_STEP = 5;
+// Matches Duels.Sea in the room service.
+const SEA = 6;
+const ROWS = 'ABCDEF';
 
-interface NoughtsGameProps {
+interface DuelGameProps {
+  game: Game;
   uid: string | null;
   coins: number;
   participants: Record<string, Participant>;
@@ -23,29 +27,90 @@ function PlayerName({ duel, side, uid }: { duel: DuelView; side: DuelSide; uid: 
   );
 }
 
-// The board, as either player or anyone watching sees it. Squares are
-// playable only on your own turn; the service checks every move again.
+function NoughtsBoard({ duel, playable, onMove }: { duel: DuelView; playable: boolean; onMove: (cell: number) => void }) {
+  return (
+    <div className="sp-duel-grid" role="group" aria-label="Board">
+      {(duel.board ?? []).map((mark, cell) => (
+        <button key={cell} type="button" className="sp-duel-cell" data-mark={mark ?? undefined} data-line={duel.line?.includes(cell) || undefined}
+          aria-label={`Square ${cell + 1}${mark ? `, ${mark}` : ''}`}
+          disabled={!playable || mark !== null} onClick={() => onMove(cell)}>
+          {mark}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// One side's waters. Firing at them is possible only on the target grid on
+// your turn; your own grid shows your ships and where theirs landed.
+function Sea({ label, sea, playable, onFire, last }: { label: string; sea: DuelSea; playable: boolean; onFire?: (cell: number) => void; last?: number }) {
+  const shots = new Map(sea.shots.map(s => [s.cell, s.hit]));
+  const ships = new Set(sea.fleet?.flat());
+  const sunk = new Set(sea.sunk.flat());
+  return (
+    <div className="sp-sea">
+      <h4>{label}</h4>
+      <div className="sp-sea-grid" role="group" aria-label={label}>
+        {Array.from({ length: SEA * SEA }, (_, cell) => {
+          const shot = shots.get(cell);
+          const state = sunk.has(cell) ? 'sunk' : shot === true ? 'hit' : shot === false ? 'miss' : ships.has(cell) ? 'ship' : 'water';
+          const name = `${ROWS[Math.floor(cell / SEA)]}${(cell % SEA) + 1}`;
+          return (
+            <button key={cell} type="button" className="sp-sea-cell" data-state={state} data-ship={ships.has(cell) || undefined} data-last={cell === last || undefined}
+              aria-label={`${name}${state === 'water' ? '' : `, ${state}`}`}
+              disabled={!playable || shot !== undefined} onClick={() => onFire?.(cell)}>
+              {state === 'miss' ? '•' : state === 'hit' || state === 'sunk' ? '✕' : ''}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BattleshipBoard({ duel, uid, playable, onMove }: { duel: DuelView; uid: string | null; playable: boolean; onMove: (cell: number) => void }) {
+  if (!duel.seas) return <p className="sp-sorted-hint">The fleets put to sea once the challenge is accepted.</p>;
+  const me = duel.challenger.uid === uid ? duel.challenger : duel.opponent.uid === uid ? duel.opponent : null;
+  const them = me && (me === duel.challenger ? duel.opponent : duel.challenger);
+  const empty: DuelSea = { shots: [], sunk: [] };
+  const lastIn = (owner: DuelSide) => duel.lastShot && duel.lastShot.by !== owner.uid ? duel.lastShot.cell : undefined;
+  if (me && them) {
+    return (
+      <div className="sp-seas">
+        <Sea label="Their waters" sea={duel.seas[them.uid] ?? empty} playable={playable} onFire={onMove} last={lastIn(them)} />
+        <Sea label="Your fleet" sea={duel.seas[me.uid] ?? empty} playable={false} last={lastIn(me)} />
+      </div>
+    );
+  }
+  return (
+    <div className="sp-seas">
+      {[duel.challenger, duel.opponent].map(side => (
+        <Sea key={side.uid} label={`${side.name}'s fleet`} sea={duel.seas![side.uid] ?? empty} playable={false} last={lastIn(side)} />
+      ))}
+    </div>
+  );
+}
+
+// A duel as either player or anyone watching sees it. Squares are playable
+// only on your own turn; the service checks every move again.
 function DuelBoard({ duel, uid, busy, onMove }: { duel: DuelView; uid: string | null; busy: boolean; onMove?: (cell: number) => void }) {
   const left = useCountdown(duel.status === 'offered' ? duel.offerLeftMs : duel.turnLeftMs, duel);
   const summary = duelSummary(duel, uid);
-  const myTurn = !!onMove && duel.status === 'playing' && !duel.paused && duel.turn === uid;
+  const playable = !!onMove && !busy && duel.status === 'playing' && !duel.paused && duel.turn === uid;
   const paid = uid ? duel.paid?.[uid] : undefined;
+  const move = (cell: number) => onMove?.(cell);
+  const shot = duel.game === 'battleship' && duel.status === 'playing' ? shotSummary(duel, uid) : null;
   return (
     <div className="sp-duel">
       <p className="sp-duel-players">
         <PlayerName duel={duel} side={duel.challenger} uid={uid} /> <span className="sp-duel-v">v</span> <PlayerName duel={duel} side={duel.opponent} uid={uid} />
         {duel.stake > 0 && <span className="sp-duel-stake" aria-label={`${duel.stake} coins each at stake`}>🪙 {duel.stake} each</span>}
       </p>
-      <div className="sp-duel-grid" role="group" aria-label="Board">
-        {duel.board.map((mark, cell) => (
-          <button key={cell} type="button" className="sp-duel-cell" data-mark={mark ?? undefined} data-line={duel.line?.includes(cell) || undefined}
-            aria-label={`Square ${cell + 1}${mark ? `, ${mark}` : ''}`}
-            disabled={!myTurn || busy || mark !== null} onClick={() => onMove?.(cell)}>
-            {mark}
-          </button>
-        ))}
-      </div>
+      {duel.game === 'noughts'
+        ? <NoughtsBoard duel={duel} playable={playable} onMove={move} />
+        : <BattleshipBoard duel={duel} uid={uid} playable={playable} onMove={move} />}
       <p role="status" className="sp-duel-status" data-outcome={summary.outcome}>
+        {shot && <span className="sp-duel-shot">{shot}</span>}
         <strong>{summary.text}</strong>
         {left !== undefined && isLive(duel) && <span className="sp-duel-clock" data-low={left < 10_000}>{formatSeconds(left)}</span>}
         {paid !== undefined && paid > 0 && <span>+{paid} coins</span>}
@@ -54,9 +119,9 @@ function DuelBoard({ duel, uid, busy, onMove }: { duel: DuelView; uid: string | 
   );
 }
 
-// Noughts and crosses against someone at the table: the challenge form, your
-// duel once there is one, and the other duels at the table to watch.
-export default function NoughtsGame({ uid, coins, participants, duels, duel }: NoughtsGameProps) {
+// A duel game against someone at the table: the challenge form, your duel
+// once there is one (whichever game it is), and others' duels to watch.
+export default function DuelGame({ game, uid, coins, participants, duels, duel }: DuelGameProps) {
   const [opponent, setOpponent] = useState<string | null>(null);
   const [stake, setStake] = useState(0);
   const [watching, setWatching] = useState<string | null>(null);
@@ -77,10 +142,10 @@ export default function NoughtsGame({ uid, coins, participants, duels, duel }: N
   const others = duels.filter(d => d.status === 'playing' && d.challenger.uid !== uid && d.opponent.uid !== uid);
   const errorLine = error && <p role="alert" className="sp-toolbox-error">{error}</p>;
 
-  const heading = (
+  const heading = (shown: Game) => (
     <div className="sp-sorted-heading">
-      <h3>Noughts and crosses</h3>
-      <p className="sp-sorted-hint">Three in a row wins. Crosses go first.</p>
+      <h3>{DUEL_GAMES[shown].name}</h3>
+      <p className="sp-sorted-hint">{DUEL_GAMES[shown].rules}</p>
     </div>
   );
 
@@ -88,7 +153,7 @@ export default function NoughtsGame({ uid, coins, participants, duels, duel }: N
     const id = mine.id;
     return (
       <div className="sp-sorted">
-        {heading}
+        {heading(mine.game)}
         <DuelBoard duel={mine} uid={uid} busy={busy} onMove={cell => void run({ operation: 'move', id, cell })} />
         <div className="sp-sorted-controls">
           {mine.status === 'offered' && mine.challenger.uid === uid && (
@@ -115,7 +180,7 @@ export default function NoughtsGame({ uid, coins, participants, duels, duel }: N
   if (watched) {
     return (
       <div className="sp-sorted">
-        {heading}
+        {heading(watched.game)}
         <DuelBoard duel={watched} uid={uid} busy />
         <div className="sp-sorted-controls">
           <button type="button" className="sp-planning-secondary" onClick={() => setWatching(null)}>Back</button>
@@ -130,12 +195,12 @@ export default function NoughtsGame({ uid, coins, participants, duels, duel }: N
   const stakeShown = Math.min(stake, maxStake);
   const send = async () => {
     if (!chosen) return;
-    if (await run({ operation: 'challenge', opponent: chosen, stake: stakeShown })) { setChallenging(false); setOpponent(null); }
+    if (await run({ operation: 'challenge', game, opponent: chosen, stake: stakeShown })) { setChallenging(false); setOpponent(null); }
   };
 
   return (
     <div className="sp-sorted">
-      {heading}
+      {heading(game)}
       <fieldset className="sp-duel-people">
         <legend>Challenge someone at the table</legend>
         {people.length === 0 && <p className="sp-sorted-hint">Nobody else is at the table yet.</p>}
@@ -171,7 +236,7 @@ export default function NoughtsGame({ uid, coins, participants, duels, duel }: N
           <ul>
             {others.map(d => (
               <li key={d.id}>
-                <span>{d.challenger.name} v {d.opponent.name}</span>
+                <span>{d.challenger.name} v {d.opponent.name} <small>{DUEL_GAMES[d.game].name}</small></span>
                 <button type="button" className="sp-planning-secondary" onClick={() => setWatching(d.id)}>Watch</button>
               </li>
             ))}

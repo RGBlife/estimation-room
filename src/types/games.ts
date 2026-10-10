@@ -43,16 +43,30 @@ export interface DuelSide {
 
 export type DuelStatus = 'offered' | 'playing' | 'won' | 'drawn' | 'declined' | 'expired' | 'cancelled' | 'abandoned';
 
+export type DuelGame = 'noughts' | 'battleship';
+
+// One side's waters in Battleship: the other side's shots into them, the
+// ships sunk there, and the fleet itself only for its owner (or for
+// everyone once the duel is over).
+export interface DuelSea {
+  shots: { cell: number; hit: boolean }[];
+  sunk: number[][];
+  fleet?: number[][];
+}
+
 export interface DuelView {
   id: string;
-  game: 'noughts';
+  game: DuelGame;
   status: DuelStatus;
   // Coins each side puts in; the winner takes both.
   stake: number;
   challenger: DuelSide;
   opponent: DuelSide;
-  // Nine squares, row by row.
-  board: ('X' | 'O' | null)[];
+  // Noughts and crosses: nine squares, row by row.
+  board?: ('X' | 'O' | null)[];
+  // Battleship, once accepted: each side's waters, by uid.
+  seas?: Record<string, DuelSea>;
+  lastShot?: { by: string; cell: number; hit: boolean; sunk: boolean };
   // The next round has started; play resumes at the reveal.
   paused: boolean;
   // Time left when the service sent this, in milliseconds (browsers'
@@ -63,13 +77,14 @@ export interface DuelView {
   winner?: string;
   // The three squares that won.
   line?: number[];
-  reason?: 'line' | 'draw' | 'resigned' | 'timeout' | 'left';
+  // line and sunk are games played to a win.
+  reason?: 'line' | 'sunk' | 'draw' | 'resigned' | 'timeout' | 'left';
   // Coins each side received when it ended, by uid: stake back, pot and pay.
   paid?: Record<string, number>;
 }
 
 export type DuelMove =
-  | { operation: 'challenge'; opponent: string; stake: number }
+  | { operation: 'challenge'; game: DuelGame; opponent: string; stake: number }
   | { operation: 'accept' | 'decline' | 'cancel' | 'resign'; id: string }
   | { operation: 'move'; id: string; cell: number };
 

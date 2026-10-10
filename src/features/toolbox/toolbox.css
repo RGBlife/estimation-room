@@ -19,8 +19,6 @@
 .sp-toolbox-games ul { margin: 0 0 8px; padding: 0; list-style: none; }
 .sp-toolbox-games button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--sp-text-dim); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
 .sp-toolbox-games button[aria-current='true'] { background: var(--sp-accent-panel); color: var(--sp-text); box-shadow: inset 3px 0 0 var(--sp-accent); }
-.sp-toolbox-games button:disabled { cursor: default; color: var(--sp-text-faint); }
-.sp-toolbox-games small { font-size: 11px; font-weight: 500; }
 .sp-toolbox-game { min-width: 0; padding: 20px 24px 24px; }
 .sp-toolbox-error { margin: 12px 0 0; color: var(--sp-warn-text); font-size: 13px; }
 
@@ -165,3 +163,30 @@
 .sp-rare-answers b { color: var(--sp-text-faint); font-variant-numeric: tabular-nums; }
 .sp-rare-credit { margin: 4px 0 0; font-size: 11px; color: var(--sp-text-faint); text-align: center; }
 .sp-rare-credit a { color: inherit; }
+
+/* Battleship: two 6 by 6 seas, theirs to fire at and yours to watch. */
+.sp-seas { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 24px; width: 100%; }
+.sp-sea { display: flex; flex-direction: column; gap: 6px; width: min(240px, 100%); }
+.sp-sea h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); text-align: center; }
+.sp-sea-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; padding: 4px; border-radius: 10px; background: var(--sp-accent-panel-2); }
+.sp-sea-cell { aspect-ratio: 1; padding: 0; border: 0; border-radius: 5px; background: var(--sp-panel); color: var(--sp-text-faint); font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer; transition: background 120ms; }
+.sp-sea-cell:enabled:hover { background: var(--sp-accent-panel); box-shadow: inset 0 0 0 1px var(--sp-accent-border); }
+.sp-sea-cell:disabled { cursor: default; }
+.sp-sea-cell:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+.sp-sea-cell[data-state='ship'] { background: var(--sp-border-stronger); }
+.sp-sea-cell[data-state='miss'] { color: var(--sp-text-dim); }
+.sp-sea-cell[data-state='hit'] { background: var(--sp-warn-bg); color: var(--sp-warn-text); }
+.sp-sea-cell[data-state='sunk'] { background: var(--sp-warn-text); color: var(--sp-panel); }
+.sp-sea-cell[data-last] { animation: sp-sea-splash 420ms ease-out; }
+@keyframes sp-sea-splash { from { transform: scale(.6); } 60% { transform: scale(1.12); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sp-sea-cell[data-last] { animation: none; } }
+.sp-duel-shot { flex-basis: 100%; font-size: 13px; color: var(--sp-text-dim); }
+.sp-duel-watch li small { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--sp-text-faint); }
+/* Narrow: side by side, theirs larger, so the turn and clock stay in view. */
+@media (max-width: 640px) {
+  .sp-seas { flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
+  .sp-sea { flex: 3 1 0; width: auto; min-width: 0; }
+  .sp-sea + .sp-sea { flex: 2 1 0; }
+  .sp-sea-grid { gap: 2px; padding: 3px; }
+  .sp-sea-cell { border-radius: 4px; font-size: 13px; }
+}

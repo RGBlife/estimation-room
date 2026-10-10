@@ -214,7 +214,8 @@ export default function RoomLayoutHarness() {
   // ?toolbox=open opens the Toolbox on Sorted, ?toolbox=rare on Rare Find,
   // ?toolbox=noughts on Noughts and crosses (with ?revealed=1, as games are only between rounds);
   // ?coins=N seeds a balance; ?found=N starts Sorted with N groups found;
-  // ?duel=incoming|waiting|playing|won|watch seeds a duel with p1 (or p2 v p3).
+  // ?duel=incoming|waiting|playing|won|watch|battleship|battleship-incoming
+  // seeds a duel with p1 (or p2 v p3); ?toolbox=battleship opens on Battleship.
   const [playSorted] = useState(() => fakeSorted(paid => setProfile(p => ({ ...p, coins: p.coins + paid })), Number(params.get('found') || 0)));
   const [playRare] = useState(() => fakeRare(paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [fakeDuel] = useState(() => fakeDuels(myUid, uid => participants[uid]?.name ?? uid, params.get('duel'), next => setDuels(next), paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
@@ -222,7 +223,7 @@ export default function RoomLayoutHarness() {
   const toolboxParam = params.get('toolbox');
   const toolbox = useToolbox({
     profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, playRare, duel: fakeDuel.duel,
-    initiallyOpen: !!toolboxParam, initialGame: toolboxParam === 'noughts' || toolboxParam === 'rare' ? toolboxParam : 'sorted',
+    initiallyOpen: !!toolboxParam, initialGame: toolboxParam === 'noughts' || toolboxParam === 'rare' || toolboxParam === 'battleship' ? toolboxParam : 'sorted',
   });
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];

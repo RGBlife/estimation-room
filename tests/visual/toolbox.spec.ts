@@ -71,3 +71,20 @@ test('Rare Find asks, then shows how rare the answer was', async ({ page }) => {
   const overflow = await checkOverflow(toolbox);
   expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
 });
+
+test('a Battleship duel fought to a win', async ({ page }) => {
+  // Mid-game: you've hit two squares of a ship, and it's your shot.
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&toolbox=battleship&duel=battleship');
+  const toolbox = page.getByRole('dialog', { name: 'Toolbox' });
+  const theirs = toolbox.getByRole('group', { name: 'Their waters' });
+  const overflow = await checkOverflow(toolbox);
+  expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
+  await expect(toolbox.getByRole('group', { name: 'Your fleet' }).getByRole('button', { name: 'A1, sunk' })).toBeVisible();
+  // Every hit earns another shot, so these sink the rest of their fleet in a row.
+  for (const square of ['D2', 'A4', 'A5', 'A6', 'E4', 'E5', 'F1', 'F2']) {
+    await theirs.getByRole('button', { name: square, exact: true }).click();
+    await expect(theirs.getByRole('button', { name: new RegExp(`^${square}, (hit|sunk)$`) })).toBeVisible();
+  }
+  await expect(toolbox.getByRole('status')).toContainText('You won');
+  await expect(toolbox.getByLabel('100 coins')).toBeVisible();
+});

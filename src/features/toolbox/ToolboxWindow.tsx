@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import './toolbox.css';
 
-export type ToolboxGame = 'sorted' | 'rare' | 'noughts';
+export type ToolboxGame = 'sorted' | 'rare' | 'noughts' | 'battleship';
 
 interface ToolboxWindowProps {
   coins: number;
@@ -14,11 +14,10 @@ interface ToolboxWindowProps {
   children: ReactNode;
 }
 
-// The games, solo and against someone at the table. Those still to come are
-// listed so the shape of the Toolbox is clear.
-const GAMES: { heading: string; games: { name: string; id?: ToolboxGame }[] }[] = [
+// The games, solo and against someone at the table.
+const GAMES: { heading: string; games: { name: string; id: ToolboxGame }[] }[] = [
   { heading: 'Solo', games: [{ name: 'Sorted', id: 'sorted' }, { name: 'Rare Find', id: 'rare' }] },
-  { heading: 'Duel', games: [{ name: 'Noughts and crosses', id: 'noughts' }, { name: 'Battleship' }] },
+  { heading: 'Duel', games: [{ name: 'Noughts and crosses', id: 'noughts' }, { name: 'Battleship', id: 'battleship' }] },
 ];
 
 // A window over the table, sized for a game board, with the table dimmed
@@ -52,13 +51,11 @@ export default function ToolboxWindow({ coins, game, onSelectGame, waiting = [],
               <ul>
                 {section.games.map(entry => (
                   <li key={entry.name}>
-                    <button type="button" aria-current={entry.id === game ? 'true' : undefined} disabled={!entry.id}
-                      onClick={() => entry.id && onSelectGame(entry.id)}>
+                    <button type="button" aria-current={entry.id === game ? 'true' : undefined} onClick={() => onSelectGame(entry.id)}>
                       <span>
                         {entry.name}
-                        {entry.id && waiting.includes(entry.id) && <><i className="sp-toolbox-waiting" aria-hidden="true" /><span className="sr-only"> (waiting for you)</span></>}
+                        {waiting.includes(entry.id) && <><i className="sp-toolbox-waiting" aria-hidden="true" /><span className="sr-only"> (waiting for you)</span></>}
                       </span>
-                      {!entry.id && <small>Coming soon</small>}
                     </button>
                   </li>
                 ))}

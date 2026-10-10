@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import type { DuelSide, DuelView } from '../../types/games.ts';
+import type { DuelGame, DuelSide, DuelView } from '../../types/games.ts';
 
 // Reading the room's duels from one person's seat. The service decides
 // everything; these only say where things stand, in words.
 
 // How long a challenge stays open; matches Duels.OfferMs in the room service.
 export const OFFER_MS = 60_000;
+
+export const DUEL_GAMES: Record<DuelGame, { name: string; rules: string }> = {
+  noughts: { name: 'Noughts and crosses', rules: 'Three in a row wins. Crosses go first.' },
+  battleship: { name: 'Battleship', rules: 'Sink all four of their ships first. A hit earns another shot.' },
+};
 
 export const isLive = (duel: DuelView) => duel.status === 'offered' || duel.status === 'playing';
 export const involves = (duel: DuelView, uid: string | null) => duel.challenger.uid === uid || duel.opponent.uid === uid;
@@ -43,7 +48,7 @@ export function duelSummary(duel: DuelView, uid: string | null): { text: string;
       if (duel.turn === uid) return { text: 'Your move' };
       return { text: `${sideOf(duel, duel.turn)?.name ?? 'Their'}'s move` };
     case 'won': {
-      const how = { line: '', draw: '', resigned: ' resigned', timeout: ' ran out of time', left: ' left the game' }[duel.reason ?? 'line'];
+      const how = { line: '', sunk: '', draw: '', resigned: ' resigned', timeout: ' ran out of time', left: ' left the game' }[duel.reason ?? 'line'];
       if (!winner || !loser) return { text: 'Game over' };
       if (me === winner) return { text: how ? `${loser.name}${how}. You win` : 'You won', outcome: 'won' };
       if (me) return { text: how ? `You${how}` : `${winner.name} won`, outcome: 'lost' };
@@ -55,6 +60,16 @@ export function duelSummary(duel: DuelView, uid: string | null): { text: string;
     case 'cancelled': return { text: 'Challenge withdrawn' };
     case 'abandoned': return { text: 'Abandoned. Stakes returned' };
   }
+}
+
+// Battleship: where the last shot landed, from `uid`'s seat.
+export function shotSummary(duel: DuelView, uid: string | null): string | null {
+  const shot = duel.lastShot;
+  if (!shot) return null;
+  const mine = shot.by === uid;
+  const who = mine ? 'You' : sideOf(duel, shot.by)?.name ?? 'They';
+  const outcome = shot.sunk ? 'sank a ship' : shot.hit ? 'hit' : 'missed';
+  return `${who} ${outcome}${shot.hit && mine ? '. Fire again' : ''}.`;
 }
 
 // Counts down from the time left the service last sent, on this browser's own clock.
