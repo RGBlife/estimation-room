@@ -9,7 +9,8 @@ type Message =
   | { type: 'ready'; uid: string; player?: string | null }
   // A replacement player token, after this browser's progress was reset.
   | { type: 'player'; token: string }
-  | { type: 'profile'; profile: PlayerProfile }
+  // `unlocked` names achievements just earned, for this tab to announce.
+  | { type: 'profile'; profile: PlayerProfile; unlocked?: string[] }
   | { type: 'ack'; id: string; code?: string; room?: RoomPeek | null; error?: string }
   | { type: 'room'; room: RoomDoc }
   | { type: 'throw'; item: ThrowEvent }

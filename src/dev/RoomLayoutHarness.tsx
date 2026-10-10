@@ -20,6 +20,9 @@ import { randomAvatar } from '../features/avatar/index.js';
 import type { Participant, DeckId } from '../types/room.ts';
 import type { DriverState, TableCrackEvent, WastedMap } from '../types/gta.ts';
 import type { ThrowEvent } from '../types/throws.ts';
+import type { PlayerProfile } from '../types/player.ts';
+import { useAchievements } from '../features/achievements/useAchievements.tsx';
+import { ACHIEVEMENTS } from '../features/achievements/catalogue.ts';
 
 // Dev-only, network-free stage for the *whole room layout* -- header, seats,
 // table and voting bar composed the way RoomScreen composes them, but with
@@ -58,6 +61,13 @@ function fixtureParticipants(seats: number, observers: number, voted: number, va
 }
 
 const ZERO_MOVE = { x: 0, y: 0, rot: 0 };
+
+// Earned a day apart, most recent last, at a fixed time so screenshots compare.
+function seedProfile(earned: number): PlayerProfile {
+  const ids = ACHIEVEMENTS.filter((_, i) => i % 2 === 0).slice(0, earned).map(a => a.id);
+  const start = new Date(2026, 9, 9).getTime() - ids.length * 86_400_000;
+  return { coins: 0, achievements: Object.fromEntries(ids.map((id, i) => [id, start + i * 86_400_000])) };
+}
 
 // Deterministic crack positions for `?cracks=N`. Spread across the table
 // rather than random so the same URL always produces the same picture --
@@ -140,6 +150,20 @@ export default function RoomLayoutHarness() {
   const [toastOpen, setToastOpen] = useState(false);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
   const [planningHeight, setPlanningHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  // ?progress=N seeds N earned achievements (every other one, so earned,
+  // locked and secret cards sit side by side); ?unlock=id,id queues unlocks
+  // to announce; ?achievements=open (or reset) opens the drawer.
+  const [profile, setProfile] = useState<PlayerProfile>(() => seedProfile(Number(params.get('progress') || 0)));
+  const [unlockQueue, setUnlockQueue] = useState<string[]>(() => params.get('unlock')?.split(',').filter(Boolean) ?? []);
+  const achievementsPanel = params.get('achievements');
+  const achievements = useAchievements({
+    profile,
+    unlocked: unlockQueue,
+    onShown: () => setUnlockQueue(queue => queue.slice(1)),
+    onReset: async () => setProfile({ coins: 0, achievements: {} }),
+    initialPanel: achievementsPanel === 'open' ? 'list' : achievementsPanel === 'reset' ? 'reset' : undefined,
+  });
   // Real weapon/driving state rather than no-op stubs, so the interaction
   // between the two (see RoomScreen.handleStartDriving) can actually be
   // exercised here instead of only reasoned about.
@@ -221,6 +245,8 @@ export default function RoomLayoutHarness() {
         onStartDriving={handleStartDriving}
         onSwitchRole={() => {}}
         onLeave={() => {}}
+        achievements={achievements.header}
+        onHeightChange={setHeaderHeight}
       />
 
       <RoomPlanning room={{ readiness, activeTicketId, participants }} uid={myUid} tickets={tickets} isCreator={params.get('host') !== '0'}
@@ -248,6 +274,16 @@ export default function RoomLayoutHarness() {
           onClick={() => setToastOpen(t => !t)}
           className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
         >Toggle toast</button>
+        {/* Earns the next achievement not yet earned, as the service would announce it. */}
+        <button
+          onClick={() => {
+            const next = ACHIEVEMENTS.find(a => profile.achievements[a.id] === undefined);
+            if (!next) return;
+            setProfile(p => ({ ...p, achievements: { ...p.achievements, [next.id]: Date.now() } }));
+            setUnlockQueue(queue => [...queue, next.id]);
+          }}
+          className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
+        >Unlock achievement</button>
         {/* Equips directly, bypassing the tray -- lets a test set up the
             "already targeting, then start driving" order of events. */}
         <button
@@ -319,6 +355,7 @@ export default function RoomLayoutHarness() {
       </div>
 
       {nudgedName && <p role="status" className="text-center text-sm text-sp-text-dim">Preview: nudged {nudgedName}</p>}
+      {achievements.render((headerHeight || 64) + planningHeight + 12)}
       <Toast
         message="Deck switched to Powers of 2 — everyone's vote was reset"
         rendered={toastOpen}

@@ -11,6 +11,8 @@ interface RoomMenuItem {
   // with a check so the group reads as a choice rather than a list of
   // actions.
   selected?: boolean;
+  // Quiet text at the row's end, e.g. a count.
+  detail?: string;
 }
 
 interface RoomMenuGroup {
@@ -23,6 +25,8 @@ interface RoomMenuGroup {
 interface RoomMenuProps {
   items: RoomMenuItem[];
   groups?: RoomMenuGroup[];
+  // Button size in px: 44 for a finger, smaller beside desktop controls.
+  size?: number;
 }
 
 // Overflow menu for the room's secondary controls. On a narrow
@@ -31,7 +35,7 @@ interface RoomMenuProps {
 // needs, and they still wrapped the header into a tower. Collapsing
 // everything except the room code behind one properly-sized button trades
 // a tap for controls that can actually be tapped.
-export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
+export default function RoomMenu({ items, groups = [], size = 44 }: RoomMenuProps) {
   const [open, setOpen] = useState(false);
   // Focus the persistent trigger before an action opens a dialog; menu items unmount.
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -61,7 +65,8 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
         aria-label="Room menu"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border border-sp-border-strong bg-sp-panel-2 text-sp-text-dim"
+        style={{ width: size, height: size }}
+        className="flex cursor-pointer items-center justify-center rounded-md border border-sp-border-strong bg-sp-panel-2 text-sp-text-dim"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden="true">
           <path d="M4 7h16M4 12h16M4 17h16" />
@@ -98,10 +103,13 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
               key={item.label}
               role="menuitem"
               onClick={() => { setOpen(false); triggerRef.current?.focus(); item.onSelect(); }}
-              className={`flex min-h-[44px] w-full cursor-pointer items-center border-none border-b border-sp-border bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold last:border-b-0 ${
+              className={`flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-2 border-none border-b border-sp-border bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold last:border-b-0 ${
                 item.accent ? 'text-sp-accent-text' : 'text-sp-text-dim'
               }`}
-            >{item.label}</button>
+            >
+              <span className="truncate">{item.label}</span>
+              {item.detail && <span className="shrink-0 text-xs font-normal text-sp-text-faint tabular-nums">{item.detail}</span>}
+            </button>
           ))}
         </div>
       )}

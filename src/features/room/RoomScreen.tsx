@@ -11,6 +11,7 @@ import WeaponTray from './WeaponTray.tsx';
 import RoomHeader from './RoomHeader.tsx';
 import WeaponTipBanner from './WeaponTipBanner.tsx';
 import Toast from './Toast.tsx';
+import { useAchievements } from '../achievements/useAchievements.tsx';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts.ts';
 import { useWeaponTargeting } from './useWeaponTargeting.ts';
 import { useDeckSwitchToast } from './useDeckSwitchToast.ts';
@@ -86,6 +87,12 @@ export default function RoomScreen({
   const [headerHeight, setHeaderHeight] = useState(0);
   const [planningHeight, setPlanningHeight] = useState(0);
   const [isDriving, setIsDriving] = useState(false);
+  const achievements = useAchievements({
+    profile: useRoomStore(s => s.profile),
+    unlocked: useRoomStore(s => s.unlocked),
+    onShown: useRoomStore(s => s.dismissUnlocked),
+    onReset: useRoomStore(s => s.resetProgress),
+  });
   const participants: Record<string, Participant> = useMemo(() => FAKE_PARTICIPANTS
     ? { ...FAKE_PARTICIPANTS, ...room.participants }
     : room.participants, [room.participants]);
@@ -263,12 +270,15 @@ export default function RoomScreen({
         onStartDriving={handleStartDriving}
         onSwitchRole={(nextIsObserver) => runAction(() => actions.setRole(nextIsObserver), "Couldn't switch role — check your connection.")}
         onLeave={actions.leave}
+        achievements={achievements.header}
         onHeightChange={handleHeaderHeightChange}
       />
 
       <RoomPlanning key={roomCode} room={room} uid={uid} tickets={tickets} isCreator={isCreator} onChange={actions.changeReadiness} onBacklogChange={actions.changeBacklog} onSelect={actions.selectTicket} onHeightChange={handlePlanningHeightChange} />
 
       <Toast message={deckToastMessage} rendered={deckToastRendered} closing={deckToastClosing} bottom={aboveBar} />
+
+      {achievements.render((headerHeight || HEADER_FALLBACK) + planningHeight + OVERLAY_GAP)}
 
       <WeaponTipBanner
         equippedWeaponId={equippedWeaponId}

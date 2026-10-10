@@ -39,6 +39,7 @@ interface RoomState {
   tickets: BacklogTicket[];
   // Player progress lives in the room service only; this backend has none.
   profile: PlayerProfile | null;
+  unlocked: string[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -65,6 +66,7 @@ interface RoomState {
   markPlayerWasted: (targetUid: string) => void;
   resetTable: () => void;
   resetProgress: () => Promise<void>;
+  dismissUnlocked: () => void;
 }
 
 // Listener handles for the room doc / throws subscriptions. Like
@@ -195,7 +197,9 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   tableWasted: {},
   tickets: [],
   profile: null,
+  unlocked: [],
   resetProgress: async () => {},
+  dismissUnlocked: () => {},
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {

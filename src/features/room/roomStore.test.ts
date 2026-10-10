@@ -47,6 +47,21 @@ describe('room API store', () => {
     expect(mock.remember).not.toHaveBeenCalled();
     expect(useRoomStore.getState().roomCode).toBeNull();
   });
+  it('queues announced achievements and sends the local hour with a vote', async () => {
+    useRoomStore.setState({ profile: null, unlocked: [] });
+    mock.onMessage?.({ type: 'profile', profile: { coins: 0, achievements: {} } });
+    mock.onMessage?.({ type: 'profile', profile: { coins: 0, achievements: { 'mission-passed': 1 } }, unlocked: ['mission-passed'] });
+    mock.onMessage?.({ type: 'profile', profile: { coins: 0, achievements: { 'mission-passed': 1, 'brew-rocracy': 2 } }, unlocked: ['brew-rocracy'] });
+    expect(useRoomStore.getState().profile?.achievements).toEqual({ 'mission-passed': 1, 'brew-rocracy': 2 });
+    expect(useRoomStore.getState().unlocked).toEqual(['mission-passed', 'brew-rocracy']);
+    useRoomStore.getState().dismissUnlocked();
+    expect(useRoomStore.getState().unlocked).toEqual(['brew-rocracy']);
+    await useRoomStore.getState().castVote('☕');
+    expect(mock.command).toHaveBeenCalledWith('vote', { value: '☕', localHour: new Date().getHours() });
+    await useRoomStore.getState().resetProgress();
+    expect(mock.command).toHaveBeenCalledWith('resetProgress', {});
+    expect(useRoomStore.getState().unlocked).toEqual([]);
+  });
   it('clears own wasted state when starting a drive and throttles unchanged positions', () => {
     const state = useRoomStore.getState();
     state.startDrive();

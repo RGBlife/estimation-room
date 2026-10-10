@@ -26,6 +26,8 @@ interface RoomState {
   // This browser's progress (coins, achievements), null until the room
   // service has sent it. Kept across rooms: it belongs to the player.
   profile: PlayerProfile | null;
+  // Achievements just unlocked and not yet announced, oldest first.
+  unlocked: string[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -53,6 +55,8 @@ interface RoomState {
   resetTable: () => void;
   // Deletes this browser's progress; the service starts it over as a new player.
   resetProgress: () => Promise<void>;
+  // The oldest unlock has been announced.
+  dismissUnlocked: () => void;
 }
 
 
@@ -86,7 +90,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
   const connection = new RoomConnection(message => {
     switch (message.type) {
       case 'room': set({ room: message.room, roomCode: message.room.code, error: null }); break;
-      case 'profile': set({ profile: message.profile }); break;
+      case 'profile': set(s => ({ profile: message.profile, unlocked: [...s.unlocked, ...(message.unlocked ?? [])] })); break;
       case 'throw': set(s => ({ throws: [...s.throws.slice(-63), message.item] })); break;
       case 'drivers':
         clearDriverBatch();
@@ -143,7 +147,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     return joinedCode;
   };
   return {
-    uid: null, room: null, roomCode: null, error: null, notice: null, profile: null, ...emptyLiveState(),
+    uid: null, room: null, roomCode: null, error: null, notice: null, profile: null, unlocked: [], ...emptyLiveState(),
     initAuth: () => connection.start(),
     createRoom: payload => join('create', payload),
     joinRoom: async (code, payload) => { await join('join', payload, code); },
@@ -157,7 +161,8 @@ export const useRoomStore = create<RoomState>((set, get) => {
       connection.updateProfile({ avatar: normalized });
     },
     setRole: async isObserver => { await command('role', { isObserver }); connection.updateProfile({ isObserver }); },
-    castVote: async value => { await command('vote', { value }); },
+    // The local hour lets the service award Night Shift; it sees no time zone otherwise.
+    castVote: async value => { await command('vote', { value, localHour: new Date().getHours() }); },
     changeReadiness: async change => { await command('readiness', change); },
     changeBacklog: async change => {
       if (change.operation !== 'add') { await command('backlog', change); return; }
@@ -187,7 +192,8 @@ export const useRoomStore = create<RoomState>((set, get) => {
     publishPieceMove: (side, move) => transient('piece', { side, move }),
     markPlayerWasted: targetUid => transient('wasted', { targetUid }),
     resetTable: () => transient('reset'),
-    resetProgress: async () => { await command('resetProgress'); },
+    resetProgress: async () => { await command('resetProgress'); set({ unlocked: [] }); },
+    dismissUnlocked: () => set(s => ({ unlocked: s.unlocked.slice(1) })),
     leave: async () => {
       connection.forgetRoom(); driving = false; clearDriverBatch();
       try { if (connection.connected && get().roomCode) await command('leave'); }

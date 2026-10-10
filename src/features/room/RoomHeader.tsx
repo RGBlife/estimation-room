@@ -48,6 +48,9 @@ interface RoomHeaderProps {
   onStartDriving: () => void;
   onSwitchRole: (isObserver: boolean) => void;
   onLeave: () => void;
+  // The player's achievements, where the room service keeps them. Without
+  // this the menu has no progress items, and desktop has no menu at all.
+  achievements?: { unlocked: number; total: number; onOpen: () => void; onReset?: () => void };
   // Reports the header's rendered height so overlays positioned beneath it
   // (WeaponTipBanner) can sit below wherever it actually ends. It wraps to
   // several rows on a narrow screen, so a fixed offset lands mid-header.
@@ -60,8 +63,14 @@ export default function RoomHeader({
   avatarUrl, onEditAvatar, roomCode, teamName, onRename, copied, onCopy, isCreator,
   theme, onToggleTheme, isObserver, deck, onSwitchDeck, equippedWeaponId, onCancelTargeting, onOpenWeaponTray,
   isRevealed, isDriving, onStartDriving,
-  onSwitchRole, onLeave, onHeightChange,
+  onSwitchRole, onLeave, achievements, onHeightChange,
 }: RoomHeaderProps) {
+  // Progress lives behind the menu on every screen size: it's for between
+  // rounds, not something the header should spend space on.
+  const progressItems = achievements ? [
+    { label: '🏆 Achievements', detail: `${achievements.unlocked} of ${achievements.total}`, onSelect: achievements.onOpen },
+    ...(achievements.onReset ? [{ label: 'Reset my progress', onSelect: achievements.onReset }] : []),
+  ] : [];
   const touchPrimary = useMediaQuery(TOUCH_PRIMARY_QUERY);
   const narrow = useMediaQuery(NARROW_QUERY);
   const snug = useMediaQuery(SNUG_QUERY);
@@ -149,6 +158,7 @@ export default function RoomHeader({
               })),
             }] : []}
             items={[
+              ...progressItems,
               { label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', onSelect: onToggleTheme },
               ...(!isObserver && isRevealed && !touchPrimary ? [{ label: '🚗 GTA Mode', onSelect: onStartDriving }] : []),
               isObserver
@@ -218,6 +228,7 @@ export default function RoomHeader({
           >Switch to voting</button>
         )}
         <button onClick={onLeave} className="cursor-pointer border-none bg-transparent text-xs text-sp-text-faintest">Leave room</button>
+        {progressItems.length > 0 && <RoomMenu items={progressItems} size={touchPrimary ? 44 : 34} />}
       </div>
       )}
     </div>
