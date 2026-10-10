@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useDescent } from './useDescent.ts';
 import type { RareAnswerCount, RareMove, RareView } from '../../types/games.ts';
 
 // Matches RareFind.MaxAnswer in the room service.
@@ -8,6 +9,18 @@ const NORMS_URL = 'https://osf.io/jgcu6/';
 function percent(count: number, total: number): string {
   const share = (count / total) * 100;
   return share < 1 ? `${share.toFixed(1)}%` : `${Math.round(share)}%`;
+}
+
+// The signature moment: a column of everyone asked that drops, counting
+// down, to the few who said what you said -- empty when nobody else did.
+function Tower({ count, total }: { count: number; total: number }) {
+  const shown = useDescent(total, count, 1400);
+  return (
+    <div className="sp-rare-tower" aria-hidden="true" data-landed={shown === count}>
+      <span className="sp-rare-tower-fill" style={{ height: `${Math.max(count === 0 ? 0 : 3, (shown / total) * 100)}%` }} />
+      <span className="sp-rare-tower-count">{shown}</span>
+    </div>
+  );
 }
 
 function Answers({ heading, answers }: { heading: string; answers: RareAnswerCount[] }) {
@@ -78,6 +91,8 @@ export default function RareFindGame({ play }: { play: (move: RareMove) => Promi
         </form>
       ) : (
         <div className="sp-rare-result">
+          <div className="sp-rare-reveal">
+          <Tower key={view.category} count={count} total={total} />
           <p className="sp-rare-verdict" role="status">
             <strong>{view.match ?? view.answer}</strong>
             {view.valid
@@ -85,11 +100,7 @@ export default function RareFindGame({ play }: { play: (move: RareMove) => Promi
               : <span>Nobody else has said that yet. It counts once someone does.</span>}
             <span className="sp-rare-paid">{view.replay ? "Replays don't earn coins." : view.paid ? `+${view.paid} coins` : "You've reached today's coin limit."}</span>
           </p>
-          {view.valid && (
-            <div className="sp-rare-meter" aria-hidden="true">
-              <span style={{ width: `${Math.max(2, (count / total) * 100)}%` }} />
-            </div>
-          )}
+          </div>
           <div className="sp-rare-lists">
             {view.common && <Answers heading="Most said" answers={view.common} />}
             {view.rarest && <Answers heading="Rarest on the list" answers={view.rarest} />}

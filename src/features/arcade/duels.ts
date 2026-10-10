@@ -6,6 +6,8 @@ import type { DuelGame, DuelSide, DuelView } from '../../types/games.ts';
 
 // How long a challenge stays open; matches Duels.OfferMs in the room service.
 export const OFFER_MS = 60_000;
+// How long a turn lasts; matches Duels.TurnMs.
+export const TURN_MS = 60_000;
 
 export const DUEL_GAMES: Record<DuelGame, { name: string; rules: string }> = {
   noughts: { name: 'Noughts and crosses', rules: 'Three in a row wins. Crosses go first.' },

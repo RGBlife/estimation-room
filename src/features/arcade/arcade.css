@@ -17,7 +17,6 @@
 .sp-arcade-spacer { flex: 1; }
 .sp-arcade-back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin-left: -8px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--sp-text-dim); font: inherit; font-family: var(--sp-display); font-size: 17px; font-weight: 700; cursor: pointer; }
 .sp-arcade-back:hover { background: var(--sp-panel-2); color: var(--sp-text); }
-.sp-arcade-back span { font-size: 24px; line-height: 1; }
 .sp-arcade-body { min-height: 460px; padding: 20px 24px 24px; }
 .sp-arcade-body[data-game='home'] { min-height: 0; }
 .sp-arcade-error { margin: 12px 0 0; color: var(--sp-warn-text); font-size: 13px; }
@@ -69,34 +68,44 @@
 .sp-sorted-heading h3 { margin: 0; font-family: var(--sp-display); font-size: 20px; font-weight: 700; }
 .sp-sorted-hint { margin: 2px 0 0; font-size: 13px; color: var(--sp-text-faint); }
 .sp-sorted-bands { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.sp-sorted-band { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 64px; padding: 8px 12px; border-radius: 9px; color: var(--sp-level-ink); text-align: center; animation: sp-sorted-found 260ms ease-out both; }
+/* A found group: its colour band, the four tiles laid in it. */
+.sp-sorted-band { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 64px; padding: 9px 12px; border-radius: 10px; color: var(--sp-level-ink); text-align: center; box-shadow: 0 3px 0 color-mix(in srgb, var(--sp-level-ink) 22%, transparent); }
 .sp-sorted-band[data-level='0'] { background: var(--sp-level-0); }
 .sp-sorted-band[data-level='1'] { background: var(--sp-level-1); }
 .sp-sorted-band[data-level='2'] { background: var(--sp-level-2); }
 .sp-sorted-band[data-level='3'] { background: var(--sp-level-3); }
-.sp-sorted-band[data-missed='true'] { opacity: .75; }
+.sp-sorted-band[data-missed='true'] { opacity: .7; box-shadow: none; }
 .sp-sorted-band strong { font-family: var(--sp-display); font-size: 15px; font-weight: 700; }
-.sp-sorted-band span { font-size: 13px; }
-@keyframes sp-sorted-found { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.sp-sorted-band-items { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.sp-sorted-band-items span { position: relative; z-index: 2; padding: 2px 8px; border-radius: 6px; background: #ffffff66; font-family: var(--sp-display); font-size: 12px; font-weight: 700; }
 
-.sp-sorted-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.sp-sorted-tile { min-height: 64px; padding: 6px; border: 1px solid var(--sp-card-idle-border); border-radius: 9px; background: var(--sp-card-bg); color: var(--sp-text); font-family: var(--sp-display); font-size: clamp(11px, 1.6vw, 15px); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; cursor: pointer; transition: background 120ms, color 120ms, transform 120ms; }
+/* The tiles: chunky cards with a thick lower edge, like the vote cards;
+   a picked tile lifts. */
+.sp-sorted-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.sp-sorted-tile { min-height: 64px; padding: 6px; border: 1px solid var(--sp-card-idle-border); border-radius: 10px; background: var(--sp-card-bg); color: var(--sp-text); font-family: var(--sp-display); font-size: clamp(11px, 1.6vw, 15px); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; cursor: pointer; box-shadow: 0 3px 0 var(--sp-border-strong); transition: transform 120ms, box-shadow 120ms, background 120ms, color 120ms; }
 .sp-sorted-tile:hover:not(:disabled) { border-color: var(--sp-border-stronger); }
-.sp-sorted-tile[aria-pressed='true'] { border-color: transparent; background: var(--sp-accent); color: var(--sp-bg); }
+.sp-sorted-tile[aria-pressed='true'] { border-color: transparent; background: var(--sp-accent); color: var(--sp-bg); transform: translateY(-3px); box-shadow: 0 6px 0 color-mix(in srgb, var(--sp-accent) 45%, transparent); }
+.sp-sorted-tile:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 var(--sp-border-strong); }
 .sp-sorted-tile:disabled:not([aria-pressed='true']) { cursor: default; }
 .sp-sorted-tile:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
 .sp-sorted-tile[data-miss='0'] { animation: sp-sorted-shake-a 360ms ease-in-out; }
 .sp-sorted-tile[data-miss='1'] { animation: sp-sorted-shake-b 360ms ease-in-out; }
-@keyframes sp-sorted-shake-a { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
-@keyframes sp-sorted-shake-b { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+@keyframes sp-sorted-shake-a { 20%, 60% { translate: -4px 0; } 40%, 80% { translate: 4px 0; } }
+@keyframes sp-sorted-shake-b { 20%, 60% { translate: -4px 0; } 40%, 80% { translate: 4px 0; } }
 @media (max-width: 640px) { .sp-sorted-tile { min-height: 58px; font-size: 12px; } }
-@media (prefers-reduced-motion: reduce) { .sp-sorted-tile, .sp-sorted-band { animation: none !important; transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sp-sorted-tile { animation: none !important; transition: none; } }
 
-.sp-sorted-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; font-size: 13px; color: var(--sp-text-dim); }
+.sp-sorted-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; font-size: 13px; color: var(--sp-text-dim); }
+/* Mistakes as little card backs; a spent one turns over and fades. */
 .sp-sorted-lives { display: flex; align-items: center; gap: 6px; }
-.sp-sorted-lives i { width: 11px; height: 11px; border-radius: 50%; background: var(--sp-text-dim); }
-.sp-sorted-lives i[data-spent='true'] { background: transparent; box-shadow: inset 0 0 0 1.5px var(--sp-border-stronger); }
+.sp-sorted-lives i { width: 14px; height: 19px; border-radius: 3px; background: repeating-linear-gradient(45deg, var(--sp-accent) 0 3px, color-mix(in srgb, var(--sp-accent) 55%, transparent) 3px 6px); box-shadow: 0 1px 0 var(--sp-border-strong); transition: transform 300ms, opacity 300ms; }
+.sp-sorted-lives i[data-spent='true'] { opacity: .25; transform: rotateY(180deg) scale(.9); }
 .sp-sorted-feedback { font-weight: 700; color: var(--sp-text); }
+/* What the guess was, said in a speech bubble. */
+.sp-sorted-feedback[data-tone] { position: relative; padding: 5px 11px; border-radius: 999px; background: var(--sp-panel-2); animation: sp-sorted-say 220ms cubic-bezier(.2, .8, .2, 1); }
+.sp-sorted-feedback[data-tone='one-away'] { background: var(--sp-accent-panel); color: var(--sp-accent-text); }
+@keyframes sp-sorted-say { from { opacity: 0; transform: translateY(4px) scale(.95); } }
+@media (prefers-reduced-motion: reduce) { .sp-sorted-lives i { transition: none; } .sp-sorted-feedback[data-tone] { animation: none; } }
 .sp-sorted-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
 
 .sp-sorted-result { display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -108,23 +117,39 @@
 
 /* Noughts and crosses: crosses in the accent colour, noughts in ink. */
 .sp-duel { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.sp-duel-players { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 600; }
-.sp-duel-player { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; color: var(--sp-text-dim); }
-.sp-duel-player[data-turn='true'] { background: var(--sp-accent-panel); color: var(--sp-text); box-shadow: inset 0 0 0 1px var(--sp-accent-border); }
-.sp-duel-player b, .sp-duel-cell { font-family: var(--sp-display); font-weight: 700; }
-.sp-duel-player b[data-mark='X'], .sp-duel-cell[data-mark='X'] { color: var(--sp-accent-text); }
-.sp-duel-player b[data-mark='O'], .sp-duel-cell[data-mark='O'] { color: var(--sp-text); }
+.sp-duel-players { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 600; }
+/* A player chip: face, name, mark; it glows while it's their turn. */
+.sp-duel-player { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid var(--sp-border); border-radius: 999px; background: var(--sp-panel-2); color: var(--sp-text-dim); transition: box-shadow 200ms, color 200ms; }
+.sp-duel-player img, .sp-duel-player-gone { width: 30px; height: 30px; border-radius: 50%; background: var(--sp-panel-3); }
+.sp-duel-player[data-turn='true'] { border-color: var(--sp-accent); color: var(--sp-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-accent) 30%, transparent); }
+.sp-duel-player b { font-family: var(--sp-display); font-weight: 800; }
+.sp-duel-player b[data-mark='X'] { color: var(--sp-accent-text); }
+.sp-duel-player b[data-mark='O'] { color: #E0574F; }
 .sp-duel-v { color: var(--sp-text-faint); font-size: 13px; }
-.sp-duel-stake { padding: 3px 9px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 13px; font-variant-numeric: tabular-nums; }
-.sp-duel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(288px, 100%); }
-.sp-duel-cell { aspect-ratio: 1; border: 1px solid var(--sp-card-idle-border); border-radius: 10px; background: var(--sp-card-bg); font-size: clamp(34px, 9vw, 52px); line-height: 1; cursor: pointer; transition: border-color 120ms, background 120ms; }
-.sp-duel-cell:enabled:hover { border-color: var(--sp-accent-border); background: var(--sp-accent-panel); }
-.sp-duel-cell:disabled { cursor: default; }
-.sp-duel-cell:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
-.sp-duel-cell[data-mark] { animation: sp-duel-mark 180ms ease-out both; }
-.sp-duel-cell[data-line] { border-color: var(--sp-accent); background: var(--sp-accent-panel-2); }
-@keyframes sp-duel-mark { from { transform: scale(.85); opacity: .4; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .sp-duel-cell[data-mark] { animation: none; } }
+/* The pot between them, as a little stack of coins. */
+.sp-duel-coins { display: inline-block; width: 16px; height: 14px; margin-right: 5px; vertical-align: -2px; background: radial-gradient(ellipse 8px 3px at 50% 85%, #C9962B 0 98%, transparent) , radial-gradient(ellipse 8px 3px at 50% 58%, #E2B33F 0 98%, transparent), radial-gradient(ellipse 8px 3px at 50% 30%, #F2CA57 0 98%, transparent); }
+.sp-duel-timer { width: min(300px, 100%); height: 4px; overflow: hidden; border-radius: 999px; background: var(--sp-bar-track); }
+.sp-duel-timer span { display: block; height: 100%; border-radius: inherit; background: var(--sp-accent); transition: width 250ms linear; }
+.sp-duel-timer[data-low='true'] span { background: var(--sp-warn-text); }
+@media (prefers-reduced-motion: reduce) { .sp-duel-timer span { transition: none; } }
+.sp-duel-stake { font-family: var(--sp-display); font-weight: 800; padding: 4px 10px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 13px; font-variant-numeric: tabular-nums; }
+/* Noughts and crosses on a whiteboard: blue and red marker, drawn in. */
+.sp-noughts { --sp-ink-x: var(--sp-marker); --sp-ink-o: #C93A33; position: relative; width: min(300px, 100%); aspect-ratio: 1; border-radius: 14px; background: var(--sp-whiteboard); box-shadow: 0 3px 0 var(--sp-border-strong), inset 0 0 0 1px #0000000f; }
+.sp-noughts-lines, .sp-noughts-win { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.sp-noughts-lines path { fill: none; stroke: #9AA7B8; stroke-width: 4; stroke-linecap: round; }
+.sp-noughts-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
+.sp-noughts-cell { padding: 14%; border: 0; border-radius: 10px; background: transparent; cursor: pointer; }
+.sp-noughts-cell:enabled:hover { background: color-mix(in srgb, var(--sp-ink-x) 8%, transparent); }
+.sp-noughts-cell:disabled { cursor: default; }
+.sp-noughts-cell:focus-visible { outline: 2px solid var(--sp-ink-x); outline-offset: -6px; }
+.sp-noughts-mark { display: block; width: 100%; height: 100%; overflow: visible; }
+.sp-noughts-mark path { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 0; animation: sp-noughts-draw 260ms ease-out backwards; }
+.sp-noughts-mark[data-mark='X'] path { stroke: var(--sp-ink-x); }
+.sp-noughts-mark[data-mark='O'] path { stroke: var(--sp-ink-o); animation-duration: 380ms; }
+.sp-noughts-mark .sp-noughts-second { animation-delay: 200ms; }
+.sp-noughts-win path { fill: none; stroke: #1E2A3A; stroke-width: 9; stroke-linecap: round; stroke-dasharray: 1; opacity: .85; animation: sp-noughts-draw 520ms 250ms cubic-bezier(.4, 0, .2, 1) backwards; }
+@keyframes sp-noughts-draw { from { stroke-dashoffset: 1; } }
+@media (prefers-reduced-motion: reduce) { .sp-noughts-mark path, .sp-noughts-win path { animation: none; } }
 .sp-duel-status { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px; min-height: 28px; margin: 0; text-align: center; font-size: 14px; color: var(--sp-text-dim); }
 .sp-duel-status strong { font-family: var(--sp-display); font-size: 19px; font-weight: 700; color: var(--sp-text); }
 .sp-duel-status[data-outcome='won'] strong { color: var(--sp-accent-text); }
@@ -168,19 +193,26 @@
 @media (prefers-reduced-motion: reduce) { .sp-challenge-card { animation: none; } .sp-challenge-timer span { transition: none; } }
 
 /* Rare Find */
-.sp-rare-question { padding: 18px 20px; border: 1px solid var(--sp-border); border-radius: 12px; background: var(--sp-panel-2); text-align: center; }
-.sp-rare-prompt { margin: 0; font-family: var(--sp-display); font-size: clamp(22px, 3.4vw, 30px); font-weight: 700; line-height: 1.15; }
-.sp-rare-question .sp-sorted-hint { margin-top: 6px; }
+.sp-rare-question { padding: 22px 20px; border: 1px solid var(--sp-border); border-radius: 14px; background: var(--sp-panel-2); text-align: center; box-shadow: 0 3px 0 var(--sp-border-strong); }
+.sp-rare-prompt { margin: 0; font-family: var(--sp-display); font-size: clamp(24px, 3.8vw, 34px); font-weight: 800; line-height: 1.1; }
+.sp-rare-question .sp-sorted-hint { margin-top: 8px; }
 .sp-rare-form { display: flex; gap: 8px; }
-.sp-rare-input { flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border: 1px solid var(--sp-border-strong); border-radius: 9px; background: var(--sp-card-bg); color: var(--sp-text); font: inherit; font-size: 16px; }
+.sp-rare-input { flex: 1; min-width: 0; min-height: 48px; padding: 0 16px; border: 1px solid var(--sp-border-strong); border-radius: 10px; background: var(--sp-card-bg); color: var(--sp-text); font: inherit; font-family: var(--sp-display); font-size: 18px; font-weight: 600; }
 .sp-rare-input:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
-.sp-rare-result { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.sp-rare-verdict { display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 0; text-align: center; font-size: 14px; color: var(--sp-text-dim); }
-.sp-rare-verdict strong { font-family: var(--sp-display); font-size: 24px; font-weight: 700; color: var(--sp-text); overflow-wrap: anywhere; }
+.sp-rare-result { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+/* The tower beside the verdict. */
+.sp-rare-reveal { display: flex; align-items: flex-end; justify-content: center; gap: 22px; }
+.sp-rare-tower { position: relative; flex: none; width: 64px; height: 180px; overflow: hidden; border-radius: 10px; background: var(--sp-bar-track); box-shadow: inset 0 0 0 1px var(--sp-border); }
+.sp-rare-tower-fill { position: absolute; inset: auto 0 0; border-radius: 8px 8px 0 0; background: var(--sp-accent); }
+.sp-rare-tower-count { position: absolute; inset: 10px 0 auto; font-family: var(--sp-display); font-size: 26px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; color: var(--sp-text); }
+.sp-rare-tower[data-landed='true'] { animation: sp-rare-land 260ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes sp-rare-land { 40% { transform: scaleY(.96) translateY(3px); } }
+.sp-rare-verdict { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0; max-width: 300px; padding-bottom: 6px; font-size: 14px; color: var(--sp-text-dim); }
+.sp-rare-verdict strong { font-family: var(--sp-display); font-size: 28px; font-weight: 800; line-height: 1.05; color: var(--sp-text); overflow-wrap: anywhere; }
 .sp-rare-verdict strong::first-letter { text-transform: uppercase; }
-.sp-rare-paid { font-weight: 700; color: var(--sp-accent-text); }
-.sp-rare-meter { width: min(320px, 100%); height: 8px; border-radius: 999px; background: var(--sp-bar-track); overflow: hidden; }
-.sp-rare-meter span { display: block; height: 100%; border-radius: inherit; background: var(--sp-accent); }
+.sp-rare-paid { margin-top: 4px; font-family: var(--sp-display); font-size: 18px; font-weight: 800; color: var(--sp-accent-text); animation: sp-rare-paid 400ms 1300ms cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes sp-rare-paid { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .sp-rare-tower[data-landed='true'], .sp-rare-paid { animation: none; } }
 .sp-rare-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-self: stretch; }
 .sp-rare-answers { padding: 10px 14px; border: 1px solid var(--sp-border); border-radius: 10px; }
 .sp-rare-answers h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); }
@@ -191,32 +223,37 @@
 .sp-rare-credit { margin: 4px 0 0; font-size: 11px; color: var(--sp-text-faint); text-align: center; }
 .sp-rare-credit a { color: inherit; }
 
-/* Battleship: two 6 by 6 seas, theirs to fire at and yours to watch. */
+/* Battleship: two 6 by 6 seas on navy water with faint sonar rings.
+   Ships are hulls drawn across their squares; a hit is a burst, a miss a
+   ripple, and the last shot lands with a splash. */
 .sp-seas { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 24px; width: 100%; }
-.sp-sea { display: flex; flex-direction: column; gap: 6px; width: min(240px, 100%); }
+.sp-sea { display: flex; flex-direction: column; gap: 6px; width: min(250px, 100%); }
 .sp-sea h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); text-align: center; }
-.sp-sea-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; padding: 4px; border-radius: 10px; background: var(--sp-accent-panel-2); }
-.sp-sea-cell { aspect-ratio: 1; padding: 0; border: 0; border-radius: 5px; background: var(--sp-panel); color: var(--sp-text-faint); font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer; transition: background 120ms; }
-.sp-sea-cell:enabled:hover { background: var(--sp-accent-panel); box-shadow: inset 0 0 0 1px var(--sp-accent-border); }
+.sp-sea-grid { display: grid; grid-template-columns: repeat(6, 1fr); overflow: hidden; border-radius: 12px; background: radial-gradient(circle at 50% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 80%); box-shadow: 0 3px 0 var(--sp-border-strong), inset 0 0 0 1px #ffffff14; }
+.sp-sea-grid[data-target] { background: repeating-radial-gradient(circle at 50% 50%, transparent 0 34px, #ffffff0d 34px 35px), radial-gradient(circle at 50% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 80%); }
+.sp-sea-cell { position: relative; aspect-ratio: 1; padding: 0; border: 0; background: transparent; box-shadow: inset -1px -1px 0 var(--sp-sea-line); cursor: pointer; }
+.sp-sea-cell:nth-child(6n) { box-shadow: inset 0 -1px 0 var(--sp-sea-line); }
+.sp-sea-cell:nth-last-child(-n+6) { box-shadow: inset -1px 0 0 var(--sp-sea-line); }
+.sp-sea-cell:last-child { box-shadow: none; }
+.sp-sea-cell:enabled:hover { background: #ffffff1f; }
 .sp-sea-cell:disabled { cursor: default; }
-.sp-sea-cell:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
-.sp-sea-cell[data-state='ship'] { background: var(--sp-border-stronger); }
-.sp-sea-cell[data-state='miss'] { color: var(--sp-text-dim); }
-.sp-sea-cell[data-state='hit'] { background: var(--sp-warn-bg); color: var(--sp-warn-text); }
-.sp-sea-cell[data-state='sunk'] { background: var(--sp-warn-text); color: var(--sp-panel); }
-.sp-sea-cell[data-last] { animation: sp-sea-splash 420ms ease-out; }
-@keyframes sp-sea-splash { from { transform: scale(.6); } 60% { transform: scale(1.12); } to { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .sp-sea-cell[data-last] { animation: none; } }
+.sp-sea-cell:focus-visible { outline: 2px solid var(--sp-sea-foam); outline-offset: -3px; }
+.sp-sea-hull { position: absolute; inset: 22% 0; background: var(--sp-sea-hull); }
+.sp-sea-hull[data-part^='v'] { inset: 0 22%; }
+.sp-sea-hull[data-part='h-start'] { left: 14%; border-radius: 999px 0 0 999px; }
+.sp-sea-hull[data-part='h-end'] { right: 14%; border-radius: 0 999px 999px 0; }
+.sp-sea-hull[data-part='v-start'] { top: 14%; border-radius: 999px 999px 0 0; }
+.sp-sea-hull[data-part='v-end'] { bottom: 14%; border-radius: 0 0 999px 999px; }
+.sp-sea-hull[data-sunk] { background: #5B6B80; }
+.sp-sea-shot { position: absolute; inset: 30%; border-radius: 50%; box-shadow: 0 0 0 2px var(--sp-sea-foam); opacity: .7; }
+.sp-sea-shot[data-hit] { inset: 22%; border-radius: 0; box-shadow: none; opacity: 1; background: var(--sp-sea-hit); clip-path: polygon(50% 0, 61% 32%, 96% 22%, 70% 50%, 96% 78%, 61% 68%, 50% 100%, 39% 68%, 4% 78%, 30% 50%, 4% 22%, 39% 32%); }
+.sp-sea-cell[data-last] .sp-sea-shot { animation: sp-sea-ripple 520ms ease-out; }
+.sp-sea-cell[data-last] .sp-sea-shot[data-hit] { animation: sp-sea-burst 420ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes sp-sea-ripple { from { transform: scale(2.4); opacity: 0; } 40% { opacity: 1; } }
+@keyframes sp-sea-burst { from { transform: scale(.2) rotate(-40deg); } 60% { transform: scale(1.35) rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) { .sp-sea-cell[data-last] .sp-sea-shot { animation: none; } }
 .sp-duel-shot { flex-basis: 100%; font-size: 13px; color: var(--sp-text-dim); }
 .sp-duel-watch li small { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--sp-text-faint); }
-/* Narrow: side by side, theirs larger, so the turn and clock stay in view. */
-@media (max-width: 640px) {
-  .sp-seas { flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
-  .sp-sea { flex: 3 1 0; width: auto; min-width: 0; }
-  .sp-sea + .sp-sea { flex: 2 1 0; }
-  .sp-sea-grid { gap: 2px; padding: 3px; }
-  .sp-sea-cell { border-radius: 4px; font-size: 13px; }
-}
 
 /* The Arcade's door in the header: a dot when something waits for you,
    with two beats of a ring so it's noticed, then still. */
@@ -224,3 +261,10 @@
 .sp-arcade-door[data-alert='true'] { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sp-accent) 55%, transparent); animation: sp-arcade-door-pulse 900ms ease-out 2; }
 @keyframes sp-arcade-door-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sp-accent) 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
 @media (prefers-reduced-motion: reduce) { .sp-arcade-door[data-alert='true'] { animation: none; } }
+
+/* Narrow: side by side, theirs larger, so the turn and clock stay in view. */
+@media (max-width: 640px) {
+  .sp-seas { flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
+  .sp-sea { flex: 3 1 0; width: auto; min-width: 0; }
+  .sp-sea + .sp-sea { flex: 2 1 0; }
+}

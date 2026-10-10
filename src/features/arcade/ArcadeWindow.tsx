@@ -62,7 +62,10 @@ export default function ArcadeWindow({ coins, game, onHome, closing, onClose, ch
       onCancel={event => { event.preventDefault(); onClose(); }}>
       <header className="sp-arcade-heading">
         {game
-          ? <button type="button" className="sp-arcade-back" onClick={onHome}><span aria-hidden="true">‹</span> Arcade</button>
+          ? <button type="button" className="sp-arcade-back" onClick={onHome}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+              Arcade
+            </button>
           : <h2><span aria-hidden="true">🕹</span> Arcade</h2>}
         <span className="sp-arcade-spacer" />
         <Coins coins={coins} />
