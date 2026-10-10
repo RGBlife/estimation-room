@@ -6,14 +6,12 @@ import { checkOverflow } from './overflow.ts';
 
 test('the Arcade waits for the reveal', async ({ page }) => {
   await page.goto('/?visual-test=room&seats=6&controls=0');
-  await page.getByRole('button', { name: 'Room menu' }).click();
-  await expect(page.getByRole('menuitem', { name: /Arcade/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Arcade, opens after the reveal' })).toHaveAttribute('aria-disabled', 'true');
 });
 
 test('a Sorted board fits the window, and a solve pays into the balance', async ({ page }) => {
   await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&found=3');
-  await page.getByRole('button', { name: 'Room menu' }).click();
-  await page.getByRole('menuitem', { name: /Arcade/ }).click();
+  await page.getByRole('button', { name: /^Arcade/ }).click();
   const arcade = page.getByRole('dialog', { name: 'Arcade' });
   await expect(arcade.getByText('Sorted #1')).toBeVisible();
   const grid = arcade.getByRole('group', { name: 'Tiles' });

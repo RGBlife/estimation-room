@@ -2,8 +2,10 @@ import { useLayoutEffect, useRef, useState } from 'react';
 
 // Editing belongs to the name itself. The native popover renders above the
 // table without a scrim or a second trip through the room menu.
-export default function TeamNameEditor({ teamName, onSave }: {
-  teamName?: string; onSave: (name: string) => Promise<void>;
+// `compact` (a phone header): without a name, just the pencil, rather than a
+// placeholder squeezed to two letters.
+export default function TeamNameEditor({ teamName, onSave, compact = false }: {
+  teamName?: string; onSave: (name: string) => Promise<void>; compact?: boolean;
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const popover = useRef<HTMLDivElement>(null);
@@ -50,8 +52,8 @@ export default function TeamNameEditor({ teamName, onSave }: {
           setValue(teamName ?? ''); setError('');
           popover.current!.showPopover(); setOpen(true);
         }}
-        className="group flex min-h-11 min-w-0 max-w-56 cursor-pointer items-center gap-2 rounded-md px-1 text-sm font-semibold text-sp-text hover:bg-sp-panel-2">
-        <span className="truncate">{teamName || 'Name your team'}</span>
+        className={`group flex min-h-11 min-w-0 max-w-56 cursor-pointer items-center gap-2 rounded-md px-1 text-sm font-semibold text-sp-text hover:bg-sp-panel-2 ${compact && !teamName ? 'min-w-11 shrink-0 justify-center' : ''}`}>
+        {(teamName || !compact) && <span className="truncate">{teamName || 'Name your team'}</span>}
         <svg className="shrink-0 text-sp-text-faint" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5" /></svg>
       </button>
       <div ref={popover} popover="manual" role="dialog" aria-label="Rename team"

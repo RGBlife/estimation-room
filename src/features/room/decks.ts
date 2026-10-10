@@ -68,7 +68,7 @@ export const DECKS: Record<DeckId, DeckDefinition> = {
 };
 
 // Custom is intentionally left out of DECK_ORDER (and so hidden from both the
-// pre-join deck picker and the in-room DeckSwitcher) -- the free-text flow
+// pre-join deck picker and the room menu's deck list) -- the free-text flow
 // still needs more design/UX work before it's ready to surface. The deck
 // definition, results view, and vote-input UI stay fully wired up so it can
 // be re-added by just adding 'custom' back to this array.

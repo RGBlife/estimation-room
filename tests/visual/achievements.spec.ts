@@ -17,9 +17,9 @@ test('an achievement toast sits below the header, inside the viewport', async ({
   expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
 });
 
-test('the menu opens the achievements drawer', async ({ page }) => {
+test('your menu opens the achievements drawer', async ({ page }) => {
   await page.goto('/?visual-test=room&seats=6&controls=0&progress=3');
-  await page.getByRole('button', { name: 'Room menu' }).click();
+  await page.getByRole('button', { name: 'You', exact: true }).click();
   await page.getByRole('menuitem', { name: /Achievements/ }).click();
   const drawer = page.getByRole('dialog', { name: 'Achievements' });
   await expect(drawer).toBeVisible();

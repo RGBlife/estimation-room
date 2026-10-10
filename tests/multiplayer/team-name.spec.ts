@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { leaveRoom } from './header.ts';
 
 async function ready(page: Page) {
   await page.goto('/');
@@ -39,7 +40,7 @@ test('team names create, broadcast, rename, clear and refresh remembered cards',
     };
     await rename('W'.repeat(40));
     await expect(guest).toHaveTitle(new RegExp('W'.repeat(40)));
-    await guest.getByRole('button', { name: 'Leave room', exact: true }).click();
+    await leaveRoom(guest);
     await expect(guest.getByRole('button', { name: new RegExp(`Rejoin room ${code}.*${'W'.repeat(40)}`) })).toBeVisible();
     await rename('Renamed while away');
     await guest.reload();
@@ -51,6 +52,6 @@ test('team names create, broadcast, rename, clear and refresh remembered cards',
     await expect(card).not.toHaveAccessibleName(/Renamed while away/);
     await card.click();
     await expect(guest).toHaveTitle(`${code} · Estimation Room`);
-    await Promise.all([host, guest].map(p => p.getByRole('button', { name: 'Leave room', exact: true }).click()));
+    await Promise.all([host, guest].map(p => leaveRoom(p)));
   } finally { await Promise.all(contexts.map(c => c.close())); }
 });

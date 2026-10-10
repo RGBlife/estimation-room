@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { roomMenu, leaveRoom } from './header.ts';
 
 async function ready(page: Page) {
   await page.goto('/');
@@ -19,13 +20,13 @@ test('a room everyone has left stays open and can be rejoined', async ({ browser
     await host.getByLabel('Your name', { exact: true }).fill('Casey');
     await host.getByRole('button', { name: 'or create a new room' }).click();
     await host.getByRole('button', { name: 'Create room', exact: true }).click();
-    await expect(host.getByRole('button', { name: 'Leave room', exact: true })).toBeVisible();
+    await expect(roomMenu(host)).toBeVisible();
     const code = await host.evaluate(async () => {
       const path = '/src/features/room/roomStore.ts';
       return (await import(path)).useRoomStore.getState().roomCode as string;
     });
 
-    await host.getByRole('button', { name: 'Leave room', exact: true }).click();
+    await leaveRoom(host);
     // Back on the join screen first: until the leave lands, the address bar
     // still carries ?room=, and reloading then rejoins through the link.
     await expect(host).not.toHaveURL(/room=/);
@@ -38,10 +39,10 @@ test('a room everyone has left stays open and can be rejoined', async ({ browser
     await guest.getByLabel('Your name', { exact: true }).fill('Guest');
     await guest.getByLabel('Room code', { exact: true }).fill(code);
     await guest.getByRole('button', { name: 'Join room', exact: true }).click();
-    await expect(guest.getByRole('button', { name: 'Leave room', exact: true })).toBeVisible();
+    await expect(roomMenu(guest)).toBeVisible();
     await card.click();
     await expect(host.getByText('Guest', { exact: true })).toBeVisible();
     await expect(guest.getByText('Casey', { exact: true })).toBeVisible();
-    await Promise.all([host, guest].map(p => p.getByRole('button', { name: 'Leave room', exact: true }).click()));
+    await Promise.all([host, guest].map(p => leaveRoom(p)));
   } finally { await Promise.all(contexts.map(c => c.close())); }
 });

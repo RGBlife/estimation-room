@@ -190,3 +190,10 @@
   .sp-sea-grid { gap: 2px; padding: 3px; }
   .sp-sea-cell { border-radius: 4px; font-size: 13px; }
 }
+
+/* The Arcade's door in the header: a dot when something waits for you,
+   with two beats of a ring so it's noticed, then still. */
+.sp-arcade-door-dot { position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border: 2px solid var(--sp-panel); border-radius: 50%; background: var(--sp-accent); }
+.sp-arcade-door[data-alert='true'] { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sp-accent) 55%, transparent); animation: sp-arcade-door-pulse 900ms ease-out 2; }
+@keyframes sp-arcade-door-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sp-accent) 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) { .sp-arcade-door[data-alert='true'] { animation: none; } }
