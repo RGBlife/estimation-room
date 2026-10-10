@@ -4,4 +4,6 @@ export interface PlayerProfile {
   coins: number;
   // Achievement id -> when it was unlocked, in milliseconds.
   achievements: Record<string, number>;
+  // How far the player has got in each solo game, for the Arcade's cards.
+  games?: { sorted: { played: number }; rare: { answered: number } };
 }

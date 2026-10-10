@@ -211,11 +211,11 @@ export default function RoomLayoutHarness() {
     return fixtures;
   }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round]);
   const me = participants[myUid];
-  // ?arcade=open opens the Arcade on Sorted, ?arcade=rare on Rare Find,
-  // ?arcade=noughts on Noughts and crosses (with ?revealed=1, as games are only between rounds);
-  // ?coins=N seeds a balance; ?found=N starts Sorted with N groups found;
+  // ?arcade=open opens the Arcade's home and ?arcade=sorted|rare|noughts|battleship
+  // a game (with ?revealed=1, as games are only between rounds); ?coins=N
+  // seeds a balance; ?found=N starts Sorted with N groups found;
   // ?duel=incoming|waiting|playing|won|watch|battleship|battleship-incoming
-  // seeds a duel with p1 (or p2 v p3); ?arcade=battleship opens on Battleship.
+  // seeds a duel with p1 (or p2 v p3).
   const [playSorted] = useState(() => fakeSorted(paid => setProfile(p => ({ ...p, coins: p.coins + paid })), Number(params.get('found') || 0)));
   const [playRare] = useState(() => fakeRare(paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [fakeDuel] = useState(() => fakeDuels(myUid, uid => participants[uid]?.name ?? uid, params.get('duel'), next => setDuels(next), paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
@@ -223,7 +223,7 @@ export default function RoomLayoutHarness() {
   const arcadeParam = params.get('arcade');
   const arcade = useArcade({
     profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, playRare, duel: fakeDuel.duel,
-    initiallyOpen: !!arcadeParam, initialGame: arcadeParam === 'noughts' || arcadeParam === 'rare' || arcadeParam === 'battleship' ? arcadeParam : 'sorted',
+    initiallyOpen: !!arcadeParam, initialGame: arcadeParam === 'sorted' || arcadeParam === 'rare' || arcadeParam === 'noughts' || arcadeParam === 'battleship' ? arcadeParam : null,
   });
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];

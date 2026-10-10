@@ -13,6 +13,7 @@ test('a Sorted board fits the window, and a solve pays into the balance', async 
   await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&found=3');
   await page.getByRole('button', { name: /^Arcade/ }).click();
   const arcade = page.getByRole('dialog', { name: 'Arcade' });
+  await arcade.getByRole('button', { name: /^Sorted/ }).click();
   await expect(arcade.getByText('Sorted #1')).toBeVisible();
   const grid = arcade.getByRole('group', { name: 'Tiles' });
   const overflow = await checkOverflow(grid);
@@ -85,4 +86,17 @@ test('a Battleship duel fought to a win', async ({ page }) => {
   }
   await expect(arcade.getByRole('status')).toContainText('You won');
   await expect(arcade.getByLabel('100 coins')).toBeVisible();
+});
+
+test('the Arcade opens on a card per game, and a challenge to you comes first', async ({ page }) => {
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&arcade=open&duel=battleship-incoming');
+  const arcade = page.getByRole('dialog', { name: 'Arcade' });
+  await expect(arcade.getByText('Player 2 challenges you to battleship')).toBeVisible();
+  await expect(arcade.locator('.sp-arcade-card')).toHaveCount(4);
+  const overflow = await checkOverflow(arcade);
+  expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
+  await arcade.getByRole('button', { name: 'Accept' }).click();
+  await expect(arcade.getByRole('group', { name: 'Their waters' })).toBeVisible();
+  await arcade.getByRole('button', { name: 'Arcade', exact: true }).click();
+  await expect(arcade.getByRole('button', { name: /^Battleship/ })).toContainText('Your move');
 });

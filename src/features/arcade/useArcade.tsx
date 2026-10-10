@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import ArcadeWindow, { type ArcadeGame } from './ArcadeWindow.tsx';
 import ChallengeCard from './ChallengeCard.tsx';
+import ArcadeHome from './ArcadeHome.tsx';
 import { incomingChallenge, isMyMove, ownDuel } from './duels.ts';
 import type { PlayerProfile } from '../../types/player.ts';
 import type { Participant } from '../../types/room.ts';
@@ -23,17 +24,18 @@ interface Options {
   playSorted: (move: SortedMove) => Promise<SortedView>;
   playRare: (move: RareMove) => Promise<RareView>;
   duel: (move: DuelMove) => Promise<void>;
-  // Open straight away (the dev harness's ?arcade=open, or =noughts).
+  // Open straight away (the dev harness's ?arcade=open, or a game).
   initiallyOpen?: boolean;
-  initialGame?: ArcadeGame;
+  initialGame?: ArcadeGame | null;
 }
 
 // The Arcade's menu item for the header, the window, and the card for a
 // challenge to you. The window closes itself when the next round starts;
 // games in play are kept by the service and pick up at the next reveal.
-export function useArcade({ profile, isRevealed, uid, participants, duels, playSorted, playRare, duel, initiallyOpen = false, initialGame = 'sorted' }: Options) {
+export function useArcade({ profile, isRevealed, uid, participants, duels, playSorted, playRare, duel, initiallyOpen = false, initialGame = null }: Options) {
   const [open, setOpen] = useState(initiallyOpen);
-  const [game, setGame] = useState<ArcadeGame>(initialGame);
+  // The game open, or null for the Arcade's home.
+  const [game, setGame] = useState<ArcadeGame | null>(initialGame);
   const [closing, setClosing] = useState(false);
   useEffect(() => {
     if (!closing) return;
@@ -45,13 +47,12 @@ export function useArcade({ profile, isRevealed, uid, participants, duels, playS
   const incoming = incomingChallenge(duels, uid);
   const mine = ownDuel(duels, uid);
   const yourMove = isMyMove(mine, uid);
-  // The duel game with something waiting for you.
-  const waiting = incoming?.game ?? (yourMove ? mine!.game : undefined);
   const header = profile ? {
     coins: profile.coins,
     available: isRevealed,
     alert: incoming ? 'Challenge' : yourMove ? 'Your move' : undefined,
-    onOpen: () => { if (waiting) setGame(waiting); setOpen(true); },
+    // Straight to a duel that's waiting on you; otherwise the home.
+    onOpen: () => { setGame(yourMove ? mine!.game : null); setOpen(true); },
   } : undefined;
 
   const answer = async (accept: boolean) => {
@@ -63,11 +64,11 @@ export function useArcade({ profile, isRevealed, uid, participants, duels, playS
   // `top`: where the challenge card sits, below the header.
   const render = (top: number) => profile && (
     <>
-      {/* Inside the window the challenge shows on the Noughts and crosses page instead. */}
+      {/* Inside the window the challenge shows on the Arcade's home instead. */}
       {!open && <ChallengeCard duel={incoming} coins={profile.coins} onAnswer={answer} top={top} />}
       {open && (
-        <ArcadeWindow coins={profile.coins} game={game} onSelectGame={setGame} waiting={waiting ? [waiting] : []}
-          closing={closing} onClose={() => setClosing(true)}>
+        <ArcadeWindow coins={profile.coins} game={game} onHome={() => setGame(null)} closing={closing} onClose={() => setClosing(true)}>
+          {game === null && <ArcadeHome profile={profile} uid={uid} duels={duels} incoming={incoming} mine={mine} onOpen={setGame} onAnswer={answer} />}
           <Suspense fallback={<p className="sp-sorted-hint">Loading the game…</p>}>
             {game === 'sorted' && <SortedGame play={playSorted} />}
             {game === 'rare' && <RareFindGame play={playRare} />}

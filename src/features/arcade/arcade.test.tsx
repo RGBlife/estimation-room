@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SortedGame from './SortedGame.tsx';
 import ArcadeWindow from './ArcadeWindow.tsx';
+import ArcadeHome from './ArcadeHome.tsx';
 import DuelGame from './DuelGame.tsx';
 import ChallengeCard from './ChallengeCard.tsx';
 import RareFindGame from './RareFindGame.tsx';
@@ -73,25 +74,16 @@ describe('SortedGame', () => {
 
 describe('ArcadeWindow', () => {
   it('shows the balance only once there is one', () => {
-    const { rerender } = render(<ArcadeWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
+    const { rerender } = render(<ArcadeWindow coins={0} game={null} onHome={() => {}} closing={false} onClose={() => {}}><p>home</p></ArcadeWindow>);
     expect(screen.queryByLabelText(/coins/)).not.toBeInTheDocument();
-    rerender(<ArcadeWindow coins={45} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
+    rerender(<ArcadeWindow coins={45} game={null} onHome={() => {}} closing={false} onClose={() => {}}><p>home</p></ArcadeWindow>);
     expect(screen.getByLabelText('45 coins')).toBeInTheDocument();
   });
-  it('lists every game, marking the one open', () => {
-    render(<ArcadeWindow coins={0} game="sorted" onSelectGame={() => {}} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
-    expect(screen.getByRole('button', { name: 'Sorted' })).toHaveAttribute('aria-current', 'true');
-    for (const name of ['Rare Find', 'Noughts and crosses', 'Battleship']) expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-current');
-  });
-});
-
-describe('ArcadeWindow game list', () => {
-  it('switches game, and marks one with something waiting', () => {
-    const select = vi.fn();
-    render(<ArcadeWindow coins={0} game="sorted" onSelectGame={select} waiting={['noughts']} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
-    fireEvent.click(screen.getByRole('button', { name: /Noughts and crosses/ }));
-    expect(select).toHaveBeenCalledWith('noughts');
-    expect(screen.getByRole('button', { name: /Noughts and crosses/ })).toHaveAccessibleName('Noughts and crosses (waiting for you)');
+  it('leads back to the home from a game', () => {
+    const home = vi.fn();
+    render(<ArcadeWindow coins={0} game="rare" onHome={home} closing={false} onClose={() => {}}><p>game</p></ArcadeWindow>);
+    fireEvent.click(screen.getByRole('button', { name: 'Arcade' }));
+    expect(home).toHaveBeenCalledOnce();
   });
 });
 
@@ -246,5 +238,32 @@ describe('Battleship', () => {
     fireEvent.click(screen.getByRole('radio', { name: /Sam/ }));
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send challenge' })); });
     expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', game: 'battleship', opponent: 'sam', stake: 0 });
+  });
+});
+
+describe('ArcadeHome', () => {
+  const profile = { coins: 45, achievements: {}, games: { sorted: { played: 4 }, rare: { answered: 0 } } };
+  it('has a card per game, with how far you have got', () => {
+    const open = vi.fn();
+    render(<ArcadeHome profile={profile} uid="me" duels={[duelOf({ challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'sam', name: 'Sam' } })]} incoming={null} mine={null} onOpen={open} onAnswer={async () => {}} />);
+    expect(screen.getByRole('button', { name: /Sorted.*4 played/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Noughts and crosses.*1 at the table now/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Battleship/ }));
+    expect(open).toHaveBeenCalledWith('battleship');
+  });
+  it('puts a challenge to you first', async () => {
+    const answer = vi.fn(async (_: boolean) => {});
+    const challenge = duelOf({ game: 'battleship', status: 'offered', stake: 10, challenger: { uid: 'sam', name: 'Sam' }, opponent: { uid: 'me', name: 'Me' } });
+    render(<ArcadeHome profile={profile} uid="me" duels={[challenge]} incoming={challenge} mine={challenge} onOpen={() => {}} onAnswer={answer} />);
+    expect(screen.getByText('Sam challenges you to battleship')).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Accept' })); });
+    expect(answer).toHaveBeenCalledWith(true);
+  });
+  it('offers the way back to a duel waiting on your move', () => {
+    const open = vi.fn();
+    const duel = duelOf();
+    render(<ArcadeHome profile={profile} uid="me" duels={[duel]} incoming={null} mine={duel} onOpen={open} onAnswer={async () => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the game' }));
+    expect(open).toHaveBeenCalledWith('noughts');
   });
 });
