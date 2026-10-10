@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import ToolboxWindow, { type ToolboxGame } from './ToolboxWindow.tsx';
-import SortedGame from './SortedGame.tsx';
-import RareFindGame from './RareFindGame.tsx';
-import DuelGame from './DuelGame.tsx';
 import ChallengeCard from './ChallengeCard.tsx';
 import { incomingChallenge, isMyMove, ownDuel } from './duels.ts';
 import type { PlayerProfile } from '../../types/player.ts';
 import type { Participant } from '../../types/room.ts';
 import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
+
+// Each game is its own chunk, fetched when first opened, so a room never
+// downloads games nobody plays.
+const SortedGame = lazy(() => import('./SortedGame.tsx'));
+const RareFindGame = lazy(() => import('./RareFindGame.tsx'));
+const DuelGame = lazy(() => import('./DuelGame.tsx'));
 
 interface Options {
   // Null where the room service keeps no progress: then there is no Toolbox.
@@ -65,11 +68,13 @@ export function useToolbox({ profile, isRevealed, uid, participants, duels, play
       {open && (
         <ToolboxWindow coins={profile.coins} game={game} onSelectGame={setGame} waiting={waiting ? [waiting] : []}
           closing={closing} onClose={() => setClosing(true)}>
-          {game === 'sorted' && <SortedGame play={playSorted} />}
-          {game === 'rare' && <RareFindGame play={playRare} />}
-          {(game === 'noughts' || game === 'battleship') && (
-            <DuelGame key={game} game={game} uid={uid} coins={profile.coins} participants={participants} duels={duels} duel={duel} />
-          )}
+          <Suspense fallback={<p className="sp-sorted-hint">Loading the game…</p>}>
+            {game === 'sorted' && <SortedGame play={playSorted} />}
+            {game === 'rare' && <RareFindGame play={playRare} />}
+            {(game === 'noughts' || game === 'battleship') && (
+              <DuelGame key={game} game={game} uid={uid} coins={profile.coins} participants={participants} duels={duels} duel={duel} />
+            )}
+          </Suspense>
         </ToolboxWindow>
       )}
     </>
