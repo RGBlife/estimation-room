@@ -35,6 +35,9 @@ test('a challenge card opens the duel on the board', async ({ page }) => {
   await expect(card.getByText('Player 2 challenges you')).toBeVisible();
   const box = (await card.boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  // On a phone the card folds into its pill after a few seconds; open it again if so.
+  const pill = card.getByRole('button', { name: /challenges you/ });
+  if (await pill.isVisible()) await pill.click();
   await card.getByRole('button', { name: 'Accept' }).click();
   const arcade = page.getByRole('dialog', { name: 'Arcade' });
   await expect(arcade.getByRole('group', { name: 'Board' })).toBeVisible();
@@ -43,6 +46,23 @@ test('a challenge card opens the duel on the board', async ({ page }) => {
   await expect(arcade.getByRole('button', { name: 'Square 5, X' })).toBeVisible();
   const overflow = await checkOverflow(arcade.getByRole('group', { name: 'Board' }));
   expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
+});
+
+test('on a phone, the challenge folds into a pill off the table, and opens again', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.install();
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&duel=incoming');
+  const card = page.getByRole('region', { name: 'Duel challenge' });
+  await expect(card.getByRole('button', { name: 'Accept' })).toBeVisible();
+  await page.clock.runFor(4500);
+  await expect(card.getByRole('button', { name: 'Accept' })).toBeHidden();
+  // The pill stays in its corner, clear of the seats below it.
+  const pill = (await card.boundingBox())!;
+  const seat = (await page.getByText('Player 2', { exact: true }).first().boundingBox())!;
+  expect(pill.x + pill.width).toBeLessThanOrEqual(390);
+  expect(pill.y + pill.height).toBeLessThanOrEqual(seat.y);
+  await card.getByRole('button', { name: /Player 2 challenges you/ }).click();
+  await expect(card.getByRole('button', { name: 'Accept' })).toBeVisible();
 });
 
 test('a duel played to a win', async ({ page }) => {

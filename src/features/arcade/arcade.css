@@ -37,6 +37,19 @@
 .sp-arcade-waiting strong { font-family: var(--sp-display); font-size: 17px; }
 .sp-arcade-waiting span { font-size: 13px; color: var(--sp-text-dim); }
 .sp-arcade-waiting > div { display: flex; gap: 8px; }
+/* Two shelves, solo and duels: a heading with a rule running out to, for
+   duels, the faces of everyone free to take you on. */
+.sp-arcade-shelf { display: flex; flex-direction: column; gap: 10px; }
+.sp-arcade-shelf-heading { display: flex; align-items: center; gap: 12px; min-height: 26px; }
+.sp-arcade-shelf-heading h3 { margin: 0; font-family: var(--sp-display); font-size: 15px; font-weight: 700; color: var(--sp-text-dim); white-space: nowrap; }
+.sp-arcade-shelf-heading::after { content: ''; flex: 1; order: 1; height: 1px; background: var(--sp-border); }
+.sp-arcade-faces { display: flex; align-items: center; order: 2; }
+.sp-arcade-faces img { width: 26px; height: 26px; margin-left: -7px; border: 2px solid var(--sp-panel); border-radius: 50%; background: var(--sp-panel-2); }
+.sp-arcade-faces img:first-child { margin-left: 0; }
+.sp-arcade-faces b { margin-left: 4px; font-size: 12px; font-weight: 700; color: var(--sp-text-faint); }
+/* A duel's cover carries a VS token in coin gold, as duels are played for coins. */
+.sp-arcade-art { position: relative; }
+.sp-arcade-vs { position: absolute; top: 8px; left: 8px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--sp-level-0); color: var(--sp-level-ink); font-family: var(--sp-display); font-size: 11px; font-weight: 800; letter-spacing: .02em; box-shadow: 0 2px 0 color-mix(in srgb, var(--sp-level-ink) 35%, transparent); transform: rotate(-10deg); }
 .sp-arcade-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .sp-arcade-card { display: flex; flex-direction: column; width: 100%; padding: 0; overflow: hidden; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 2px 0 var(--sp-border-strong); transition: transform 140ms, box-shadow 140ms; }
 .sp-arcade-card:hover { transform: translateY(-2px); box-shadow: 0 4px 0 var(--sp-border-strong); }
@@ -189,8 +202,14 @@
 .sp-challenge-card .sp-arcade-error { margin: 0; padding: 0 12px 10px; }
 .sp-challenge-timer { height: 3px; background: var(--sp-bar-track); }
 .sp-challenge-timer span { display: block; height: 100%; background: var(--sp-accent); transition: width 250ms linear; }
+/* Folded on a phone: a pill in the corner, its timer still running. */
+.sp-challenge-card[data-folded='true'] { width: auto; max-width: calc(100vw - 24px); border-radius: 999px; transform-origin: right center; animation: sp-challenge-fold 260ms cubic-bezier(.2, .8, .2, 1.2) both; }
+.sp-challenge-pill { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border: 0; background: transparent; color: var(--sp-text); font: inherit; font-family: var(--sp-display); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.sp-challenge-pill:focus-visible { outline: 3px solid var(--sp-accent); outline-offset: -3px; border-radius: 999px; }
+.sp-challenge-later { margin-right: auto; padding: 0 6px; border: 0; background: transparent; color: var(--sp-text-faint); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+@keyframes sp-challenge-fold { from { opacity: 0; transform: scale(.6); } }
 @keyframes sp-challenge-in { from { transform: translateX(calc(100% + 24px)); } to { transform: translateX(0); } }
-@media (prefers-reduced-motion: reduce) { .sp-challenge-card { animation: none; } .sp-challenge-timer span { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sp-challenge-card, .sp-challenge-card[data-folded='true'] { animation: none; } .sp-challenge-timer span { transition: none; } }
 
 /* Rare Find */
 .sp-rare-question { padding: 22px 20px; border: 1px solid var(--sp-border); border-radius: 14px; background: var(--sp-panel-2); text-align: center; box-shadow: 0 3px 0 var(--sp-border-strong); }

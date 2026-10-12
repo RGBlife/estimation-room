@@ -68,7 +68,7 @@ export function useArcade({ profile, isRevealed, uid, participants, duels, playS
       {!open && <ChallengeCard duel={incoming} coins={profile.coins} onAnswer={answer} top={top} />}
       {open && (
         <ArcadeWindow coins={profile.coins} game={game} onHome={() => setGame(null)} closing={closing} onClose={() => setClosing(true)}>
-          {game === null && <ArcadeHome profile={profile} uid={uid} duels={duels} incoming={incoming} mine={mine} onOpen={setGame} onAnswer={answer} />}
+          {game === null && <ArcadeHome profile={profile} uid={uid} participants={participants} duels={duels} incoming={incoming} mine={mine} onOpen={setGame} onAnswer={answer} />}
           <Suspense fallback={<p className="sp-sorted-hint">Loading the game…</p>}>
             {game === 'sorted' && <SortedGame play={playSorted} />}
             {game === 'rare' && <RareFindGame play={playRare} />}

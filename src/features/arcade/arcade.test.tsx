@@ -12,6 +12,8 @@ import type { Participant } from '../../types/room.ts';
 import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
 
 beforeAll(() => {
+  // jsdom has no matchMedia: a wide screen with motion, unless a test says otherwise.
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
   // jsdom has <dialog> without its modal methods.
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
   HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) { this.open = false; };
@@ -164,6 +166,21 @@ describe('ChallengeCard', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Accept' })); });
     expect(answer).toHaveBeenCalledWith(true);
   });
+  it('folds into a pill on a phone after a moment, and opens again on a tap', () => {
+    vi.useFakeTimers();
+    const wide = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query === '(max-width: 640px)', addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    try {
+      render(<ChallengeCard duel={duelOf({ status: 'offered', stake: 0, challenger: { uid: 'sam', name: 'Sam' }, opponent: { uid: 'me', name: 'Me' }, offerLeftMs: 30_000 })} coins={45} onAnswer={async () => {}} top={80} />);
+      expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(4000); });
+      expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Sam challenges you/ }));
+      expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Later' }));
+      expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+    } finally { window.matchMedia = wide; vi.useRealTimers(); }
+  });
   it('renders nothing without a challenge', () => {
     const { container } = render(<ChallengeCard duel={null} coins={0} onAnswer={async () => {}} top={0} />);
     expect(container).toBeEmptyDOMElement();
@@ -250,6 +267,14 @@ describe('ArcadeHome', () => {
     expect(screen.getByRole('button', { name: /Noughts and crosses.*1 at the table now/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Battleship/ }));
     expect(open).toHaveBeenCalledWith('battleship');
+  });
+  it('shelves the solo games apart from the duels, with who is free to duel', () => {
+    render(<ArcadeHome profile={profile} uid="me" participants={PEOPLE} duels={[]} incoming={null} mine={null} onOpen={() => {}} onAnswer={async () => {}} />);
+    const solo = screen.getByRole('region', { name: 'Play solo' });
+    const duels = screen.getByRole('region', { name: 'Duel a teammate' });
+    expect(within(solo).getAllByRole('button').map(b => b.textContent)).toEqual([expect.stringMatching(/^Sorted/), expect.stringMatching(/^Rare Find/)]);
+    expect(within(duels).getAllByRole('button').map(b => b.textContent)).toEqual([expect.stringMatching(/^VSNoughts/), expect.stringMatching(/^VSBattleship/)]);
+    expect(within(duels).getByLabelText('3 free to duel')).toBeInTheDocument();
   });
   it('puts a challenge to you first', async () => {
     const answer = vi.fn(async (_: boolean) => {});
