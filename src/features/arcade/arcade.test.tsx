@@ -245,6 +245,20 @@ describe('Battleship', () => {
     expect(within(screen.getByRole('group', { name: "Priya's fleet" })).getByRole('button', { name: 'A4, miss' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /ship$/ })).not.toBeInTheDocument();
   });
+  it('gives the big place to your fleet on their turn, a beat after the turn passes', () => {
+    vi.useFakeTimers();
+    try {
+      const p = props([sea()]);
+      const { rerender } = render(<DuelGame {...p} />);
+      const focused = (name: string) => screen.getByRole('group', { name }).closest('.sp-sea')!.getAttribute('data-focused');
+      expect(focused('Their waters')).toBe('true');
+      rerender(<DuelGame {...p} duels={[sea({ turn: 'sam', lastShot: { by: 'me', cell: 8, hit: false, sunk: false } })]} />);
+      expect(focused('Your fleet')).toBe('false');
+      act(() => { vi.advanceTimersByTime(700); });
+      expect(focused('Your fleet')).toBe('true');
+      expect(focused('Their waters')).toBe('false');
+    } finally { vi.useRealTimers(); }
+  });
   it('says where the last shot landed', () => {
     expect(shotSummary(sea({ lastShot: { by: 'sam', cell: 0, hit: true, sunk: true } }), 'me')).toBe('Sam sank a ship.');
     expect(shotSummary(sea({ lastShot: { by: 'me', cell: 5, hit: false, sunk: false } }), 'me')).toBe('You missed.');

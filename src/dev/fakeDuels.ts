@@ -4,10 +4,15 @@ import type { DuelGame, DuelMove, DuelSea, DuelView } from '../types/games.ts';
 // can be seen and played in the network-free harness. The real rules live
 // in the service (scrum-poker-backend Duels.cs). Whoever you challenge
 // accepts after a moment; at noughts and crosses they play the first free
-// square of a fixed order, at Battleship they fire down the sea in order.
+// square of a fixed order, at Battleship they open with a fixed run of
+// shots (a miss, then a ship of yours sunk), then fire down the sea in order.
 const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 const PREFERENCE = [4, 0, 2, 6, 8, 1, 3, 5, 7];
 const REPLY_MS = 700;
+// At Battleship, a beat longer for the first shot of a turn, so the boards
+// have changed places before it lands.
+const FIRST_SHOT_MS = 1200;
+const SEA_OPENING = [21, 3, 4, 5, 10];
 // Fixed fleets, so a visual test knows where to aim.
 const FLEETS = [
   [[0, 1, 2], [9, 15, 21], [24, 25], [34, 35]],
@@ -87,17 +92,19 @@ export function fakeDuels(me: string, nameOf: (uid: string) => string, seed: str
     if (fleet.every(s => s.every(c => h.shots[uid].includes(c)))) return win(d, uid, { lastShot, reason: 'sunk' });
     return { ...d, lastShot, turn: ship ? uid : other(d, uid), turnLeftMs: 60_000 };
   };
-  const reply = (id: string) => setTimeout(() => {
+  const reply = (id: string, wait = REPLY_MS) => setTimeout(() => {
     const h = duels.find(d => d.view.id === id);
     if (!h || h.view.status !== 'playing' || h.view.turn === me) return;
     const them = h.view.turn!;
     if (h.view.game === 'noughts') update(id, d => place(d, them, PREFERENCE.find(i => d.board![i] === null)!));
     else {
-      const cell = Array.from({ length: 36 }, (_, i) => i).find(i => !h.shots[them].includes(i))!;
+      const cell = [...SEA_OPENING, ...Array.from({ length: 36 }, (_, i) => i)].find(i => !h.shots[them].includes(i))!;
       update(id, () => fire(h, them, cell));
       reply(id);
     }
-  }, REPLY_MS);
+  }, wait);
+  // Their answer to a move: the first shot of their turn waits for the boards.
+  const replyTo = (id: string) => reply(id, find(id).view.game === 'battleship' ? FIRST_SHOT_MS : REPLY_MS);
   const start = (d: DuelView, first: string): DuelView => ({
     ...d, status: 'playing', offerLeftMs: undefined, turn: first, turnLeftMs: 60_000,
     ...(d.game === 'noughts' ? {
@@ -116,11 +123,11 @@ export function fakeDuels(me: string, nameOf: (uid: string) => string, seed: str
         setTimeout(() => {
           if (duels.find(d => d.view.id === id)?.view.status !== 'offered') return;
           update(id, d => start(d, d.opponent.uid));
-          reply(id);
+          replyTo(id);
         }, 1500);
         break;
       }
-      case 'accept': update(move.id, d => start(d, d.challenger.uid)); reply(move.id); break;
+      case 'accept': update(move.id, d => start(d, d.challenger.uid)); replyTo(move.id); break;
       case 'decline': update(move.id, d => ({ ...d, status: 'declined', offerLeftMs: undefined })); break;
       case 'cancel': update(move.id, d => ({ ...d, status: 'cancelled', offerLeftMs: undefined })); break;
       case 'resign': update(move.id, d => ({ ...d, status: 'won', reason: 'resigned', winner: other(d, me), turn: undefined, turnLeftMs: undefined })); break;
@@ -134,7 +141,8 @@ export function fakeDuels(me: string, nameOf: (uid: string) => string, seed: str
           if (h.shots[me].includes(move.cell)) throw new Error("You've already fired there");
           update(move.id, () => fire(h, me, move.cell));
         }
-        reply(move.id);
+        // Only once the turn is theirs: a hit keeps it yours.
+        if (find(move.id).view.turn !== me) replyTo(move.id);
         break;
       }
     }

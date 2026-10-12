@@ -245,9 +245,14 @@
 /* Battleship: two 6 by 6 seas on navy water with faint sonar rings.
    Ships are hulls drawn across their squares; a hit is a burst, a miss a
    ripple, and the last shot lands with a splash. */
-.sp-seas { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 24px; width: 100%; }
-.sp-sea { display: flex; flex-direction: column; gap: 6px; width: min(250px, 100%); }
-.sp-sea h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); text-align: center; }
+/* The sea in play is the big one, theirs or yours, gliding across as the
+   turn passes; the other waits smaller and dimmer beside it. */
+.sp-seas { display: flex; align-items: flex-start; justify-content: center; gap: 12px; width: 100%; max-width: 600px; margin: 0 auto; }
+.sp-sea { display: flex; flex-direction: column; gap: 6px; flex: 2 1 0; min-width: 0; opacity: .72; transition: flex-grow 420ms cubic-bezier(.2, .8, .2, 1), opacity 420ms; }
+.sp-sea[data-focused='true'] { flex-grow: 3; opacity: 1; }
+.sp-sea h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); text-align: center; transition: color 420ms; }
+.sp-sea[data-focused='true'] h4 { color: var(--sp-text); }
+@media (prefers-reduced-motion: reduce) { .sp-sea, .sp-sea h4 { transition: none; } }
 .sp-sea-grid { display: grid; grid-template-columns: repeat(6, 1fr); overflow: hidden; border-radius: 12px; background: radial-gradient(circle at 50% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 80%); box-shadow: 0 3px 0 var(--sp-border-strong), inset 0 0 0 1px #ffffff14; }
 .sp-sea-grid[data-target] { background: repeating-radial-gradient(circle at 50% 50%, transparent 0 34px, #ffffff0d 34px 35px), radial-gradient(circle at 50% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 80%); }
 .sp-sea-cell { position: relative; aspect-ratio: 1; padding: 0; border: 0; background: transparent; box-shadow: inset -1px -1px 0 var(--sp-sea-line); cursor: pointer; }
@@ -281,9 +286,5 @@
 @keyframes sp-arcade-door-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sp-accent) 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
 @media (prefers-reduced-motion: reduce) { .sp-arcade-door[data-alert='true'] { animation: none; } }
 
-/* Narrow: side by side, theirs larger, so the turn and clock stay in view. */
-@media (max-width: 640px) {
-  .sp-seas { flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
-  .sp-sea { flex: 3 1 0; width: auto; min-width: 0; }
-  .sp-sea + .sp-sea { flex: 2 1 0; }
-}
+/* Narrow: closer together, so the turn and clock stay in view. */
+@media (max-width: 640px) { .sp-seas { gap: 10px; } }

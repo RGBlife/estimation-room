@@ -50,12 +50,14 @@ const ROUND_VOTES = [['5', '8', '5', '3', '5', '8', '5', '13'], ['3', '3', '2', 
 const seatAvatars: AvatarOptions[] = [];
 const seatAvatar = (i: number) => (seatAvatars[i] ??= randomAvatar());
 
-function fixtureParticipants(seats: number, observers: number, voted: number, values: string[] = VOTE_VALUES): Record<string, Participant> {
+// `names` (?names=Sam,Priya,...) replaces "Player N" for the first seats,
+// for screenshots and videos that read like a real team.
+function fixtureParticipants(seats: number, observers: number, voted: number, values: string[] = VOTE_VALUES, names: string[] = []): Record<string, Participant> {
   const out: Record<string, Participant> = {};
   for (let i = 0; i < seats + observers; i++) {
     const isObserver = i >= seats;
     out[`p${i}`] = {
-      name: `Player ${i + 1}`,
+      name: names[i]?.slice(0, 40) || `Player ${i + 1}`,
       avatar: seatAvatar(i),
       joinedAt: i,
       isObserver,
@@ -133,6 +135,9 @@ export default function RoomLayoutHarness() {
   // and highlight the first ticket shortly after the drawer opens.
   const [tickets, setTickets] = useState<BacklogTicket[]>(() => seedBacklog(params.get('tickets')));
   const ticketMode = params.get('tickets');
+  const names = params.get('names');
+  // ?votes=5,8,5,3 deals these round the table instead of one of each card.
+  const votes = params.get('votes');
   const harnessNext = tickets.find(t => t.id !== activeTicketId && !t.estimate);
   const [round, setRound] = useState(0);
   useEffect(() => {
@@ -205,11 +210,11 @@ export default function RoomLayoutHarness() {
   const [localVote, setLocalVote] = useState<string | null>(null);
   const deck = DECKS[deckId];
   const participants = useMemo(() => {
-    const fixtures = fixtureParticipants(seats, observers, voted, ticketMode ? ROUND_VOTES[round % ROUND_VOTES.length] : undefined);
+    const fixtures = fixtureParticipants(seats, observers, voted, ticketMode ? ROUND_VOTES[round % ROUND_VOTES.length] : votes?.split(',') ?? undefined, names?.split(',') ?? []);
     if (editedAvatar && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], avatar: editedAvatar };
     if (localVote != null && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], vote: localVote };
     return fixtures;
-  }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round]);
+  }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round, names, votes]);
   const me = participants[myUid];
   // ?arcade=open opens the Arcade's home and ?arcade=sorted|rare|noughts|battleship
   // a game (with ?revealed=1, as games are only between rounds); ?coins=N
