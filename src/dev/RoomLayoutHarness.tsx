@@ -20,6 +20,15 @@ import { randomAvatar } from '../features/avatar/index.js';
 import type { Participant, DeckId } from '../types/room.ts';
 import type { DriverState, TableCrackEvent, WastedMap } from '../types/gta.ts';
 import type { ThrowEvent } from '../types/throws.ts';
+import type { PlayerProfile } from '../types/player.ts';
+import { useAchievements } from '../features/achievements/useAchievements.tsx';
+import { ACHIEVEMENTS } from '../features/achievements/catalogue.ts';
+import { useArcade } from '../features/arcade/useArcade.tsx';
+import { ALL_GAMES, type ArcadeGame } from '../features/arcade/catalogue.ts';
+import { fakeSorted } from './fakeSorted.ts';
+import { fakeDuels } from './fakeDuels.ts';
+import { fakeRare } from './fakeRare.ts';
+import type { DuelView } from '../types/games.ts';
 
 // Dev-only, network-free stage for the *whole room layout* -- header, seats,
 // table and voting bar composed the way RoomScreen composes them, but with
@@ -42,12 +51,14 @@ const ROUND_VOTES = [['5', '8', '5', '3', '5', '8', '5', '13'], ['3', '3', '2', 
 const seatAvatars: AvatarOptions[] = [];
 const seatAvatar = (i: number) => (seatAvatars[i] ??= randomAvatar());
 
-function fixtureParticipants(seats: number, observers: number, voted: number, values: string[] = VOTE_VALUES): Record<string, Participant> {
+// `names` (?names=Sam,Priya,...) replaces "Player N" for the first seats,
+// for screenshots and videos that read like a real team.
+function fixtureParticipants(seats: number, observers: number, voted: number, values: string[] = VOTE_VALUES, names: string[] = []): Record<string, Participant> {
   const out: Record<string, Participant> = {};
   for (let i = 0; i < seats + observers; i++) {
     const isObserver = i >= seats;
     out[`p${i}`] = {
-      name: `Player ${i + 1}`,
+      name: names[i]?.slice(0, 40) || `Player ${i + 1}`,
       avatar: seatAvatar(i),
       joinedAt: i,
       isObserver,
@@ -58,6 +69,13 @@ function fixtureParticipants(seats: number, observers: number, voted: number, va
 }
 
 const ZERO_MOVE = { x: 0, y: 0, rot: 0 };
+
+// Earned a day apart, most recent last, at a fixed time so screenshots compare.
+function seedProfile(earned: number): PlayerProfile {
+  const ids = ACHIEVEMENTS.filter((_, i) => i % 2 === 0).slice(0, earned).map(a => a.id);
+  const start = new Date(2026, 9, 9).getTime() - ids.length * 86_400_000;
+  return { coins: 0, achievements: Object.fromEntries(ids.map((id, i) => [id, start + i * 86_400_000])) };
+}
 
 // Deterministic crack positions for `?cracks=N`. Spread across the table
 // rather than random so the same URL always produces the same picture --
@@ -118,6 +136,9 @@ export default function RoomLayoutHarness() {
   // and highlight the first ticket shortly after the drawer opens.
   const [tickets, setTickets] = useState<BacklogTicket[]>(() => seedBacklog(params.get('tickets')));
   const ticketMode = params.get('tickets');
+  const names = params.get('names');
+  // ?votes=5,8,5,3 deals these round the table instead of one of each card.
+  const votes = params.get('votes');
   const harnessNext = tickets.find(t => t.id !== activeTicketId && !t.estimate);
   const [round, setRound] = useState(0);
   useEffect(() => {
@@ -140,6 +161,20 @@ export default function RoomLayoutHarness() {
   const [toastOpen, setToastOpen] = useState(false);
   const [votingBarHeight, setVotingBarHeight] = useState(0);
   const [planningHeight, setPlanningHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  // ?progress=N seeds N earned achievements (every other one, so earned,
+  // locked and secret cards sit side by side); ?unlock=id,id queues unlocks
+  // to announce; ?achievements=open (or reset) opens the drawer.
+  const [profile, setProfile] = useState<PlayerProfile>(() => ({ ...seedProfile(Number(params.get('progress') || 0)), coins: Number(params.get('coins') || 0) }));
+  const [unlockQueue, setUnlockQueue] = useState<string[]>(() => params.get('unlock')?.split(',').filter(Boolean) ?? []);
+  const achievementsPanel = params.get('achievements');
+  const achievements = useAchievements({
+    profile,
+    unlocked: unlockQueue,
+    onShown: () => setUnlockQueue(queue => queue.slice(1)),
+    onReset: async () => setProfile({ coins: 0, achievements: {} }),
+    initialPanel: achievementsPanel === 'open' ? 'list' : achievementsPanel === 'reset' ? 'reset' : undefined,
+  });
   // Real weapon/driving state rather than no-op stubs, so the interaction
   // between the two (see RoomScreen.handleStartDriving) can actually be
   // exercised here instead of only reasoned about.
@@ -176,12 +211,28 @@ export default function RoomLayoutHarness() {
   const [localVote, setLocalVote] = useState<string | null>(null);
   const deck = DECKS[deckId];
   const participants = useMemo(() => {
-    const fixtures = fixtureParticipants(seats, observers, voted, ticketMode ? ROUND_VOTES[round % ROUND_VOTES.length] : undefined);
+    const fixtures = fixtureParticipants(seats, observers, voted, ticketMode ? ROUND_VOTES[round % ROUND_VOTES.length] : votes?.split(',') ?? undefined, names?.split(',') ?? []);
     if (editedAvatar && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], avatar: editedAvatar };
     if (localVote != null && fixtures[myUid]) fixtures[myUid] = { ...fixtures[myUid], vote: localVote };
     return fixtures;
-  }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round]);
+  }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round, names, votes]);
   const me = participants[myUid];
+  // ?arcade=open opens the Arcade's home and ?arcade=<game> a game, by its
+  // id (sorted, rare, ultimate, pong, ...), with ?revealed=1, as games are
+  // only between rounds; ?coins=N seeds a balance; ?found=N starts Sorted
+  // with N groups found; ?duel=incoming|waiting|playing|won|watch (ultimate
+  // noughts and crosses), battleship|battleship-incoming, play:<game> or
+  // incoming:<game> seeds a duel with p1 (or p2 v p3).
+  const [playSorted] = useState(() => fakeSorted(paid => setProfile(p => ({ ...p, coins: p.coins + paid })), Number(params.get('found') || 0)));
+  const [playRare] = useState(() => fakeRare(paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
+  const [fakeDuel] = useState(() => fakeDuels(myUid, uid => participants[uid]?.name ?? uid, params.get('duel'), next => setDuels(next), paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
+  const [duels, setDuels] = useState<DuelView[]>(fakeDuel.initial);
+  useEffect(() => fakeDuel.attach(), [fakeDuel]);
+  const arcadeParam = params.get('arcade');
+  const arcade = useArcade({
+    profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, playRare, duel: fakeDuel.duel, steer: fakeDuel.steer,
+    initiallyOpen: !!arcadeParam, initialGame: arcadeParam && arcadeParam !== 'open' && ALL_GAMES.includes(arcadeParam as ArcadeGame) ? arcadeParam as ArcadeGame : null,
+  });
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];
   const customGroups = revealed && deck.resultKind === 'freeText' ? computeCustomGroups(participants) : [];
@@ -221,6 +272,9 @@ export default function RoomLayoutHarness() {
         onStartDriving={handleStartDriving}
         onSwitchRole={() => {}}
         onLeave={() => {}}
+        achievements={achievements.header}
+        arcade={arcade.header}
+        onHeightChange={setHeaderHeight}
       />
 
       <RoomPlanning room={{ readiness, activeTicketId, participants }} uid={myUid} tickets={tickets} isCreator={params.get('host') !== '0'}
@@ -248,6 +302,16 @@ export default function RoomLayoutHarness() {
           onClick={() => setToastOpen(t => !t)}
           className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
         >Toggle toast</button>
+        {/* Earns the next achievement not yet earned, as the service would announce it. */}
+        <button
+          onClick={() => {
+            const next = ACHIEVEMENTS.find(a => profile.achievements[a.id] === undefined);
+            if (!next) return;
+            setProfile(p => ({ ...p, achievements: { ...p.achievements, [next.id]: Date.now() } }));
+            setUnlockQueue(queue => [...queue, next.id]);
+          }}
+          className="cursor-pointer rounded border border-sp-border-strong bg-sp-panel-2 px-2 py-1 text-[11px] text-sp-text-dim"
+        >Unlock achievement</button>
         {/* Equips directly, bypassing the tray -- lets a test set up the
             "already targeting, then start driving" order of events. */}
         <button
@@ -319,6 +383,8 @@ export default function RoomLayoutHarness() {
       </div>
 
       {nudgedName && <p role="status" className="text-center text-sm text-sp-text-dim">Preview: nudged {nudgedName}</p>}
+      {achievements.render((headerHeight || 64) + planningHeight + 12)}
+      {arcade.render((headerHeight || 64) + planningHeight + 12 + (unlockQueue.length > 0 ? 104 : 0))}
       <Toast
         message="Deck switched to Powers of 2 — everyone's vote was reset"
         rendered={toastOpen}

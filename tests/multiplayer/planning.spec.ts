@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { leaveRoom } from './header.ts';
 
 async function ready(page: Page) {
   await page.goto('/');
@@ -109,7 +110,7 @@ test('two browsers share readiness and a backlog, and estimate the selected tick
     await guest.reload();
     await expect(guest.getByRole('button', { name: 'WEB-142 Keep filters after going back', exact: true })).toBeVisible();
     await expect(guest.getByRole('button', { name: 'Tickets 2', exact: true })).toBeVisible();
-    await Promise.all([host, guest].map(p => p.getByRole('button', { name: 'Leave room', exact: true }).click()));
+    await Promise.all([host, guest].map(p => leaveRoom(p)));
     // Presets are device-wide: a different room gets the saved criteria.
     await host.getByRole('button', { name: 'or create a new room' }).click();
     await host.getByRole('button', { name: 'Create room', exact: true }).click();
@@ -119,6 +120,6 @@ test('two browsers share readiness and a backlog, and estimate the selected tick
     await expect(host.getByRole('checkbox')).toHaveCount(4);
     await expect(host.getByRole('checkbox').nth(0)).not.toBeChecked();
     await host.getByRole('button', { name: 'Close ticket readiness' }).click();
-    await host.getByRole('button', { name: 'Leave room', exact: true }).click();
+    await leaveRoom(host);
   } finally { await Promise.all(contexts.map(c => c.close())); }
 });

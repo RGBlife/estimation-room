@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 interface RoomMenuItem {
   label: string;
@@ -11,10 +11,14 @@ interface RoomMenuItem {
   // with a check so the group reads as a choice rather than a list of
   // actions.
   selected?: boolean;
+  // Quiet text at the row's end, e.g. a count.
+  detail?: string;
+  // Shown but not available yet; `detail` says when it will be.
+  disabled?: boolean;
 }
 
 interface RoomMenuGroup {
-  // Uppercase heading above the group. Groups exist so a set of related
+  // A small heading above the group. Groups exist so a set of related
   // choices (the decks) doesn't read as more one-shot actions.
   heading: string;
   items: RoomMenuItem[];
@@ -23,15 +27,28 @@ interface RoomMenuGroup {
 interface RoomMenuProps {
   items: RoomMenuItem[];
   groups?: RoomMenuGroup[];
+  // Button size in px: 44 for a finger, smaller beside desktop controls.
+  size?: number;
+  // The trigger's accessible name and contents: the room's ⚙ by default.
+  label?: string;
+  trigger?: ReactNode;
+  // A round trigger, for the avatar.
+  round?: boolean;
+  // Quiet lines above the items, e.g. your coin balance.
+  summary?: ReactNode;
 }
 
-// Overflow menu for the room's secondary controls. On a narrow
-// screen the header's six controls had shrunk to fit -- the theme toggle was
-// 28x28 and "Leave room" was 32x16, well under the 44x44 minimum a finger
-// needs, and they still wrapped the header into a tower. Collapsing
-// everything except the room code behind one properly-sized button trades
-// a tap for controls that can actually be tapped.
-export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
+const COG = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.66 0-1.25.4-1.51 1z" />
+  </svg>
+);
+
+// A header menu: the room's settings behind ⚙, or your own things behind
+// your avatar. Rows are full-size (44px) on every screen, so settings that
+// are used once a session cost a tap rather than header space.
+export default function RoomMenu({ items, groups = [], size = 44, label = 'Room menu', trigger = COG, round = false, summary }: RoomMenuProps) {
   const [open, setOpen] = useState(false);
   // Focus the persistent trigger before an action opens a dialog; menu items unmount.
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -54,27 +71,30 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative shrink-0">
       <button
         ref={triggerRef}
         onClick={() => setOpen(o => !o)}
-        aria-label="Room menu"
+        aria-label={label}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border border-sp-border-strong bg-sp-panel-2 text-sp-text-dim"
+        style={round ? { height: size } : { width: size, height: size }}
+        className={round
+          ? 'flex cursor-pointer items-center gap-1 rounded-full border border-sp-border-strong bg-sp-card-bg p-1 text-sp-text-dim hover:border-sp-accent'
+          : 'flex cursor-pointer items-center justify-center rounded-md border border-sp-border-strong bg-sp-panel-2 text-sp-text-dim hover:text-sp-text'}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden="true">
-          <path d="M4 7h16M4 12h16M4 17h16" />
-        </svg>
+        {trigger}
       </button>
       {open && (
         <div
           role="menu"
-          className="sp-vote-card-enter absolute top-[calc(100%+8px)] right-0 z-30 max-h-[70dvh] w-[230px] overflow-x-hidden overflow-y-auto rounded-lg border border-sp-border-strong bg-sp-panel shadow-sp-md"
+          aria-label={label}
+          className={`sp-vote-card-enter absolute top-[calc(100%+8px)] ${round ? 'left-0' : 'right-0'} z-50 max-h-[70dvh] w-[230px] overflow-x-hidden overflow-y-auto rounded-lg border border-sp-border-strong bg-sp-panel shadow-sp-md`}
         >
+          {summary && <div className="border-b border-sp-border px-3.5 py-2.5 font-sp-font text-[13px] text-sp-text-dim">{summary}</div>}
           {groups.map(group => (
             <div key={group.heading} className="border-b border-sp-border">
-              <div className="px-3.5 pt-2.5 pb-1 font-sp-font text-[10px] font-bold tracking-[0.06em] text-sp-text-faintest uppercase">
+              <div className="px-3.5 pt-2.5 pb-1 font-sp-font text-[11px] font-semibold text-sp-text-faint">
                 {group.heading}
               </div>
               {group.items.map(item => (
@@ -97,11 +117,15 @@ export default function RoomMenu({ items, groups = [] }: RoomMenuProps) {
             <button
               key={item.label}
               role="menuitem"
+              disabled={item.disabled}
               onClick={() => { setOpen(false); triggerRef.current?.focus(); item.onSelect(); }}
-              className={`flex min-h-[44px] w-full cursor-pointer items-center border-none border-b border-sp-border bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold last:border-b-0 ${
-                item.accent ? 'text-sp-accent-text' : 'text-sp-text-dim'
+              className={`flex min-h-[44px] w-full items-center justify-between gap-2 border-none border-b border-sp-border bg-transparent px-3.5 text-left font-sp-font text-[13px] font-semibold last:border-b-0 ${
+                item.disabled ? 'cursor-default text-sp-text-faint' : item.accent ? 'cursor-pointer text-sp-accent-text' : 'cursor-pointer text-sp-text-dim'
               }`}
-            >{item.label}</button>
+            >
+              <span className="truncate">{item.label}</span>
+              {item.detail && <span className="shrink-0 text-xs font-normal text-sp-text-faint tabular-nums">{item.detail}</span>}
+            </button>
           ))}
         </div>
       )}

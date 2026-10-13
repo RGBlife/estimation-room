@@ -47,6 +47,38 @@ describe('room API store', () => {
     expect(mock.remember).not.toHaveBeenCalled();
     expect(useRoomStore.getState().roomCode).toBeNull();
   });
+  it('queues announced achievements and sends the local hour with a vote', async () => {
+    useRoomStore.setState({ profile: null, unlocked: [] });
+    mock.onMessage?.({ type: 'profile', profile: { coins: 0, achievements: {} } });
+    mock.onMessage?.({ type: 'profile', profile: { coins: 0, achievements: { 'mission-passed': 1 } }, unlocked: ['mission-passed'] });
+    mock.onMessage?.({ type: 'profile', profile: { coins: 0, achievements: { 'mission-passed': 1, 'brew-rocracy': 2 } }, unlocked: ['brew-rocracy'] });
+    expect(useRoomStore.getState().profile?.achievements).toEqual({ 'mission-passed': 1, 'brew-rocracy': 2 });
+    expect(useRoomStore.getState().unlocked).toEqual(['mission-passed', 'brew-rocracy']);
+    useRoomStore.getState().dismissUnlocked();
+    expect(useRoomStore.getState().unlocked).toEqual(['brew-rocracy']);
+    await useRoomStore.getState().castVote('☕');
+    expect(mock.command).toHaveBeenCalledWith('vote', { value: '☕', localHour: new Date().getHours() });
+    await useRoomStore.getState().resetProgress();
+    expect(mock.command).toHaveBeenCalledWith('resetProgress', {});
+    expect(useRoomStore.getState().unlocked).toEqual([]);
+  });
+  it('plays Sorted through the service and hands back the board', async () => {
+    mock.command.mockResolvedValueOnce({ game: { id: 's001', tiles: [] } });
+    await expect(useRoomStore.getState().playSorted({ operation: 'guess', items: ['A', 'B', 'C', 'D'] })).resolves.toEqual({ id: 's001', tiles: [] });
+    expect(mock.command).toHaveBeenCalledWith('sorted', { operation: 'guess', items: ['A', 'B', 'C', 'D'] });
+  });
+  it('plays Rare Find through the service', async () => {
+    mock.command.mockResolvedValueOnce({ game: { category: 'fruit', prompt: 'Name a fruit' } });
+    await expect(useRoomStore.getState().playRare({ operation: 'answer', answer: 'kiwi' })).resolves.toEqual({ category: 'fruit', prompt: 'Name a fruit' });
+    expect(mock.command).toHaveBeenCalledWith('rare', { operation: 'answer', answer: 'kiwi' });
+  });
+  it('keeps the table\'s duels and sends duel moves', async () => {
+    const duel = { id: 'd1', status: 'offered' };
+    mock.onMessage?.({ type: 'duels', duels: [duel] });
+    expect(useRoomStore.getState().duels).toEqual([duel]);
+    await useRoomStore.getState().duel({ operation: 'accept', id: 'd1' });
+    expect(mock.command).toHaveBeenCalledWith('duel', { operation: 'accept', id: 'd1' });
+  });
   it('clears own wasted state when starting a drive and throttles unchanged positions', () => {
     const state = useRoomStore.getState();
     state.startDrive();

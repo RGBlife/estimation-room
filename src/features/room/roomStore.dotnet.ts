@@ -8,6 +8,9 @@ import { normalizeAvatar } from '../avatar/avatar.ts';
 import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+import type { PlayerProfile } from '../../types/player.ts';
+import type { DuelMove, DuelSteer, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
+import { clearFrames, pushFrame } from '../arcade/frames.ts';
 import { recordDriverSample, forgetDriver, forgetAllDrivers } from './remoteDriverSamples.ts';
 
 interface RoomState {
@@ -22,6 +25,13 @@ interface RoomState {
   tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
   tableWasted: WastedMap;
   tickets: BacklogTicket[];
+  // This browser's progress (coins, achievements), null until the room
+  // service has sent it. Kept across rooms: it belongs to the player.
+  profile: PlayerProfile | null;
+  // Achievements just unlocked and not yet announced, oldest first.
+  unlocked: string[];
+  // Challenges and duels at this table, and those finished this round.
+  duels: DuelView[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -47,11 +57,24 @@ interface RoomState {
   publishPieceMove: (side: 'left' | 'right', move: TablePieceMove) => void;
   markPlayerWasted: (targetUid: string) => void;
   resetTable: () => void;
+  // Deletes this browser's progress; the service starts it over as a new player.
+  resetProgress: () => Promise<void>;
+  // The oldest unlock has been announced.
+  dismissUnlocked: () => void;
+  // One move in Sorted; resolves to the player's board.
+  playSorted: (move: SortedMove) => Promise<SortedView>;
+  // One move in Rare Find; resolves to the question and, once answered, the counts.
+  playRare: (move: RareMove) => Promise<RareView>;
+  // A challenge, an answer to one, or a move in a duel.
+  duel: (move: DuelMove) => Promise<void>;
+  // Steering a duel in play, many times a second: nothing comes back but
+  // the next frame.
+  steer: (id: string, input: DuelSteer) => void;
 }
 
 
 const zeroPieces = () => ({ left: { x: 0, y: 0, rot: 0 }, right: { x: 0, y: 0, rot: 0 } });
-const emptyLiveState = () => ({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: zeroPieces(), tableWasted: {}, tickets: [] });
+const emptyLiveState = () => ({ throws: [], drivers: {}, tableCracks: [], tablePieceMove: zeroPieces(), tableWasted: {}, tickets: [], duels: [] });
 // Slices of the backlog collect here until the last one lands, so the list
 // never shows half a backlog after joining or reconnecting.
 let incomingBacklog: Map<string, BacklogTicket> | null = null;
@@ -80,6 +103,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
   const connection = new RoomConnection(message => {
     switch (message.type) {
       case 'room': set({ room: message.room, roomCode: message.room.code, error: null }); break;
+      case 'profile': set(s => ({ profile: message.profile, unlocked: [...s.unlocked, ...(message.unlocked ?? [])] })); break;
       case 'throw': set(s => ({ throws: [...s.throws.slice(-63), message.item] })); break;
       case 'drivers':
         clearDriverBatch();
@@ -115,6 +139,10 @@ export const useRoomStore = create<RoomState>((set, get) => {
         for (const ticket of message.tickets) next.set(ticket.id, ticket);
         return { tickets: sortBacklog(next.values()) };
       }); break;
+      // A full state replaces any frame that came before it.
+      case 'duels': clearFrames(); set({ duels: message.duels }); break;
+      // Frames go to their own store, so only the game redraws.
+      case 'duelFrame': pushFrame(message.frame); break;
       case 'crack': set(s => ({ tableCracks: [...s.tableCracks.slice(-127), message.item] })); break;
       case 'table': set({ tableCracks: message.tableCracks, tablePieceMove: message.tablePieceMove, tableWasted: message.tableWasted }); break;
       case 'closed':
@@ -136,7 +164,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     return joinedCode;
   };
   return {
-    uid: null, room: null, roomCode: null, error: null, notice: null, ...emptyLiveState(),
+    uid: null, room: null, roomCode: null, error: null, notice: null, profile: null, unlocked: [], ...emptyLiveState(),
     initAuth: () => connection.start(),
     createRoom: payload => join('create', payload),
     joinRoom: async (code, payload) => { await join('join', payload, code); },
@@ -150,7 +178,8 @@ export const useRoomStore = create<RoomState>((set, get) => {
       connection.updateProfile({ avatar: normalized });
     },
     setRole: async isObserver => { await command('role', { isObserver }); connection.updateProfile({ isObserver }); },
-    castVote: async value => { await command('vote', { value }); },
+    // The local hour lets the service award Night Shift; it sees no time zone otherwise.
+    castVote: async value => { await command('vote', { value, localHour: new Date().getHours() }); },
     changeReadiness: async change => { await command('readiness', change); },
     changeBacklog: async change => {
       if (change.operation !== 'add') { await command('backlog', change); return; }
@@ -180,6 +209,12 @@ export const useRoomStore = create<RoomState>((set, get) => {
     publishPieceMove: (side, move) => transient('piece', { side, move }),
     markPlayerWasted: targetUid => transient('wasted', { targetUid }),
     resetTable: () => transient('reset'),
+    resetProgress: async () => { await command('resetProgress'); set({ unlocked: [] }); },
+    dismissUnlocked: () => set(s => ({ unlocked: s.unlocked.slice(1) })),
+    playSorted: async move => (await command('sorted', move)).game as SortedView,
+    playRare: async move => (await command('rare', move)).game as RareView,
+    duel: async move => { await command('duel', move); },
+    steer: (id, input) => { if (connection.connected) transient('steer', { id, ...input }); },
     leave: async () => {
       connection.forgetRoom(); driving = false; clearDriverBatch();
       try { if (connection.connected && get().roomCode) await command('leave'); }

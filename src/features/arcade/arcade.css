@@ -1,0 +1,307 @@
+/* The Arcade: a games window over the dimmed table, in the room's own
+   panel and accent colours. Sorted's four difficulty colours are the one
+   new set of colours, light enough to carry dark ink in either theme. */
+.sp-arcade { width: min(860px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); margin: auto; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-lg); --sp-level-0: #F2D16B; --sp-level-1: #A6CB7E; --sp-level-2: #A3BFEA; --sp-level-3: #C0A0DE; --sp-level-ink: #213754; }
+.sp-arcade[open] { animation: sp-arcade-in 200ms cubic-bezier(.2, .8, .2, 1) both; }
+.sp-arcade[open][data-closing='true'] { animation: sp-arcade-out 160ms ease-in both; }
+.sp-arcade::backdrop { background: #0006; }
+@keyframes sp-arcade-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes sp-arcade-out { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .sp-arcade[open], .sp-arcade[open][data-closing='true'] { animation-duration: 1ms; } }
+
+.sp-arcade-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 16px 16px 16px 24px; border-bottom: 1px solid var(--sp-border); background: var(--sp-panel); }
+.sp-arcade-heading h2 { display: flex; align-items: center; gap: 8px; white-space: nowrap; margin: 0; font-family: var(--sp-display); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.sp-arcade-coins { padding: 5px 11px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Back to the home from a game, and the space that pushes the balance right. */
+.sp-arcade-spacer { flex: 1; }
+.sp-arcade-back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin-left: -8px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--sp-text-dim); font: inherit; font-family: var(--sp-display); font-size: 17px; font-weight: 700; cursor: pointer; }
+.sp-arcade-back:hover { background: var(--sp-panel-2); color: var(--sp-text); }
+.sp-arcade-body { min-height: 460px; padding: 20px 24px 24px; }
+.sp-arcade-body[data-game='home'] { min-height: 0; }
+.sp-arcade-error { margin: 12px 0 0; color: var(--sp-warn-text); font-size: 13px; }
+
+/* The balance: a "+N" rises into it as coins land. */
+.sp-arcade-coins { position: relative; }
+.sp-arcade-coins-landed { position: absolute; top: 50%; right: 8px; color: var(--sp-accent-text); font-weight: 800; pointer-events: none; animation: sp-arcade-landed 900ms cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes sp-arcade-landed { 0% { opacity: 0; transform: translateY(28px) scale(.9); } 30% { opacity: 1; transform: translateY(14px); } 100% { opacity: 0; transform: translateY(-14px) scale(1.05); } }
+
+/* The home: what's waiting for you, then a card per game. The covers are
+   drawn from each game's own pieces, on its own surface: paper for the
+   word games, a whiteboard for noughts and crosses, the sea for Battleship. */
+.sp-arcade { --sp-sea: #1F4166; --sp-sea-deep: #173250; --sp-sea-line: #3A5F88; --sp-sea-foam: #A9CBEB; --sp-sea-hull: #D6DEE8; --sp-sea-hit: #FF6A4D; --sp-whiteboard: #DDE4EC; --sp-marker: #24489C;
+  /* The two sides in games without X and O, and the surfaces of the rest. */
+  --sp-side-a: #7FAFFF; --sp-side-b: #FF7A6E;
+  --sp-court: #0D1726; --sp-court-line: #ffffff1f; --sp-court-ball: #F6F1E4;
+  --sp-react-wait: #D24A3F; --sp-react-go: #2EAD69;
+  --sp-connect-frame: #2D5BD0; --sp-connect-hole: var(--sp-panel); --sp-counter-x: #F4C430; --sp-counter-o: #E5484D;
+  --sp-paper: #E9EDF2; --sp-paper-rule: #8CA2BF33; --sp-paper-ink: #3B4A60;
+  --sp-tile: #F3E7CC; --sp-tile-edge: #C9B38A; --sp-tile-ink: #2A2118;
+  --sp-wood: #9A6A3F; --sp-wood-pit: #5E3C22;
+  --sp-code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+:root[data-theme='light'] .sp-arcade { --sp-whiteboard: #FBFCFD; --sp-marker: #2B59C3; --sp-side-a: #2B63D9; --sp-side-b: #D23E33; --sp-paper: #FBFAF6; --sp-paper-rule: #6E8BB422; }
+.sp-arcade-home { display: flex; flex-direction: column; gap: 18px; }
+.sp-arcade-waiting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 16px; border: 1px solid var(--sp-accent-border); border-radius: 12px; background: var(--sp-accent-panel); }
+.sp-arcade-waiting p { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.sp-arcade-waiting strong { font-family: var(--sp-display); font-size: 17px; }
+.sp-arcade-waiting span { font-size: 13px; color: var(--sp-text-dim); }
+.sp-arcade-waiting > div { display: flex; gap: 8px; }
+/* Two sections, solo and duels, each under a heading with a line on what
+   it is; the duels sit on a tinted panel, with the faces of everyone free
+   to take you on, and their two shelves labelled inside. */
+.sp-arcade-section { display: flex; flex-direction: column; gap: 12px; }
+.sp-arcade-section[data-section='duels'] { margin: 0 -12px; padding: 14px 12px 16px; border: 1px solid var(--sp-accent-border); border-radius: 16px; background: color-mix(in srgb, var(--sp-accent-panel) 55%, transparent); }
+.sp-arcade-section-heading { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; }
+.sp-arcade-section-heading h3 { margin: 0; font-family: var(--sp-display); font-size: 22px; font-weight: 800; line-height: 1.1; }
+.sp-arcade-section-heading p { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--sp-text-dim); }
+.sp-arcade-shelf { display: flex; flex-direction: column; gap: 8px; }
+.sp-arcade-shelf h4 { margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--sp-text-faint); }
+.sp-arcade-faces { display: flex; align-items: center; }
+.sp-arcade-faces img { width: 26px; height: 26px; margin-left: -7px; border: 2px solid var(--sp-panel); border-radius: 50%; background: var(--sp-panel-2); }
+.sp-arcade-faces img:first-child { margin-left: 0; }
+.sp-arcade-faces b { margin-left: 4px; font-size: 12px; font-weight: 700; color: var(--sp-text-faint); }
+/* A duel's cover carries a VS token in coin gold, as duels are played for coins. */
+.sp-arcade-art { position: relative; }
+.sp-arcade-vs { position: absolute; top: 8px; left: 8px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--sp-level-0); color: var(--sp-level-ink); font-family: var(--sp-display); font-size: 11px; font-weight: 800; letter-spacing: .02em; box-shadow: 0 2px 0 color-mix(in srgb, var(--sp-level-ink) 35%, transparent); transform: rotate(-10deg); }
+.sp-arcade-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.sp-arcade-cards li { display: flex; }
+.sp-arcade-card { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 0; overflow: hidden; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 2px 0 var(--sp-border-strong); transition: transform 140ms, box-shadow 140ms; }
+.sp-arcade-card:hover { transform: translateY(-2px); box-shadow: 0 4px 0 var(--sp-border-strong); }
+.sp-arcade-card:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--sp-border-strong); }
+.sp-arcade-card:focus-visible { outline: 3px solid var(--sp-accent); outline-offset: 2px; }
+.sp-arcade-art { display: block; height: clamp(70px, 10vw, 92px); border-bottom: 1px solid var(--sp-border); }
+.sp-arcade-art svg { display: block; width: 100%; height: 100%; }
+.sp-arcade-card[data-game='sorted'] .sp-arcade-art { background: var(--sp-panel-2); }
+.sp-arcade-card[data-game='rare'] .sp-arcade-art { background: var(--sp-panel-2); color: var(--sp-accent); }
+.sp-arcade-card[data-game='ultimate'] .sp-arcade-art { background: var(--sp-whiteboard); color: var(--sp-marker); }
+.sp-arcade-card:is([data-game='reaction'], [data-game='typing'], [data-game='maths'], [data-game='words'], [data-game='mancala'], [data-game='connect']) .sp-arcade-art { background: var(--sp-panel-2); color: var(--sp-text-dim); }
+.sp-arcade-card:is([data-game='pong'], [data-game='cycles']) .sp-arcade-art { background: radial-gradient(circle at 50% 40%, #1C3254 0, var(--sp-court) 75%); }
+.sp-arcade-card[data-game='dots'] .sp-arcade-art { background: var(--sp-paper); color: var(--sp-paper-ink); }
+.sp-art-code { font-family: var(--sp-code); font-size: 12px; fill: currentColor; }
+.sp-art-sum { font-family: var(--sp-display); font-size: 26px; font-weight: 800; fill: currentColor; }
+.sp-art-tile { font-family: var(--sp-display); font-size: 17px; font-weight: 800; fill: var(--sp-tile-ink); }
+.sp-arcade-card[data-game='battleship'] .sp-arcade-art { background: radial-gradient(circle at 70% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 75%); }
+.sp-arcade-card-text { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px 14px; }
+.sp-arcade-card-text strong { font-family: var(--sp-display); font-size: 17px; font-weight: 700; line-height: 1.15; }
+.sp-arcade-card-text small { font-size: 13px; color: var(--sp-text-faint); }
+@media (prefers-reduced-motion: reduce) { .sp-arcade-card { transition: none; } .sp-arcade-card:hover, .sp-arcade-card:active { transform: none; } .sp-arcade-coins-landed { animation: none; display: none; } }
+
+/* A phone: the whole screen, as a sheet. */
+@media (max-width: 640px) {
+  .sp-arcade { width: 100vw; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
+  .sp-arcade-heading { padding: 12px 12px 12px 16px; }
+  .sp-arcade-body { min-height: 0; padding: 16px 12px 24px; }
+  .sp-arcade-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  /* The longer shelves scroll sideways, a card and a bit showing past the edge. */
+  .sp-arcade-section[data-section='duels'] { margin: 0 -4px; padding: 12px 8px 14px; }
+  .sp-arcade-shelf:not([data-shelf='puzzles']) .sp-arcade-cards { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 42%; margin: 0 -8px; padding: 2px 8px 6px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 8px; scrollbar-width: none; }
+  .sp-arcade-shelf:not([data-shelf='puzzles']) .sp-arcade-cards li { scroll-snap-align: start; }
+  .sp-arcade-card-text { padding: 10px 12px 12px; }
+  .sp-arcade-card-text strong { font-size: 15px; }
+}
+
+/* Sorted */
+.sp-sorted { display: flex; flex-direction: column; gap: 14px; }
+.sp-sorted-heading h3 { margin: 0; font-family: var(--sp-display); font-size: 20px; font-weight: 700; }
+.sp-sorted-hint { margin: 2px 0 0; font-size: 13px; color: var(--sp-text-faint); }
+.sp-sorted-bands { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+/* A found group: its colour band, the four tiles laid in it. */
+.sp-sorted-band { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 64px; padding: 9px 12px; border-radius: 10px; color: var(--sp-level-ink); text-align: center; box-shadow: 0 3px 0 color-mix(in srgb, var(--sp-level-ink) 22%, transparent); }
+.sp-sorted-band[data-level='0'] { background: var(--sp-level-0); }
+.sp-sorted-band[data-level='1'] { background: var(--sp-level-1); }
+.sp-sorted-band[data-level='2'] { background: var(--sp-level-2); }
+.sp-sorted-band[data-level='3'] { background: var(--sp-level-3); }
+.sp-sorted-band[data-missed='true'] { opacity: .7; box-shadow: none; }
+.sp-sorted-band strong { font-family: var(--sp-display); font-size: 15px; font-weight: 700; }
+.sp-sorted-band-items { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.sp-sorted-band-items span { position: relative; z-index: 2; padding: 2px 8px; border-radius: 6px; background: #ffffff66; font-family: var(--sp-display); font-size: 12px; font-weight: 700; }
+
+/* The tiles: chunky cards with a thick lower edge, like the vote cards;
+   a picked tile lifts. */
+.sp-sorted-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.sp-sorted-tile { min-height: 64px; padding: 6px; border: 1px solid var(--sp-card-idle-border); border-radius: 10px; background: var(--sp-card-bg); color: var(--sp-text); font-family: var(--sp-display); font-size: clamp(11px, 1.6vw, 15px); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; cursor: pointer; box-shadow: 0 3px 0 var(--sp-border-strong); transition: transform 120ms, box-shadow 120ms, background 120ms, color 120ms; }
+.sp-sorted-tile:hover:not(:disabled) { border-color: var(--sp-border-stronger); }
+.sp-sorted-tile[aria-pressed='true'] { border-color: transparent; background: var(--sp-accent); color: var(--sp-bg); transform: translateY(-3px); box-shadow: 0 6px 0 color-mix(in srgb, var(--sp-accent) 45%, transparent); }
+.sp-sorted-tile:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 var(--sp-border-strong); }
+.sp-sorted-tile:disabled:not([aria-pressed='true']) { cursor: default; }
+.sp-sorted-tile:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 2px; }
+.sp-sorted-tile[data-miss='0'] { animation: sp-sorted-shake-a 360ms ease-in-out; }
+.sp-sorted-tile[data-miss='1'] { animation: sp-sorted-shake-b 360ms ease-in-out; }
+@keyframes sp-sorted-shake-a { 20%, 60% { translate: -4px 0; } 40%, 80% { translate: 4px 0; } }
+@keyframes sp-sorted-shake-b { 20%, 60% { translate: -4px 0; } 40%, 80% { translate: 4px 0; } }
+@media (max-width: 640px) { .sp-sorted-tile { min-height: 58px; font-size: 12px; } }
+@media (prefers-reduced-motion: reduce) { .sp-sorted-tile { animation: none !important; transition: none; } }
+
+.sp-sorted-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; font-size: 13px; color: var(--sp-text-dim); }
+/* Mistakes as little card backs; a spent one turns over and fades. */
+.sp-sorted-lives { display: flex; align-items: center; gap: 6px; }
+.sp-sorted-lives i { width: 14px; height: 19px; border-radius: 3px; background: repeating-linear-gradient(45deg, var(--sp-accent) 0 3px, color-mix(in srgb, var(--sp-accent) 55%, transparent) 3px 6px); box-shadow: 0 1px 0 var(--sp-border-strong); transition: transform 300ms, opacity 300ms; }
+.sp-sorted-lives i[data-spent='true'] { opacity: .25; transform: rotateY(180deg) scale(.9); }
+.sp-sorted-feedback { font-weight: 700; color: var(--sp-text); }
+/* What the guess was, said in a speech bubble. */
+.sp-sorted-feedback[data-tone] { position: relative; padding: 5px 11px; border-radius: 999px; background: var(--sp-panel-2); animation: sp-sorted-say 220ms cubic-bezier(.2, .8, .2, 1); }
+.sp-sorted-feedback[data-tone='one-away'] { background: var(--sp-accent-panel); color: var(--sp-accent-text); }
+@keyframes sp-sorted-say { from { opacity: 0; transform: translateY(4px) scale(.95); } }
+@media (prefers-reduced-motion: reduce) { .sp-sorted-lives i { transition: none; } .sp-sorted-feedback[data-tone] { animation: none; } }
+.sp-sorted-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+
+.sp-sorted-result { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sp-sorted-result .sp-sorted-bands { align-self: stretch; }
+.sp-sorted-outcome { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0 0; text-align: center; }
+.sp-sorted-outcome strong { font-family: var(--sp-display); font-size: 22px; font-weight: 700; }
+.sp-sorted-outcome span { font-size: 14px; color: var(--sp-text-dim); }
+
+
+/* Noughts and crosses: crosses in the accent colour, noughts in ink. */
+.sp-duel { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sp-duel-players { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 600; }
+/* A player chip: face, name, mark; it glows while it's their turn. */
+.sp-duel-player { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid var(--sp-border); border-radius: 999px; background: var(--sp-panel-2); color: var(--sp-text-dim); transition: box-shadow 200ms, color 200ms; }
+.sp-duel-player img, .sp-duel-player-gone { width: 30px; height: 30px; border-radius: 50%; background: var(--sp-panel-3); }
+.sp-duel-player[data-turn='true'] { border-color: var(--sp-accent); color: var(--sp-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-accent) 30%, transparent); }
+.sp-duel-player b { font-family: var(--sp-display); font-weight: 800; }
+.sp-duel-player b[data-mark='X'] { color: var(--sp-side-a); }
+.sp-duel-player b[data-mark='O'] { color: var(--sp-side-b); }
+.sp-duel-v { color: var(--sp-text-faint); font-size: 13px; }
+/* The pot between them, as a little stack of coins. */
+.sp-duel-coins { display: inline-block; width: 16px; height: 14px; margin-right: 5px; vertical-align: -2px; background: radial-gradient(ellipse 8px 3px at 50% 85%, #C9962B 0 98%, transparent) , radial-gradient(ellipse 8px 3px at 50% 58%, #E2B33F 0 98%, transparent), radial-gradient(ellipse 8px 3px at 50% 30%, #F2CA57 0 98%, transparent); }
+.sp-duel-timer { width: min(300px, 100%); height: 4px; overflow: hidden; border-radius: 999px; background: var(--sp-bar-track); }
+.sp-duel-timer span { display: block; height: 100%; border-radius: inherit; background: var(--sp-accent); transition: width 250ms linear; }
+.sp-duel-timer[data-low='true'] span { background: var(--sp-warn-text); }
+@media (prefers-reduced-motion: reduce) { .sp-duel-timer span { transition: none; } }
+.sp-duel-stake { font-family: var(--sp-display); font-weight: 800; padding: 4px 10px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 13px; font-variant-numeric: tabular-nums; }
+/* Marks in marker, blue and red, each drawing itself in, and the winning stroke. */
+.sp-noughts-mark { display: block; width: 100%; height: 100%; overflow: visible; }
+.sp-noughts-mark path { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 0; animation: sp-noughts-draw 260ms ease-out backwards; }
+.sp-noughts-mark[data-mark='X'] path { stroke: var(--sp-ink-x); }
+.sp-noughts-mark[data-mark='O'] path { stroke: var(--sp-ink-o); animation-duration: 380ms; }
+.sp-noughts-mark .sp-noughts-second { animation-delay: 200ms; }
+.sp-noughts-win { position: absolute; pointer-events: none; }
+.sp-noughts-win path { fill: none; stroke: #1E2A3A; stroke-width: 9; stroke-linecap: round; stroke-dasharray: 1; opacity: .85; animation: sp-noughts-draw 520ms 250ms cubic-bezier(.4, 0, .2, 1) backwards; }
+@keyframes sp-noughts-draw { from { stroke-dashoffset: 1; } }
+@media (prefers-reduced-motion: reduce) { .sp-noughts-mark path, .sp-noughts-win path { animation: none; } }
+.sp-duel-status { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px; min-height: 28px; margin: 0; text-align: center; font-size: 14px; color: var(--sp-text-dim); }
+.sp-duel-status strong { font-family: var(--sp-display); font-size: 19px; font-weight: 700; color: var(--sp-text); }
+.sp-duel-status[data-outcome='won'] strong { color: var(--sp-accent-text); }
+.sp-duel-clock { font-variant-numeric: tabular-nums; }
+.sp-duel-clock[data-low='true'] { color: var(--sp-warn-text); font-weight: 700; }
+
+/* The challenge form. */
+.sp-duel-people { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; border: 0; }
+.sp-duel-people legend { margin-bottom: 6px; padding: 0; font-size: 13px; font-weight: 600; color: var(--sp-text-dim); }
+.sp-duel-person { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; border: 1px solid transparent; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.sp-duel-person:hover:not([data-disabled]) { background: var(--sp-panel-2); }
+.sp-duel-person:has(input:checked) { border-color: var(--sp-accent-border); background: var(--sp-accent-panel); }
+.sp-duel-person:has(input:focus-visible) { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+.sp-duel-person[data-disabled] { cursor: default; color: var(--sp-text-faint); }
+.sp-duel-person input { accent-color: var(--sp-accent); }
+.sp-duel-person img { border-radius: 50%; }
+.sp-duel-person span { flex: 1; }
+.sp-duel-person small { font-size: 12px; font-weight: 500; }
+.sp-duel-stake-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--sp-text-dim); }
+.sp-duel-stake-picker button { min-width: 36px; padding-inline: 0; }
+.sp-duel-stake-picker output { min-width: 64px; font-size: 15px; text-align: center; color: var(--sp-text); font-variant-numeric: tabular-nums; }
+.sp-duel-stake-picker small { flex-basis: 100%; font-weight: 400; color: var(--sp-text-faint); }
+.sp-duel-watch h4 { margin: 4px 0 6px; font-size: 13px; font-weight: 600; color: var(--sp-text-dim); }
+.sp-duel-watch ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.sp-duel-watch li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--sp-border); border-radius: 9px; font-size: 14px; font-weight: 600; }
+
+/* A challenge to you, in the achievement card's corner. */
+.sp-challenge-card { position: fixed; right: 16px; z-index: 40; width: min(330px, calc(100vw - 24px)); overflow: hidden; border: 1px solid var(--sp-accent-border); border-radius: 12px; background: var(--sp-panel); color: var(--sp-text); box-shadow: var(--sp-shadow-md); animation: sp-challenge-in 280ms cubic-bezier(.2, .8, .2, 1) both; }
+@media (max-width: 900px) { .sp-challenge-card { right: 12px; } }
+.sp-challenge-body { display: flex; align-items: center; gap: 12px; padding: 12px 16px 8px 12px; }
+.sp-challenge-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 10px; background: var(--sp-accent-panel); font-size: 22px; }
+.sp-challenge-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sp-challenge-text small { color: var(--sp-accent-text); font-size: 11px; font-weight: 700; }
+.sp-challenge-text strong { font-family: var(--sp-display); font-size: 17px; font-weight: 700; line-height: 1.2; }
+.sp-challenge-text span { color: var(--sp-text-faint); font-size: 12px; line-height: 1.35; }
+.sp-challenge-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 4px 12px 12px; }
+.sp-challenge-card .sp-arcade-error { margin: 0; padding: 0 12px 10px; }
+.sp-challenge-timer { height: 3px; background: var(--sp-bar-track); }
+.sp-challenge-timer span { display: block; height: 100%; background: var(--sp-accent); transition: width 250ms linear; }
+/* Folded on a phone: a pill in the corner, its timer still running. */
+.sp-challenge-card[data-folded='true'] { width: auto; max-width: calc(100vw - 24px); border-radius: 999px; transform-origin: right center; animation: sp-challenge-fold 260ms cubic-bezier(.2, .8, .2, 1.2) both; }
+.sp-challenge-pill { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border: 0; background: transparent; color: var(--sp-text); font: inherit; font-family: var(--sp-display); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.sp-challenge-pill:focus-visible { outline: 3px solid var(--sp-accent); outline-offset: -3px; border-radius: 999px; }
+.sp-challenge-later { margin-right: auto; padding: 0 6px; border: 0; background: transparent; color: var(--sp-text-faint); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+@keyframes sp-challenge-fold { from { opacity: 0; transform: scale(.6); } }
+@keyframes sp-challenge-in { from { transform: translateX(calc(100% + 24px)); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .sp-challenge-card, .sp-challenge-card[data-folded='true'] { animation: none; } .sp-challenge-timer span { transition: none; } }
+
+/* Rare Find */
+.sp-rare-question { padding: 22px 20px; border: 1px solid var(--sp-border); border-radius: 14px; background: var(--sp-panel-2); text-align: center; box-shadow: 0 3px 0 var(--sp-border-strong); }
+.sp-rare-prompt { margin: 0; font-family: var(--sp-display); font-size: clamp(24px, 3.8vw, 34px); font-weight: 800; line-height: 1.1; }
+.sp-rare-question .sp-sorted-hint { margin-top: 8px; }
+.sp-rare-form { display: flex; gap: 8px; }
+.sp-rare-input { flex: 1; min-width: 0; min-height: 48px; padding: 0 16px; border: 1px solid var(--sp-border-strong); border-radius: 10px; background: var(--sp-card-bg); color: var(--sp-text); font: inherit; font-family: var(--sp-display); font-size: 18px; font-weight: 600; }
+.sp-rare-input:focus-visible { outline: 2px solid var(--sp-accent); outline-offset: 1px; }
+.sp-rare-result { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+/* The tower beside the verdict. */
+.sp-rare-reveal { display: flex; align-items: flex-end; justify-content: center; gap: 22px; }
+.sp-rare-tower { position: relative; flex: none; width: 64px; height: 180px; overflow: hidden; border-radius: 10px; background: var(--sp-bar-track); box-shadow: inset 0 0 0 1px var(--sp-border); }
+.sp-rare-tower-fill { position: absolute; inset: auto 0 0; border-radius: 8px 8px 0 0; background: var(--sp-accent); }
+.sp-rare-tower-count { position: absolute; inset: 10px 0 auto; font-family: var(--sp-display); font-size: 26px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; color: var(--sp-text); }
+.sp-rare-tower[data-landed='true'] { animation: sp-rare-land 260ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes sp-rare-land { 40% { transform: scaleY(.96) translateY(3px); } }
+.sp-rare-verdict { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0; max-width: 300px; padding-bottom: 6px; font-size: 14px; color: var(--sp-text-dim); }
+.sp-rare-verdict strong { font-family: var(--sp-display); font-size: 28px; font-weight: 800; line-height: 1.05; color: var(--sp-text); overflow-wrap: anywhere; }
+.sp-rare-verdict strong::first-letter { text-transform: uppercase; }
+.sp-rare-paid { margin-top: 4px; font-family: var(--sp-display); font-size: 18px; font-weight: 800; color: var(--sp-accent-text); animation: sp-rare-paid 400ms 1300ms cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes sp-rare-paid { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .sp-rare-tower[data-landed='true'], .sp-rare-paid { animation: none; } }
+.sp-rare-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-self: stretch; }
+.sp-rare-answers { padding: 10px 14px; border: 1px solid var(--sp-border); border-radius: 10px; }
+.sp-rare-answers h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); }
+.sp-rare-answers ol { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.sp-rare-answers li { display: flex; justify-content: space-between; gap: 8px; }
+.sp-rare-answers li span::first-letter { text-transform: uppercase; }
+.sp-rare-answers b { color: var(--sp-text-faint); font-variant-numeric: tabular-nums; }
+.sp-rare-credit { margin: 4px 0 0; font-size: 11px; color: var(--sp-text-faint); text-align: center; }
+.sp-rare-credit a { color: inherit; }
+
+/* Battleship: two 6 by 6 seas on navy water with faint sonar rings.
+   Ships are hulls drawn across their squares; a hit is a burst, a miss a
+   ripple, and the last shot lands with a splash. */
+/* The sea in play is the big one, theirs or yours, gliding across as the
+   turn passes; the other waits smaller and dimmer beside it. */
+.sp-seas { display: flex; align-items: flex-start; justify-content: center; gap: 12px; width: 100%; max-width: 600px; margin: 0 auto; }
+.sp-sea { display: flex; flex-direction: column; gap: 6px; flex: 2 1 0; min-width: 0; opacity: .72; transition: flex-grow 420ms cubic-bezier(.2, .8, .2, 1), opacity 420ms; }
+.sp-sea[data-focused='true'] { flex-grow: 3; opacity: 1; }
+.sp-sea h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--sp-text-faint); text-align: center; transition: color 420ms; }
+.sp-sea[data-focused='true'] h4 { color: var(--sp-text); }
+@media (prefers-reduced-motion: reduce) { .sp-sea, .sp-sea h4 { transition: none; } }
+.sp-sea-grid { display: grid; grid-template-columns: repeat(6, 1fr); overflow: hidden; border-radius: 12px; background: radial-gradient(circle at 50% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 80%); box-shadow: 0 3px 0 var(--sp-border-strong), inset 0 0 0 1px #ffffff14; }
+.sp-sea-grid[data-target] { background: repeating-radial-gradient(circle at 50% 50%, transparent 0 34px, #ffffff0d 34px 35px), radial-gradient(circle at 50% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 80%); }
+.sp-sea-cell { position: relative; aspect-ratio: 1; padding: 0; border: 0; background: transparent; box-shadow: inset -1px -1px 0 var(--sp-sea-line); cursor: pointer; }
+.sp-sea-cell:nth-child(6n) { box-shadow: inset 0 -1px 0 var(--sp-sea-line); }
+.sp-sea-cell:nth-last-child(-n+6) { box-shadow: inset -1px 0 0 var(--sp-sea-line); }
+.sp-sea-cell:last-child { box-shadow: none; }
+.sp-sea-cell:enabled:hover { background: #ffffff1f; }
+.sp-sea-cell:disabled { cursor: default; }
+.sp-sea-cell:focus-visible { outline: 2px solid var(--sp-sea-foam); outline-offset: -3px; }
+.sp-sea-hull { position: absolute; inset: 22% 0; background: var(--sp-sea-hull); }
+.sp-sea-hull[data-part^='v'] { inset: 0 22%; }
+.sp-sea-hull[data-part='h-start'] { left: 14%; border-radius: 999px 0 0 999px; }
+.sp-sea-hull[data-part='h-end'] { right: 14%; border-radius: 0 999px 999px 0; }
+.sp-sea-hull[data-part='v-start'] { top: 14%; border-radius: 999px 999px 0 0; }
+.sp-sea-hull[data-part='v-end'] { bottom: 14%; border-radius: 0 0 999px 999px; }
+.sp-sea-hull[data-sunk] { background: #5B6B80; }
+.sp-sea-shot { position: absolute; inset: 30%; border-radius: 50%; box-shadow: 0 0 0 2px var(--sp-sea-foam); opacity: .7; }
+.sp-sea-shot[data-hit] { inset: 22%; border-radius: 0; box-shadow: none; opacity: 1; background: var(--sp-sea-hit); clip-path: polygon(50% 0, 61% 32%, 96% 22%, 70% 50%, 96% 78%, 61% 68%, 50% 100%, 39% 68%, 4% 78%, 30% 50%, 4% 22%, 39% 32%); }
+.sp-sea-cell[data-last] .sp-sea-shot { animation: sp-sea-ripple 520ms ease-out; }
+.sp-sea-cell[data-last] .sp-sea-shot[data-hit] { animation: sp-sea-burst 420ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes sp-sea-ripple { from { transform: scale(2.4); opacity: 0; } 40% { opacity: 1; } }
+@keyframes sp-sea-burst { from { transform: scale(.2) rotate(-40deg); } 60% { transform: scale(1.35) rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) { .sp-sea-cell[data-last] .sp-sea-shot { animation: none; } }
+.sp-duel-shot { flex-basis: 100%; font-size: 13px; color: var(--sp-text-dim); }
+.sp-duel-watch li small { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--sp-text-faint); }
+
+/* The Arcade's door in the header: a dot when something waits for you,
+   with two beats of a ring so it's noticed, then still. */
+.sp-arcade-door-dot { position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border: 2px solid var(--sp-panel); border-radius: 50%; background: var(--sp-accent); }
+.sp-arcade-door[data-alert='true'] { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sp-accent) 55%, transparent); animation: sp-arcade-door-pulse 900ms ease-out 2; }
+@keyframes sp-arcade-door-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sp-accent) 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) { .sp-arcade-door[data-alert='true'] { animation: none; } }
+
+/* Narrow: closer together, so the turn and clock stay in view. */
+@media (max-width: 640px) { .sp-seas { gap: 10px; } }

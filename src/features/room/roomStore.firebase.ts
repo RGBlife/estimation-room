@@ -23,6 +23,8 @@ import {
 import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+import type { PlayerProfile } from '../../types/player.ts';
+import type { DuelMove, DuelSteer, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
 
 interface RoomState {
   uid: string | null;
@@ -36,6 +38,10 @@ interface RoomState {
   tablePieceMove: { left: TablePieceMove; right: TablePieceMove };
   tableWasted: WastedMap;
   tickets: BacklogTicket[];
+  // Player progress lives in the room service only; this backend has none.
+  profile: PlayerProfile | null;
+  unlocked: string[];
+  duels: DuelView[];
 
   initAuth: () => () => void;
   createRoom: (payload: JoinPayload) => Promise<string>;
@@ -61,6 +67,12 @@ interface RoomState {
   publishPieceMove: (side: 'left' | 'right', move: TablePieceMove) => void;
   markPlayerWasted: (targetUid: string) => void;
   resetTable: () => void;
+  resetProgress: () => Promise<void>;
+  dismissUnlocked: () => void;
+  playSorted: (move: SortedMove) => Promise<SortedView>;
+  playRare: (move: RareMove) => Promise<RareView>;
+  duel: (move: DuelMove) => Promise<void>;
+  steer: (id: string, input: DuelSteer) => void;
 }
 
 // Listener handles for the room doc / throws subscriptions. Like
@@ -190,6 +202,16 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   tablePieceMove: ZERO_PIECE_MOVE,
   tableWasted: {},
   tickets: [],
+  profile: null,
+  unlocked: [],
+  resetProgress: async () => {},
+  dismissUnlocked: () => {},
+  // The Arcade needs the room service, and is hidden on this backend.
+  playSorted: async () => { throw new Error('Games are not available here'); },
+  playRare: async () => { throw new Error('Games are not available here'); },
+  duels: [],
+  duel: async () => { throw new Error('Games are not available here'); },
+  steer: () => {},
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {

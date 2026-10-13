@@ -100,36 +100,35 @@ describe('RoomHeader', () => {
     expect(props.onCancelTargeting).toHaveBeenCalledOnce();
   });
 
-  it('toggles role via onSwitchRole with the opposite of the current isObserver', async () => {
+  it('keeps role, theme and leaving in the room menu', async () => {
     const user = userEvent.setup();
     const { props } = renderHeader({ isObserver: false });
-    await user.click(screen.getByText('Switch to observing'));
+    expect(screen.queryByText('Leave room')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Room menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Switch to observing' }));
     expect(props.onSwitchRole).toHaveBeenCalledWith(true);
-  });
-
-  it('calls onLeave when leaving', async () => {
-    const user = userEvent.setup();
-    const { props } = renderHeader();
-    await user.click(screen.getByText('Leave room'));
+    await user.click(screen.getByRole('button', { name: 'Room menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Switch to light theme' }));
+    expect(props.onToggleTheme).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Room menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Leave room' }));
     expect(props.onLeave).toHaveBeenCalledOnce();
   });
 
-  it('shows the deck switcher for the creator', () => {
-    renderHeader({ isCreator: true, deck: DECKS.tshirt });
-    expect(screen.getByText('T-shirt')).toBeInTheDocument();
-  });
-
-  it('hides the deck switcher for non-creators', () => {
-    renderHeader({ isCreator: false });
-    expect(screen.queryByText('Fibonacci')).not.toBeInTheDocument();
-  });
-
-  it('calls onSwitchDeck with the picked deck id', async () => {
+  it('lets only the creator pick the deck, from the room menu', async () => {
     const user = userEvent.setup();
     const { props } = renderHeader({ isCreator: true, deck: DECKS.fibonacci });
-    await user.click(screen.getByText('Fibonacci'));
-    await user.click(screen.getByText('T-shirt'));
+    await user.click(screen.getByRole('button', { name: 'Room menu' }));
+    expect(screen.getByRole('menuitemradio', { name: 'Fibonacci' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('menuitemradio', { name: 'T-shirt' }));
     expect(props.onSwitchDeck).toHaveBeenCalledWith('tshirt');
+  });
+
+  it('hides the deck from non-creators', async () => {
+    const user = userEvent.setup();
+    renderHeader({ isCreator: false });
+    await user.click(screen.getByRole('button', { name: 'Room menu' }));
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument();
   });
 
   it('shows the GTA Mode button once revealed on a non-touch device', () => {
@@ -141,5 +140,35 @@ describe('RoomHeader', () => {
     touchPrimary = true;
     renderHeader({ isRevealed: true });
     expect(screen.queryByText(/GTA Mode/)).not.toBeInTheDocument();
+  });
+
+  it('opens your own menu from the avatar, with achievements and coins', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const { props } = renderHeader({ onEditAvatar: vi.fn(), achievements: { unlocked: 5, total: 19, onOpen }, arcade: { coins: 45, available: false, onOpen: vi.fn() } });
+    await user.click(screen.getByRole('button', { name: 'You' }));
+    expect(screen.getByText('45 coins')).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: /Achievements/ }));
+    expect(onOpen).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'You' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit avatar' }));
+    expect(props.onEditAvatar).toHaveBeenCalledOnce();
+  });
+
+  it('opens the avatar editor directly where there is no progress', () => {
+    renderHeader({ onEditAvatar: vi.fn() });
+    expect(screen.getByRole('button', { name: 'Customise your avatar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'You' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the Arcade shut until the reveal, and says what is waiting', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const { rerender, props } = renderHeader({ arcade: { coins: 0, available: false, onOpen } });
+    await user.click(screen.getByRole('button', { name: 'Arcade, opens after the reveal' }));
+    expect(onOpen).not.toHaveBeenCalled();
+    rerender(<RoomHeader {...props} arcade={{ coins: 45, available: true, alert: 'Challenge', onOpen }} />);
+    await user.click(screen.getByRole('button', { name: 'Arcade, Challenge, 45 coins' }));
+    expect(onOpen).toHaveBeenCalledOnce();
   });
 });

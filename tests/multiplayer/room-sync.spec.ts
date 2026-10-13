@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { roomMenu, editAvatar } from './header.ts';
 
 const apiUrl = process.env.API_PROXY_TARGET || 'http://127.0.0.1:5050';
 const testingFirebase = process.env.ROOM_TEST_BACKEND === 'firebase';
@@ -113,7 +114,7 @@ test('observer throws and avatar edits reach another participant', async ({ brow
     await host.getByLabel('Your name', { exact: true }).fill('Host');
     await host.getByRole('button', { name: 'or create a new room' }).click();
     await host.getByRole('button', { name: 'Create room', exact: true }).click();
-    await expect(host.getByRole('button', { name: 'Customise your avatar' })).toBeVisible();
+    await expect(roomMenu(host)).toBeVisible();
     const code = new URL(host.url()).searchParams.get('room')!;
     await observer.getByLabel('Your name', { exact: true }).fill('Observer');
     await observer.getByRole('button', { name: 'Observer', exact: true }).click();
@@ -141,7 +142,7 @@ test('observer throws and avatar edits reach another participant', async ({ brow
     await expect.poll(() => host.evaluate(() => (window as unknown as { received: string[] }).received)).toEqual([
       'peanut', 'tomato', 'spec-doc', 'rubber-chicken', 'cheese', 'stale-pastry',
     ]);
-    await observer.getByRole('button', { name: 'Customise your avatar' }).click();
+    await editAvatar(observer);
     const dialog = observer.getByRole('dialog', { name: 'Your look at the table' });
     await dialog.getByRole('button', { name: /Randomise/i }).click();
     await dialog.getByRole('button', { name: 'Save avatar' }).click();

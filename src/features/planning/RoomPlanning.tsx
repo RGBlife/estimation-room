@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RoomDoc } from '../../types/room.ts';
 import type { BacklogChange, BacklogTicket, ReadinessChange } from '../../types/planning.ts';
 import ReadinessChecklist from './ReadinessChecklist.tsx';
-import ReadinessWindow from './ReadinessWindow.tsx';
-import TicketsWindow from './TicketsWindow.tsx';
 import './planning.css';
+
+// The windows, with the ticket editor and importer, fetched the first time
+// one opens: most rounds never open them.
+const ReadinessWindow = lazy(() => import('./ReadinessWindow.tsx'));
+const TicketsWindow = lazy(() => import('./TicketsWindow.tsx'));
 
 export default function RoomPlanning({ room, uid, tickets, isCreator, onChange, onBacklogChange, onSelect, onHeightChange }: {
   room: Pick<RoomDoc, 'readiness' | 'activeTicket' | 'activeTicketId' | 'participants'>; uid: string | null;
@@ -58,9 +61,11 @@ export default function RoomPlanning({ room, uid, tickets, isCreator, onChange, 
             same list, and two copies would compete for the same ticks. */}
         {count > 0 && !panel && <ReadinessChecklist items={items} onChange={onChange} onEdit={() => setPanel('readiness')} />}
       </div>
-      {panel === 'readiness' && <ReadinessWindow items={items} onChange={onChange} closing={closing} onClose={() => setClosing(true)} />}
-      {panel === 'tickets' && <TicketsWindow tickets={tickets} activeTicketId={room.activeTicketId} legacyTicket={room.activeTicketId ? undefined : room.activeTicket}
-        uid={uid} participants={room.participants} isCreator={isCreator} onChange={onBacklogChange} onSelect={onSelect} closing={closing} onClose={() => setClosing(true)} />}
+      <Suspense fallback={null}>
+        {panel === 'readiness' && <ReadinessWindow items={items} onChange={onChange} closing={closing} onClose={() => setClosing(true)} />}
+        {panel === 'tickets' && <TicketsWindow tickets={tickets} activeTicketId={room.activeTicketId} legacyTicket={room.activeTicketId ? undefined : room.activeTicket}
+          uid={uid} participants={room.participants} isCreator={isCreator} onChange={onBacklogChange} onSelect={onSelect} closing={closing} onClose={() => setClosing(true)} />}
+      </Suspense>
     </>
   );
 }
