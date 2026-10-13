@@ -1,151 +1,171 @@
-import type { DuelGame, DuelMove, DuelSea, DuelView } from '../types/games.ts';
+import { LocalDuel } from '../features/arcade/play/local.ts';
+import { TICK_MS, type Side } from '../features/arcade/play/match.ts';
+import { loadWordList } from '../features/arcade/play/wordList.ts';
+import { pushFrame } from '../features/arcade/frames.ts';
+import type { Battleship } from '../features/arcade/play/battleship.ts';
+import type { DuelGame, DuelMove, DuelOptions, DuelSteer, DuelView } from '../types/games.ts';
 
-// Dev-only stand-in for the room service's duels, so challenges and boards
-// can be seen and played in the network-free harness. The real rules live
-// in the service (scrum-poker-backend Duels.cs). Whoever you challenge
-// accepts after a moment; at noughts and crosses they play the first free
-// square of a fixed order, at Battleship they open with a fixed run of
-// shots (a miss, then a ship of yours sunk), then fire down the sea in order.
-const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
-const PREFERENCE = [4, 0, 2, 6, 8, 1, 3, 5, 7];
-const REPLY_MS = 700;
-// At Battleship, a beat longer for the first shot of a turn, so the boards
-// have changed places before it lands.
-const FIRST_SHOT_MS = 1200;
+// Dev-only stand-in for the room service's duels, so challenges and every
+// game can be seen and played in the network-free harness. The games are
+// played by the same rules as the service (play/), and whoever you
+// challenge is the computer: it accepts after a moment and plays its side.
+// At Battleship the fleets are fixed and it opens with a fixed run of shots
+// (a miss, then a ship of yours sunk), so a visual test knows what lands.
+const ACCEPT_MS = 1500;
 const SEA_OPENING = [21, 3, 4, 5, 10];
-// Fixed fleets, so a visual test knows where to aim.
 const FLEETS = [
   [[0, 1, 2], [9, 15, 21], [24, 25], [34, 35]],
   [[7, 13, 19], [3, 4, 5], [27, 28], [30, 31]],
 ];
+// The winning game of ultimate noughts and crosses, X's moves first.
+const ULTIMATE_WIN = [56, 25, 66, 33, 62, 78, 59, 53, 73, 15, 69, 71, 76, 43, 63, 8, 79];
 
-export type FakeDuelSeed = 'incoming' | 'waiting' | 'playing' | 'won' | 'watch' | 'battleship' | 'battleship-incoming';
+// incoming, waiting, playing, won and watch are ultimate noughts and
+// crosses; play:<game> is any game in play against p1, your move first.
+export type FakeDuelSeed = 'incoming' | 'waiting' | 'playing' | 'won' | 'watch' | 'battleship' | 'battleship-incoming' | `play:${DuelGame}` | `incoming:${DuelGame}`;
 
-// The service's own record of a duel: the view plus what it hides.
-interface Hidden { view: DuelView; fleets: Record<string, number[][]>; shots: Record<string, number[]> }
+// Before it's accepted, a challenge is just its view; after, a game in play.
+interface Entry { id: string; view?: DuelView; local?: LocalDuel; paid?: Record<string, number> }
 
 export function fakeDuels(me: string, nameOf: (uid: string) => string, seed: string | null, onChange: (duels: DuelView[]) => void, onCoins: (paid: number) => void) {
-  const side = (uid: string, mark?: 'X' | 'O') => ({ uid, name: nameOf(uid), ...(mark ? { mark } : {}) });
-  const base = (game: DuelGame) => ({ game, paused: false, ...(game === 'noughts' ? { board: Array<'X' | 'O' | null>(9).fill(null) } : {}) });
-  const hidden = (view: DuelView, shots: Record<string, number[]> = {}): Hidden => ({
-    view, fleets: { [view.challenger.uid]: FLEETS[0], [view.opponent.uid]: FLEETS[1] }, shots: { [view.challenger.uid]: [], [view.opponent.uid]: [], ...shots },
-  });
-  let duels: Hidden[] = [];
+  const side = (uid: string): Side => ({ uid, name: nameOf(uid) });
+  let entries: Entry[] = [];
   let next = 1;
-  switch (seed as FakeDuelSeed) {
-    case 'incoming': duels = [hidden({ ...base('noughts'), id: 'd0', status: 'offered', stake: 20, challenger: side('p1'), opponent: side(me), offerLeftMs: 45_000 })]; break;
-    case 'battleship-incoming': duels = [hidden({ ...base('battleship'), id: 'd0', status: 'offered', stake: 10, challenger: side('p1'), opponent: side(me), offerLeftMs: 45_000 })]; break;
-    case 'waiting': duels = [hidden({ ...base('noughts'), id: 'd0', status: 'offered', stake: 10, challenger: side(me), opponent: side('p1'), offerLeftMs: 52_000 })]; break;
-    case 'playing': duels = [hidden({ ...base('noughts'), id: 'd0', status: 'playing', stake: 20, challenger: side(me, 'X'), opponent: side('p1', 'O'), board: ['X', null, null, null, 'O', null, null, null, null], turn: me, turnLeftMs: 42_000 })]; break;
-    case 'won': duels = [hidden({ ...base('noughts'), id: 'd0', status: 'won', stake: 20, challenger: side(me, 'X'), opponent: side('p1', 'O'), board: ['X', 'O', null, 'O', 'X', null, null, null, 'X'], winner: me, line: [0, 4, 8], reason: 'line', paid: { [me]: 55, p1: 5 } })]; break;
-    case 'watch': duels = [hidden({ ...base('noughts'), id: 'd0', status: 'playing', stake: 0, challenger: side('p2', 'O'), opponent: side('p3', 'X'), board: [null, 'X', null, null, 'O', null, null, null, 'X'], turn: 'p2', turnLeftMs: 38_000 })]; break;
-    // Mid-game: you've hit one of theirs and missed twice; they've sunk one of yours.
-    case 'battleship': duels = [hidden({ ...base('battleship'), id: 'd0', status: 'playing', stake: 20, challenger: side(me), opponent: side('p1'), turn: me, turnLeftMs: 41_000 },
-      { [me]: [7, 13, 14, 22], p1: [0, 1, 2, 6, 33] })]; break;
-  }
+  let timer: ReturnType<typeof setInterval> | null = null;
+  // While the seed's moves are made: nothing is announced, and nobody is paid.
+  let seeding = true;
+  // Once the page is on screen (see attach): until then nothing ticks or is
+  // announced, as the page can't take an update before it has mounted.
+  let attached = false;
 
-  const sea = (d: Hidden, owner: string): DuelSea => {
-    const shooter = owner === d.view.challenger.uid ? d.view.opponent.uid : d.view.challenger.uid;
-    const shots = d.shots[shooter];
-    const fleet = d.fleets[owner];
-    const over = d.view.status !== 'offered' && d.view.status !== 'playing';
-    return {
-      shots: shots.map(cell => ({ cell, hit: fleet.some(s => s.includes(cell)) })),
-      sunk: fleet.filter(s => s.every(c => shots.includes(c))),
-      ...(owner === me || over ? { fleet } : {}),
-    };
-  };
-  const views = () => duels.map(d => d.view.game === 'battleship' && d.view.status !== 'offered'
-    ? { ...d.view, seas: { [d.view.challenger.uid]: sea(d, d.view.challenger.uid), [d.view.opponent.uid]: sea(d, d.view.opponent.uid) } }
-    : d.view);
+  const views = () => entries.map(e => e.local ? { ...e.local.view(me), stake: e.local.match.stake, ...(e.paid ? { paid: e.paid } : {}) } : e.view!);
   const publish = () => onChange(views());
+  // Pays out once a game ends: the pot to the winner, house coins to both.
+  const settle = (entry: Entry) => {
+    const match = entry.local!.match;
+    if (entry.paid || match.live) return;
+    const stake = match.stake;
+    entry.paid = match.status === 'drawn'
+      ? { [match.challenger.uid]: stake + 8, [match.opponent.uid]: stake + 8 }
+      : match.reason === 'resigned' ? { [match.winner!]: stake * 2 }
+      : { [match.winner!]: stake * 2 + 15, [match.other(match.winner!).uid]: 5 };
+    if (entry.paid[me] && !seeding) onCoins(entry.paid[me]);
+  };
+  const run = () => {
+    timer ??= setInterval(() => {
+      for (const entry of entries) entry.local?.tick();
+      if (!entries.some(e => e.local && !e.local.over)) { clearInterval(timer!); timer = null; }
+    }, TICK_MS);
+  };
+  const play = (entry: Entry, game: DuelGame, challenger: Side, opponent: Side, first: 'challenger' | 'opponent', stake: number, options?: DuelOptions) => {
+    const bot = challenger.uid === me ? opponent.uid : challenger.uid;
+    entry.local = new LocalDuel(game, challenger, opponent, bot, {
+      id: entry.id, first, stake, options, ...(game === 'battleship' ? { fleets: FLEETS, script: SEA_OPENING } : {}),
+    });
+    entry.view = undefined;
+    entry.local.subscribe(frame => {
+      if (frame) { pushFrame(frame); return; }
+      settle(entry);
+      if (!seeding && attached) publish();
+    });
+    if (attached) run();
+  };
+  const offer = (game: DuelGame, challenger: string, opponent: string, stake: number, offerLeftMs: number, options?: DuelOptions): Entry => {
+    const id = `d${next++}`;
+    return { id, view: { id, game, status: 'offered', stake, paused: false, challenger: side(challenger), opponent: side(opponent), offerLeftMs, ...(options ? { options } : {}) } };
+  };
+  const started = (game: DuelGame, challenger: string, opponent: string, stake: number, first: 'challenger' | 'opponent' = 'challenger') => {
+    const entry: Entry = { id: `d${next++}` };
+    play(entry, game, side(challenger), side(opponent), first, stake);
+    return entry;
+  };
+
+  const [kind, game] = (seed ?? '').split(':') as [string, DuelGame | undefined];
+  switch (kind) {
+    case 'incoming': entries = [offer(game ?? 'ultimate', 'p1', me, 20, 45_000)]; break;
+    case 'battleship-incoming': entries = [offer('battleship', 'p1', me, 10, 45_000)]; break;
+    case 'waiting': entries = [offer('ultimate', me, 'p1', 10, 52_000)]; break;
+    case 'playing': {
+      const entry = started('ultimate', me, 'p1', 20);
+      entry.local!.move(me, { cell: 40 }); entry.local!.move('p1', { cell: 36 });
+      entries = [entry];
+      break;
+    }
+    case 'won': {
+      const entry = started('ultimate', me, 'p1', 20);
+      ULTIMATE_WIN.forEach((cell, i) => entry.local!.move(i % 2 === 0 ? me : 'p1', { cell }));
+      entries = [entry];
+      break;
+    }
+    case 'watch': {
+      const entry = started('ultimate', 'p3', 'p2', 0, 'challenger');
+      entry.local!.move('p3', { cell: 40 }); entry.local!.move('p2', { cell: 37 });
+      entries = [entry];
+      break;
+    }
+    // Mid-game: you've hit one of theirs and missed twice; they've sunk one of yours.
+    case 'battleship': {
+      const entry = started('battleship', me, 'p1', 20);
+      const sea = entry.local!.match.play as Battleship;
+      sea.shots[me] = [7, 13, 14, 22]; sea.shots.p1 = [0, 1, 2, 6, 33];
+      entries = [entry];
+      break;
+    }
+    // Word Hunt's grid needs the word list: see attach.
+    case 'play': if (game && game !== 'words') entries = [started(game, me, 'p1', 0)]; break;
+  }
+  seeding = false;
+
   const find = (id: string) => {
-    const duel = duels.find(d => d.view.id === id);
-    if (!duel) throw new Error('This duel has ended');
-    return duel;
+    const entry = entries.find(e => e.id === id);
+    if (!entry) throw new Error('This duel has ended');
+    return entry;
   };
-  const update = (id: string, change: (view: DuelView) => DuelView) => { const d = find(id); d.view = change(d.view); publish(); };
-  const other = (d: DuelView, uid: string) => d.challenger.uid === uid ? d.opponent.uid : d.challenger.uid;
-  const win = (d: DuelView, uid: string, extra: Partial<DuelView>): DuelView => {
-    const paid = { [uid]: d.stake * 2 + 15, [other(d, uid)]: 5 };
-    if (paid[me]) onCoins(paid[me]);
-    return { ...d, ...extra, status: 'won', winner: uid, paid, turn: undefined, turnLeftMs: undefined };
-  };
-
-  const place = (d: DuelView, uid: string, cell: number): DuelView => {
-    const mark = d.challenger.uid === uid ? d.challenger.mark! : d.opponent.mark!;
-    const board = d.board!.map((c, i) => i === cell ? mark : c);
-    const line = LINES.find(l => l.every(i => board[i] === mark));
-    if (line) return win(d, uid, { board, line, reason: 'line' });
-    if (board.every(c => c !== null)) {
-      onCoins(d.stake + 8);
-      return { ...d, board, status: 'drawn', reason: 'draw', paid: { [uid]: d.stake + 8, [other(d, uid)]: d.stake + 8 }, turn: undefined, turnLeftMs: undefined };
-    }
-    return { ...d, board, turn: other(d, uid), turnLeftMs: 60_000 };
-  };
-  const fire = (h: Hidden, uid: string, cell: number): DuelView => {
-    const d = h.view;
-    h.shots[uid] = [...h.shots[uid], cell];
-    const fleet = h.fleets[other(d, uid)];
-    const ship = fleet.find(s => s.includes(cell));
-    const lastShot = { by: uid, cell, hit: !!ship, sunk: !!ship && ship.every(c => h.shots[uid].includes(c)) };
-    if (fleet.every(s => s.every(c => h.shots[uid].includes(c)))) return win(d, uid, { lastShot, reason: 'sunk' });
-    return { ...d, lastShot, turn: ship ? uid : other(d, uid), turnLeftMs: 60_000 };
-  };
-  const reply = (id: string, wait = REPLY_MS) => setTimeout(() => {
-    const h = duels.find(d => d.view.id === id);
-    if (!h || h.view.status !== 'playing' || h.view.turn === me) return;
-    const them = h.view.turn!;
-    if (h.view.game === 'noughts') update(id, d => place(d, them, PREFERENCE.find(i => d.board![i] === null)!));
-    else {
-      const cell = [...SEA_OPENING, ...Array.from({ length: 36 }, (_, i) => i)].find(i => !h.shots[them].includes(i))!;
-      update(id, () => fire(h, them, cell));
-      reply(id);
-    }
-  }, wait);
-  // Their answer to a move: the first shot of their turn waits for the boards.
-  const replyTo = (id: string) => reply(id, find(id).view.game === 'battleship' ? FIRST_SHOT_MS : REPLY_MS);
-  const start = (d: DuelView, first: string): DuelView => ({
-    ...d, status: 'playing', offerLeftMs: undefined, turn: first, turnLeftMs: 60_000,
-    ...(d.game === 'noughts' ? {
-      challenger: { ...d.challenger, mark: d.challenger.uid === first ? 'X' : 'O' },
-      opponent: { ...d.opponent, mark: d.opponent.uid === first ? 'X' : 'O' },
-    } : {}),
-  });
-
   const duel = async (move: DuelMove) => {
     switch (move.operation) {
       case 'challenge': {
-        const id = `d${next++}`;
-        duels = [...duels.filter(d => d.view.status === 'offered' || d.view.status === 'playing'),
-          hidden({ ...base(move.game), id, status: 'offered', stake: move.stake, challenger: side(me), opponent: side(move.opponent), offerLeftMs: 60_000 })];
+        // Word Hunt needs its word list before the grid can be rolled.
+        if (move.game === 'words') await loadWordList();
+        const entry = offer(move.game, me, move.opponent, move.stake, 60_000, move.options);
+        entries = [...entries.filter(e => e.local ? !e.local.over : e.view!.status === 'offered'), entry];
         publish();
         setTimeout(() => {
-          if (duels.find(d => d.view.id === id)?.view.status !== 'offered') return;
-          update(id, d => start(d, d.opponent.uid));
-          replyTo(id);
-        }, 1500);
+          if (entry.view?.status !== 'offered') return;
+          play(entry, move.game, side(me), side(move.opponent), 'opponent', move.stake, move.options);
+          publish();
+        }, ACCEPT_MS);
         break;
       }
-      case 'accept': update(move.id, d => start(d, d.challenger.uid)); replyTo(move.id); break;
-      case 'decline': update(move.id, d => ({ ...d, status: 'declined', offerLeftMs: undefined })); break;
-      case 'cancel': update(move.id, d => ({ ...d, status: 'cancelled', offerLeftMs: undefined })); break;
-      case 'resign': update(move.id, d => ({ ...d, status: 'won', reason: 'resigned', winner: other(d, me), turn: undefined, turnLeftMs: undefined })); break;
+      case 'accept': {
+        const entry = find(move.id);
+        if (entry.view?.game === 'words') await loadWordList();
+        play(entry, entry.view!.game, entry.view!.challenger, entry.view!.opponent, 'challenger', entry.view!.stake, entry.view!.options);
+        publish();
+        break;
+      }
+      case 'decline': case 'cancel': {
+        const entry = find(move.id);
+        entry.view = { ...entry.view!, status: move.operation === 'decline' ? 'declined' : 'cancelled', offerLeftMs: undefined };
+        publish();
+        break;
+      }
+      case 'resign': find(move.id).local?.resign(me); break;
       case 'move': {
-        const h = find(move.id);
-        if (h.view.turn !== me) throw new Error("It's not your turn");
-        if (h.view.game === 'noughts') {
-          if (h.view.board![move.cell] !== null) throw new Error('Choose an empty square');
-          update(move.id, d => place(d, me, move.cell));
-        } else {
-          if (h.shots[me].includes(move.cell)) throw new Error("You've already fired there");
-          update(move.id, () => fire(h, me, move.cell));
-        }
-        // Only once the turn is theirs: a hit keeps it yours.
-        if (find(move.id).view.turn !== me) replyTo(move.id);
+        const { operation: _, id, ...played } = move;
+        void _;
+        find(id).local!.move(me, played);
         break;
       }
     }
   };
-  return { initial: views(), duel };
+  const steer = (id: string, input: DuelSteer) => entries.find(e => e.id === id)?.local?.steer(me, input);
+  // Once the page is on screen: the seeded games start ticking, and anything
+  // seeded that had to wait (Word Hunt's word list) arrives now.
+  const attach = () => {
+    if (attached) return;
+    attached = true;
+    if (entries.some(e => e.local && !e.local.over)) { run(); publish(); }
+    if (kind === 'play' && game === 'words') void loadWordList().then(() => { entries = [started('words', me, 'p1', 0)]; publish(); });
+  };
+  return { initial: views(), duel, steer, attach };
 }

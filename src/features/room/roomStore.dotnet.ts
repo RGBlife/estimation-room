@@ -9,7 +9,8 @@ import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek }
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { PlayerProfile } from '../../types/player.ts';
-import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelMove, DuelSteer, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
+import { clearFrames, pushFrame } from '../arcade/frames.ts';
 import { recordDriverSample, forgetDriver, forgetAllDrivers } from './remoteDriverSamples.ts';
 
 interface RoomState {
@@ -66,6 +67,9 @@ interface RoomState {
   playRare: (move: RareMove) => Promise<RareView>;
   // A challenge, an answer to one, or a move in a duel.
   duel: (move: DuelMove) => Promise<void>;
+  // Steering a duel in play, many times a second: nothing comes back but
+  // the next frame.
+  steer: (id: string, input: DuelSteer) => void;
 }
 
 
@@ -135,7 +139,10 @@ export const useRoomStore = create<RoomState>((set, get) => {
         for (const ticket of message.tickets) next.set(ticket.id, ticket);
         return { tickets: sortBacklog(next.values()) };
       }); break;
-      case 'duels': set({ duels: message.duels }); break;
+      // A full state replaces any frame that came before it.
+      case 'duels': clearFrames(); set({ duels: message.duels }); break;
+      // Frames go to their own store, so only the game redraws.
+      case 'duelFrame': pushFrame(message.frame); break;
       case 'crack': set(s => ({ tableCracks: [...s.tableCracks.slice(-127), message.item] })); break;
       case 'table': set({ tableCracks: message.tableCracks, tablePieceMove: message.tablePieceMove, tableWasted: message.tableWasted }); break;
       case 'closed':
@@ -207,6 +214,7 @@ export const useRoomStore = create<RoomState>((set, get) => {
     playSorted: async move => (await command('sorted', move)).game as SortedView,
     playRare: async move => (await command('rare', move)).game as RareView,
     duel: async move => { await command('duel', move); },
+    steer: (id, input) => { if (connection.connected) transient('steer', { id, ...input }); },
     leave: async () => {
       connection.forgetRoom(); driving = false; clearDriverBatch();
       try { if (connection.connected && get().roomCode) await command('leave'); }

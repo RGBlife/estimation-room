@@ -3,13 +3,15 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import SortedGame from './SortedGame.tsx';
 import ArcadeWindow from './ArcadeWindow.tsx';
 import ArcadeHome from './ArcadeHome.tsx';
-import DuelGame from './DuelGame.tsx';
+import GamePage, { type SoloGames } from './GamePage.tsx';
+import { whoIsFree } from './catalogue.ts';
+import type { LocalDuel } from './play/local.ts';
 import ChallengeCard from './ChallengeCard.tsx';
 import RareFindGame from './RareFindGame.tsx';
 import { duelSummary, formatSeconds, shotSummary } from './duels.ts';
 import { randomAvatar } from '../avatar/avatar.ts';
 import type { Participant } from '../../types/room.ts';
-import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelGame, DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
 
 beforeAll(() => {
   // jsdom has no matchMedia: a wide screen with motion, unless a test says otherwise.
@@ -92,7 +94,7 @@ describe('ArcadeWindow', () => {
 const person = (name: string): Participant => ({ name, isObserver: false, vote: null, avatar: randomAvatar() } as Participant);
 const PEOPLE = { me: person('Me'), sam: person('Sam'), alex: person('Alex'), priya: person('Priya') };
 const duelOf = (over: Partial<DuelView> = {}): DuelView => ({
-  id: 'd1', game: 'noughts', status: 'playing', stake: 0, paused: false, board: Array(9).fill(null),
+  id: 'd1', game: 'ultimate', status: 'playing', stake: 0, paused: false, board: Array(81).fill(null), boards: Array(9).fill(null),
   challenger: { uid: 'me', name: 'Me', mark: 'X' }, opponent: { uid: 'sam', name: 'Sam', mark: 'O' }, turn: 'me', turnLeftMs: 60_000, ...over,
 });
 
@@ -114,41 +116,92 @@ describe('duelSummary', () => {
   });
 });
 
-describe('DuelGame', () => {
-  const props = (over: Partial<Parameters<typeof DuelGame>[0]> = {}) => ({
-    game: 'noughts' as const, uid: 'me', coins: 45, participants: PEOPLE, duels: [] as DuelView[], duel: vi.fn(async (_: DuelMove) => {}), ...over,
+// Games against the computer, kept as the Arcade keeps them.
+function soloGames(): SoloGames {
+  const games = new Map<DuelGame, LocalDuel>();
+  return {
+    get: game => games.get(game),
+    keep: (game, local) => { games.set(game, local); },
+    drop: game => { games.delete(game); },
+  };
+}
+
+describe('GamePage', () => {
+  const props = (over: Partial<Parameters<typeof GamePage>[0]> = {}) => ({
+    game: 'ultimate' as DuelGame, uid: 'me', coins: 45, participants: PEOPLE, duels: [] as DuelView[], duel: vi.fn(async (_: DuelMove) => {}), steer: vi.fn(), solo: soloGames(), ...over,
+  });
+  it('offers the computer or someone at the table', () => {
+    render(<GamePage {...props()} />);
+    expect(screen.getByRole('button', { name: /Practise against the computer/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Challenge someone.*Alex, Priya and Sam are free/ })).toBeInTheDocument();
+    expect(whoIsFree(['Gus'])).toBe('Gus is free for a duel');
+    expect(whoIsFree(['A', 'B', 'C', 'D', 'E'])).toBe('A, B and 3 others are free');
   });
   it('challenges someone free, with a stake up to your own coins', async () => {
     const p = props({ duels: [duelOf({ challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'priya', name: 'Priya' } })] });
-    render(<DuelGame {...p} />);
+    render(<GamePage {...p} />);
+    fireEvent.click(screen.getByRole('button', { name: /Challenge someone/ }));
     expect(screen.getByRole('radio', { name: /Alex/ })).toBeDisabled();
     fireEvent.click(screen.getByRole('radio', { name: /Sam/ }));
     for (let i = 0; i < 12; i++) fireEvent.click(screen.getByRole('button', { name: 'Raise the stake' }));
     expect(screen.getByRole('button', { name: 'Raise the stake' })).toBeDisabled();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send challenge' })); });
-    expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', game: 'noughts', opponent: 'sam', stake: 45 });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', game: 'ultimate', opponent: 'sam', stake: 45 });
     expect(screen.getByRole('button', { name: 'Watch' })).toBeInTheDocument();
   });
+  it('asks what a typing race types, and sends it with the challenge', async () => {
+    const p = props({ game: 'typing' });
+    render(<GamePage {...p} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Famous quote' }));
+    fireEvent.click(screen.getByRole('button', { name: /Challenge someone/ }));
+    expect(screen.getByRole('radio', { name: 'Famous quote' })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: /Sam/ }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send challenge' })); });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', game: 'typing', opponent: 'sam', stake: 0, options: { text: 'quotes' } });
+  });
   it('keeps the stake out of sight without coins', () => {
-    render(<DuelGame {...props({ coins: 0 })} />);
+    render(<GamePage {...props({ coins: 0 })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Challenge someone/ }));
     expect(screen.queryByText('Stake')).not.toBeInTheDocument();
   });
-  it('plays a square on your turn only', async () => {
-    const p = props({ duels: [duelOf({ board: ['X', null, null, null, 'O', null, null, null, null] })] });
-    const { rerender } = render(<DuelGame {...p} />);
-    expect(screen.getByRole('button', { name: 'Square 1, X' })).toBeDisabled();
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Square 9' })); });
-    expect(p.duel).toHaveBeenCalledWith({ operation: 'move', id: 'd1', cell: 8 });
-    rerender(<DuelGame {...p} duels={[duelOf({ turn: 'sam' })]} />);
-    expect(screen.getByRole('button', { name: 'Square 9' })).toBeDisabled();
+  it('plays a square on your turn only, in the board it must be in', async () => {
+    const board = Array(81).fill(null);
+    board[0] = 'X'; board[8] = 'O';
+    const p = props({ duels: [duelOf({ board, forced: 8, last: 8 })] });
+    const { rerender } = render(<GamePage {...p} />);
+    const corner = screen.getByRole('group', { name: 'Board 9, open' });
+    expect(within(screen.getByRole('group', { name: 'Board 1' })).getByRole('button', { name: 'Square 1, X' })).toBeDisabled();
+    expect(within(screen.getByRole('group', { name: 'Board 1' })).getByRole('button', { name: 'Square 2' })).toBeDisabled();
+    await act(async () => { fireEvent.click(within(corner).getByRole('button', { name: 'Square 9' })); });
+    expect(p.duel).toHaveBeenCalledWith({ operation: 'move', id: 'd1', cell: 80 });
+    rerender(<GamePage {...p} duels={[duelOf({ board, turn: 'sam' })]} />);
+    expect(within(screen.getByRole('group', { name: /Board 9/ })).getByRole('button', { name: 'Square 9' })).toBeDisabled();
     expect(screen.getByRole('status')).toHaveTextContent("Sam's move");
   });
+  it('plays the computer, which answers', async () => {
+    vi.useFakeTimers();
+    // Heads: you go first.
+    const toss = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      render(<GamePage {...props({ game: 'connect' })} />);
+      fireEvent.click(screen.getByRole('button', { name: /Practise against the computer/ }));
+      expect(screen.getByText('Practice')).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Column 4' })); });
+      expect(screen.getByRole('status')).toHaveTextContent("Computer's move");
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      expect(screen.getByRole('status')).toHaveTextContent('Your move');
+      expect(document.querySelectorAll('.sp-connect-counter:not([data-ghost])')).toHaveLength(2);
+      fireEvent.click(screen.getByRole('button', { name: 'Resign' }));
+      expect(screen.getByRole('status')).toHaveTextContent('You resigned');
+      expect(screen.getByRole('button', { name: 'Play again' })).toBeInTheDocument();
+    } finally { toss.mockRestore(); vi.useRealTimers(); }
+  });
   it("won't accept a stake you can't cover", () => {
-    render(<DuelGame {...props({ uid: 'sam', coins: 10, duels: [duelOf({ status: 'offered', stake: 20, turn: undefined })] })} />);
+    render(<GamePage {...props({ uid: 'sam', coins: 10, duels: [duelOf({ status: 'offered', stake: 20, turn: undefined })] })} />);
     expect(screen.getByRole('button', { name: 'You need 🪙 20' })).toBeDisabled();
   });
   it('shows the result and what it paid, then offers a new challenge', () => {
-    render(<DuelGame {...props({ duels: [duelOf({ status: 'won', winner: 'me', reason: 'line', line: [0, 4, 8], paid: { me: 55, sam: 5 } })] })} />);
+    render(<GamePage {...props({ duels: [duelOf({ status: 'won', winner: 'me', reason: 'line', line: [0, 4, 8], paid: { me: 55, sam: 5 } })] })} />);
     expect(screen.getByRole('status')).toHaveTextContent('You won');
     expect(screen.getByText('+55 coins')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'New challenge' }));
@@ -225,10 +278,10 @@ describe('Battleship', () => {
     lastShot: { by: 'me', cell: 7, hit: true, sunk: false },
     ...over,
   });
-  const props = (duels: DuelView[], uid = 'me') => ({ game: 'battleship' as const, uid, coins: 45, participants: PEOPLE, duels, duel: vi.fn(async (_: DuelMove) => {}) });
+  const props = (duels: DuelView[], uid = 'me') => ({ game: 'battleship' as DuelGame, uid, coins: 45, participants: PEOPLE, duels, duel: vi.fn(async (_: DuelMove) => {}), steer: vi.fn(), solo: soloGames() });
   it('fires into their waters on your turn, and shows your own fleet', async () => {
     const p = props([sea()]);
-    render(<DuelGame {...p} />);
+    render(<GamePage {...p} />);
     const theirs = screen.getByRole('group', { name: 'Their waters' });
     const yours = screen.getByRole('group', { name: 'Your fleet' });
     expect(within(yours).getByRole('button', { name: 'A1, hit' })).toBeDisabled();
@@ -239,8 +292,9 @@ describe('Battleship', () => {
     expect(screen.getByRole('status')).toHaveTextContent('You hit. Fire again.');
   });
   it('shows a watcher both seas without ships', () => {
-    render(<DuelGame {...props([duelOf({ ...sea(), challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'priya', name: 'Priya' }, seas: { alex: { shots: [], sunk: [] }, priya: { shots: [{ cell: 3, hit: false }], sunk: [] } } })], 'me')} />);
+    render(<GamePage {...props([duelOf({ ...sea(), challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'priya', name: 'Priya' }, seas: { alex: { shots: [], sunk: [] }, priya: { shots: [{ cell: 3, hit: false }], sunk: [] } } })], 'me')} />);
     fireEvent.click(screen.getByRole('button', { name: 'Watch' }));
+    expect(screen.getByText('Watching')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: "Alex's fleet" })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: "Priya's fleet" })).getByRole('button', { name: 'A4, miss' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /ship$/ })).not.toBeInTheDocument();
@@ -249,10 +303,10 @@ describe('Battleship', () => {
     vi.useFakeTimers();
     try {
       const p = props([sea()]);
-      const { rerender } = render(<DuelGame {...p} />);
+      const { rerender } = render(<GamePage {...p} />);
       const focused = (name: string) => screen.getByRole('group', { name }).closest('.sp-sea')!.getAttribute('data-focused');
       expect(focused('Their waters')).toBe('true');
-      rerender(<DuelGame {...p} duels={[sea({ turn: 'sam', lastShot: { by: 'me', cell: 8, hit: false, sunk: false } })]} />);
+      rerender(<GamePage {...p} duels={[sea({ turn: 'sam', lastShot: { by: 'me', cell: 8, hit: false, sunk: false } })]} />);
       expect(focused('Your fleet')).toBe('false');
       act(() => { vi.advanceTimersByTime(700); });
       expect(focused('Your fleet')).toBe('true');
@@ -265,7 +319,8 @@ describe('Battleship', () => {
   });
   it('challenges to the game on the page', async () => {
     const p = props([]);
-    render(<DuelGame {...p} />);
+    render(<GamePage {...p} />);
+    fireEvent.click(screen.getByRole('button', { name: /Challenge someone/ }));
     fireEvent.click(screen.getByRole('radio', { name: /Sam/ }));
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send challenge' })); });
     expect(p.duel).toHaveBeenCalledWith({ operation: 'challenge', game: 'battleship', opponent: 'sam', stake: 0 });
@@ -278,23 +333,25 @@ describe('ArcadeHome', () => {
     const open = vi.fn();
     render(<ArcadeHome profile={profile} uid="me" duels={[duelOf({ challenger: { uid: 'alex', name: 'Alex' }, opponent: { uid: 'sam', name: 'Sam' } })]} incoming={null} mine={null} onOpen={open} onAnswer={async () => {}} />);
     expect(screen.getByRole('button', { name: /Sorted.*4 played/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Noughts and crosses.*1 at the table now/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ultimate noughts.*1 at the table now/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Pong.*First to five/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Battleship/ }));
     expect(open).toHaveBeenCalledWith('battleship');
   });
-  it('shelves the solo games apart from the duels, with who is free to duel', () => {
+  it('splits solo puzzles from duels, quick-fire and thinky, with who is free to duel', () => {
     render(<ArcadeHome profile={profile} uid="me" participants={PEOPLE} duels={[]} incoming={null} mine={null} onOpen={() => {}} onAnswer={async () => {}} />);
-    const solo = screen.getByRole('region', { name: 'Play solo' });
-    const duels = screen.getByRole('region', { name: 'Duel a teammate' });
-    expect(within(solo).getAllByRole('button').map(b => b.textContent)).toEqual([expect.stringMatching(/^Sorted/), expect.stringMatching(/^Rare Find/)]);
-    expect(within(duels).getAllByRole('button').map(b => b.textContent)).toEqual([expect.stringMatching(/^VSNoughts/), expect.stringMatching(/^VSBattleship/)]);
+    const names = (within: HTMLElement) => [...within.querySelectorAll('.sp-arcade-card strong')].map(s => s.textContent);
+    expect(names(screen.getByRole('region', { name: 'Solo' }))).toEqual(['Sorted', 'Rare Find']);
+    const duels = screen.getByRole('region', { name: 'Duels' });
+    expect(names(within(duels).getByRole('group', { name: 'Quick-fire' }))).toEqual(['Reaction duel', 'Typing race', 'Speed maths', 'Pong', 'Light cycles']);
+    expect(names(within(duels).getByRole('group', { name: 'Thinky' }))).toEqual(['Ultimate noughts', 'Connect Four', 'Battleship', 'Dots and boxes', 'Word Hunt', 'Mancala']);
     expect(within(duels).getByLabelText('3 free to duel')).toBeInTheDocument();
   });
   it('puts a challenge to you first', async () => {
     const answer = vi.fn(async (_: boolean) => {});
     const challenge = duelOf({ game: 'battleship', status: 'offered', stake: 10, challenger: { uid: 'sam', name: 'Sam' }, opponent: { uid: 'me', name: 'Me' } });
     render(<ArcadeHome profile={profile} uid="me" duels={[challenge]} incoming={challenge} mine={challenge} onOpen={() => {}} onAnswer={answer} />);
-    expect(screen.getByText('Sam challenges you to battleship')).toBeInTheDocument();
+    expect(screen.getByText('Sam challenges you to Battleship')).toBeInTheDocument();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Accept' })); });
     expect(answer).toHaveBeenCalledWith(true);
   });
@@ -303,6 +360,6 @@ describe('ArcadeHome', () => {
     const duel = duelOf();
     render(<ArcadeHome profile={profile} uid="me" duels={[duel]} incoming={null} mine={duel} onOpen={open} onAnswer={async () => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Back to the game' }));
-    expect(open).toHaveBeenCalledWith('noughts');
+    expect(open).toHaveBeenCalledWith('ultimate');
   });
 });

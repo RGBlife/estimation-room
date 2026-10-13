@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { DuelSea, DuelSide, DuelView } from '../../types/games.ts';
+import { SEA } from '../play/battleship.ts';
+import type { DuelSea, DuelSide } from '../../../types/games.ts';
+import type { BoardProps } from './types.ts';
 
-// Matches Duels.Sea in the room service.
-const SEA = 6;
 const ROWS = 'ABCDEF';
 // How long a shot's result stays in view before the boards trade places.
 const SETTLE_MS = 700;
@@ -78,7 +78,8 @@ function useFocus(yours: boolean) {
   return focus;
 }
 
-export default function BattleshipBoard({ duel, uid, playable, onMove }: { duel: DuelView; uid: string | null; playable: boolean; onMove: (cell: number) => void }) {
+export default function BattleshipBoard({ duel, uid, playable, onMove }: BoardProps) {
+  const fire = (cell: number) => void onMove({ cell }).catch(() => {});
   const theirTurn = duel.status === 'playing' && !!duel.turn && duel.turn !== uid;
   const fleetInFocus = useFocus(theirTurn);
   if (!duel.seas) return <p className="sp-sorted-hint">The fleets put to sea once the challenge is accepted.</p>;
@@ -89,7 +90,7 @@ export default function BattleshipBoard({ duel, uid, playable, onMove }: { duel:
   if (me && them) {
     return (
       <div className="sp-seas">
-        <Sea label="Their waters" sea={duel.seas[them.uid] ?? empty} playable={playable} onFire={onMove} last={lastIn(them)} focused={!fleetInFocus || duel.status !== 'playing'} />
+        <Sea label="Their waters" sea={duel.seas[them.uid] ?? empty} playable={playable} onFire={fire} last={lastIn(them)} focused={!fleetInFocus || duel.status !== 'playing'} />
         <Sea label="Your fleet" sea={duel.seas[me.uid] ?? empty} playable={false} last={lastIn(me)} focused={fleetInFocus} struck={duel.lastShot?.by === them.uid && duel.lastShot.hit} />
       </div>
     );

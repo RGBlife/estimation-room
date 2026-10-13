@@ -40,11 +40,11 @@ test('a challenge card opens the duel on the board', async ({ page }) => {
   if (await pill.isVisible()) await pill.click();
   await card.getByRole('button', { name: 'Accept' }).click();
   const arcade = page.getByRole('dialog', { name: 'Arcade' });
-  await expect(arcade.getByRole('group', { name: 'Board' })).toBeVisible();
+  await expect(arcade.getByRole('group', { name: 'Boards' })).toBeVisible();
   await expect(card).toBeHidden();
-  // Player 2 plays crosses first, in the centre.
-  await expect(arcade.getByRole('button', { name: 'Square 5, X' })).toBeVisible();
-  const overflow = await checkOverflow(arcade.getByRole('group', { name: 'Board' }));
+  // Player 2 plays crosses first.
+  await expect(arcade.getByRole('button', { name: /, X$/ })).toBeVisible();
+  const overflow = await checkOverflow(arcade.getByRole('group', { name: 'Boards' }));
   expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
 });
 
@@ -65,18 +65,37 @@ test('on a phone, the challenge folds into a pill off the table, and opens again
   await expect(card.getByRole('button', { name: 'Accept' })).toBeVisible();
 });
 
-test('a duel played to a win', async ({ page }) => {
-  // You hold X in the corner, Player 2 O in the centre, and it's your move.
-  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&arcade=noughts&duel=playing');
+test('ultimate noughts and crosses sends each move to the board it names', async ({ page }) => {
+  // You opened in the centre, Player 2 answered in its corner: you're sent to the top left.
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&arcade=ultimate&duel=playing');
   const arcade = page.getByRole('dialog', { name: 'Arcade' });
-  const square = (n: number) => arcade.getByRole('button', { name: new RegExp(`^Square ${n}`) });
-  await square(9).click();
-  await expect(square(3)).toHaveAccessibleName('Square 3, O');
-  await square(7).click();
-  await expect(square(2)).toHaveAccessibleName('Square 2, O');
-  await square(4).click();
+  const board = (n: number) => arcade.getByRole('group', { name: new RegExp(`^Board ${n}(,|$)`) });
+  await expect(board(1)).toHaveAccessibleName('Board 1, open');
+  await expect(board(2).getByRole('button', { name: 'Square 1' })).toBeDisabled();
+  await board(1).getByRole('button', { name: 'Square 3' }).click();
+  // Square 3 sends Player 2 to board 3, where its O lands.
+  await expect(board(3).getByRole('button', { name: /, O$/ })).toBeVisible();
+  await expect(arcade.getByRole('status')).toContainText('Your move');
+});
+
+test('ultimate noughts and crosses keeps every square where it is as marks land', async ({ page }) => {
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&arcade=ultimate&duel=playing');
+  const arcade = page.getByRole('dialog', { name: 'Arcade' });
+  const squares = arcade.locator('.sp-ultimate-square');
+  const places = () => squares.evaluateAll(all => all.map(e => { const r = e.getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}`; }));
+  await expect(squares).toHaveCount(81);
+  const before = await places();
+  await arcade.getByRole('group', { name: /^Board 1,/ }).getByRole('button', { name: 'Square 3' }).click();
+  await expect(arcade.getByRole('group', { name: /^Board 3/ }).getByRole('button', { name: /, O$/ })).toBeVisible();
+  expect(await places()).toEqual(before);
+});
+
+test('a finished duel shows who won and what it paid', async ({ page }) => {
+  await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&arcade=ultimate&duel=won');
+  const arcade = page.getByRole('dialog', { name: 'Arcade' });
   await expect(arcade.getByRole('status')).toContainText('You won');
-  await expect(arcade.getByLabel('100 coins')).toBeVisible();
+  await expect(arcade.getByRole('status')).toContainText('+55 coins');
+  await expect(arcade.locator('.sp-noughts-win')).toBeVisible();
 });
 
 test('Rare Find asks, then shows how rare the answer was', async ({ page }) => {
@@ -111,8 +130,8 @@ test('a Battleship duel fought to a win', async ({ page }) => {
 test('the Arcade opens on a card per game, and a challenge to you comes first', async ({ page }) => {
   await page.goto('/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&arcade=open&duel=battleship-incoming');
   const arcade = page.getByRole('dialog', { name: 'Arcade' });
-  await expect(arcade.getByText('Player 2 challenges you to battleship')).toBeVisible();
-  await expect(arcade.locator('.sp-arcade-card')).toHaveCount(4);
+  await expect(arcade.getByText('Player 2 challenges you to Battleship')).toBeVisible();
+  await expect(arcade.locator('.sp-arcade-card')).toHaveCount(13);
   const overflow = await checkOverflow(arcade);
   expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
   await arcade.getByRole('button', { name: 'Accept' }).click();
@@ -120,3 +139,20 @@ test('the Arcade opens on a card per game, and a challenge to you comes first', 
   await arcade.getByRole('button', { name: 'Arcade', exact: true }).click();
   await expect(arcade.getByRole('button', { name: /^Battleship/ })).toContainText('Your move');
 });
+
+// Every duel game, against the computer and against someone at the table:
+// its board is on screen, fits the window, and the game gets going.
+const GAMES = ['reaction', 'typing', 'maths', 'pong', 'cycles', 'ultimate', 'connect', 'battleship', 'dots', 'words', 'mancala'];
+for (const game of GAMES) {
+  test(`${game} plays against the computer and as a duel, and fits the window`, async ({ page }) => {
+    const arcade = page.getByRole('dialog', { name: 'Arcade' });
+    for (const duel of [false, true]) {
+      await page.goto(`/?visual-test=room&seats=6&controls=0&revealed=1&coins=45&arcade=${game}${duel ? `&duel=play:${game}` : ''}`);
+      if (!duel) await arcade.getByRole('button', { name: /Practise against the computer/ }).click();
+      await expect(arcade.locator(`[data-game-page="${game}"] .sp-duel[data-game="${game}"]`)).toBeVisible();
+      await expect(arcade.getByText(duel ? 'Player 2' : 'Computer', { exact: true }).first()).toBeVisible();
+      const overflow = await checkOverflow(arcade);
+      expect(overflow.overflowsHorizontally, JSON.stringify(overflow)).toBe(false);
+    }
+  });
+}

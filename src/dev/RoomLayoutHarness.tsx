@@ -24,6 +24,7 @@ import type { PlayerProfile } from '../types/player.ts';
 import { useAchievements } from '../features/achievements/useAchievements.tsx';
 import { ACHIEVEMENTS } from '../features/achievements/catalogue.ts';
 import { useArcade } from '../features/arcade/useArcade.tsx';
+import { ALL_GAMES, type ArcadeGame } from '../features/arcade/catalogue.ts';
 import { fakeSorted } from './fakeSorted.ts';
 import { fakeDuels } from './fakeDuels.ts';
 import { fakeRare } from './fakeRare.ts';
@@ -216,19 +217,21 @@ export default function RoomLayoutHarness() {
     return fixtures;
   }, [seats, observers, voted, editedAvatar, myUid, localVote, ticketMode, round, names, votes]);
   const me = participants[myUid];
-  // ?arcade=open opens the Arcade's home and ?arcade=sorted|rare|noughts|battleship
-  // a game (with ?revealed=1, as games are only between rounds); ?coins=N
-  // seeds a balance; ?found=N starts Sorted with N groups found;
-  // ?duel=incoming|waiting|playing|won|watch|battleship|battleship-incoming
-  // seeds a duel with p1 (or p2 v p3).
+  // ?arcade=open opens the Arcade's home and ?arcade=<game> a game, by its
+  // id (sorted, rare, ultimate, pong, ...), with ?revealed=1, as games are
+  // only between rounds; ?coins=N seeds a balance; ?found=N starts Sorted
+  // with N groups found; ?duel=incoming|waiting|playing|won|watch (ultimate
+  // noughts and crosses), battleship|battleship-incoming, play:<game> or
+  // incoming:<game> seeds a duel with p1 (or p2 v p3).
   const [playSorted] = useState(() => fakeSorted(paid => setProfile(p => ({ ...p, coins: p.coins + paid })), Number(params.get('found') || 0)));
   const [playRare] = useState(() => fakeRare(paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [fakeDuel] = useState(() => fakeDuels(myUid, uid => participants[uid]?.name ?? uid, params.get('duel'), next => setDuels(next), paid => setProfile(p => ({ ...p, coins: p.coins + paid }))));
   const [duels, setDuels] = useState<DuelView[]>(fakeDuel.initial);
+  useEffect(() => fakeDuel.attach(), [fakeDuel]);
   const arcadeParam = params.get('arcade');
   const arcade = useArcade({
-    profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, playRare, duel: fakeDuel.duel,
-    initiallyOpen: !!arcadeParam, initialGame: arcadeParam === 'sorted' || arcadeParam === 'rare' || arcadeParam === 'noughts' || arcadeParam === 'battleship' ? arcadeParam : null,
+    profile, isRevealed: revealed, uid: myUid, participants, duels, playSorted, playRare, duel: fakeDuel.duel, steer: fakeDuel.steer,
+    initiallyOpen: !!arcadeParam, initialGame: arcadeParam && arcadeParam !== 'open' && ALL_GAMES.includes(arcadeParam as ArcadeGame) ? arcadeParam as ArcadeGame : null,
   });
   const stats = computeStats(participants, deck);
   const distribution = revealed && deck.resultKind !== 'freeText' ? computeDistribution(participants, deck) : [];

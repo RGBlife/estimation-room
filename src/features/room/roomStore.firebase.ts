@@ -24,7 +24,7 @@ import type { AvatarOptions, RoomDoc, JoinPayload, CardValue, DeckId, RoomPeek }
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { PlayerProfile } from '../../types/player.ts';
-import type { DuelMove, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
+import type { DuelMove, DuelSteer, DuelView, RareMove, RareView, SortedMove, SortedView } from '../../types/games.ts';
 
 interface RoomState {
   uid: string | null;
@@ -72,6 +72,7 @@ interface RoomState {
   playSorted: (move: SortedMove) => Promise<SortedView>;
   playRare: (move: RareMove) => Promise<RareView>;
   duel: (move: DuelMove) => Promise<void>;
+  steer: (id: string, input: DuelSteer) => void;
 }
 
 // Listener handles for the room doc / throws subscriptions. Like
@@ -210,6 +211,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   playRare: async () => { throw new Error('Games are not available here'); },
   duels: [],
   duel: async () => { throw new Error('Games are not available here'); },
+  steer: () => {},
 
   initAuth: () => {
     return onAuthStateChanged(auth, user => {

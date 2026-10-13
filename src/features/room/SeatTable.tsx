@@ -1,15 +1,18 @@
 import NudgeButton from './NudgeButton.tsx';
-import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { participantAvatarSrc } from '../avatar/index.js';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
 import ObserverRail from './ObserverRail.tsx';
 import ThrowOverlay from './ThrowOverlay.tsx';
-import GtaOverlay from './GtaOverlay.tsx';
 import { seatVacated, debrisPieces, smokePuffs, type GtaPhase } from './gtaLifecycle.ts';
 import { fracturePolygon } from './tableFracture.ts';
 import type { Participant, CardValue } from '../../types/room.ts';
 import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
+
+// GTA mode's driving, fetched the first time anyone at the table drives, so a
+// room that never does doesn't download it.
+const GtaOverlay = lazy(() => import('./GtaOverlay.tsx'));
 
 // CSSProperties doesn't allow arbitrary custom-property keys (--cx, --cr,
 // etc.) by default -- these are read by @keyframes in theme.css via var(),
@@ -1276,30 +1279,32 @@ export default function SeatTable({
       <ThrowOverlay throws={throws} getSeatNode={getSeatNode} stageNode={stageRef.current} onThrowDone={onThrowDone} />
 
       {uid && (isDriving || Object.keys(drivers).length > 0) && (
-        <GtaOverlay
-          active={isDriving}
-          forceEnd={forceEndDrive}
-          driverUid={uid}
-          driverAvatarUrl={participantAvatarSrc(participants[uid] ?? {})}
-          colorIndex={joinOrderIds.indexOf(uid)}
-          remoteDrivers={Object.values(drivers).filter(d => d.uid !== uid)}
-          getAvatarForUid={otherUid => participantAvatarSrc(participants[otherUid] ?? {})}
-          colorIndexForUid={otherUid => joinOrderIds.indexOf(otherUid)}
-          obstacleIds={obstacleIds}
-          wastedIds={wastedIds}
-          getSeatNode={getSeatNode}
-          stageNode={stageRef.current}
-          // The stage box runs the full height of the column, which extends
-          // underneath the fixed voting bar -- so without this the car's own
-          // bounds let it drive down behind the results panel and vanish.
-          bottomInset={bottomClearance}
-          onPublish={onPublishDrive}
-          onSeatBump={handleSeatBump}
-          onSeatSquash={handleSeatSquash}
-          onTableHit={handleTableHit}
-          onSeatVacatedChange={setMyVacated}
-          onExit={onExitDrive}
-        />
+        <Suspense fallback={null}>
+          <GtaOverlay
+            active={isDriving}
+            forceEnd={forceEndDrive}
+            driverUid={uid}
+            driverAvatarUrl={participantAvatarSrc(participants[uid] ?? {})}
+            colorIndex={joinOrderIds.indexOf(uid)}
+            remoteDrivers={Object.values(drivers).filter(d => d.uid !== uid)}
+            getAvatarForUid={otherUid => participantAvatarSrc(participants[otherUid] ?? {})}
+            colorIndexForUid={otherUid => joinOrderIds.indexOf(otherUid)}
+            obstacleIds={obstacleIds}
+            wastedIds={wastedIds}
+            getSeatNode={getSeatNode}
+            stageNode={stageRef.current}
+            // The stage box runs the full height of the column, which extends
+            // underneath the fixed voting bar -- so without this the car's own
+            // bounds let it drive down behind the results panel and vanish.
+            bottomInset={bottomClearance}
+            onPublish={onPublishDrive}
+            onSeatBump={handleSeatBump}
+            onSeatSquash={handleSeatSquash}
+            onTableHit={handleTableHit}
+            onSeatVacatedChange={setMyVacated}
+            onExit={onExitDrive}
+          />
+        </Suspense>
       )}
     </div>
   );

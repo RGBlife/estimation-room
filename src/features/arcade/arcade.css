@@ -29,40 +29,60 @@
 /* The home: what's waiting for you, then a card per game. The covers are
    drawn from each game's own pieces, on its own surface: paper for the
    word games, a whiteboard for noughts and crosses, the sea for Battleship. */
-.sp-arcade { --sp-sea: #1F4166; --sp-sea-deep: #173250; --sp-sea-line: #3A5F88; --sp-sea-foam: #A9CBEB; --sp-sea-hull: #D6DEE8; --sp-sea-hit: #FF6A4D; --sp-whiteboard: #DDE4EC; --sp-marker: #24489C; }
-:root[data-theme='light'] .sp-arcade { --sp-whiteboard: #FBFCFD; --sp-marker: #2B59C3; }
+.sp-arcade { --sp-sea: #1F4166; --sp-sea-deep: #173250; --sp-sea-line: #3A5F88; --sp-sea-foam: #A9CBEB; --sp-sea-hull: #D6DEE8; --sp-sea-hit: #FF6A4D; --sp-whiteboard: #DDE4EC; --sp-marker: #24489C;
+  /* The two sides in games without X and O, and the surfaces of the rest. */
+  --sp-side-a: #7FAFFF; --sp-side-b: #FF7A6E;
+  --sp-court: #0D1726; --sp-court-line: #ffffff1f; --sp-court-ball: #F6F1E4;
+  --sp-react-wait: #D24A3F; --sp-react-go: #2EAD69;
+  --sp-connect-frame: #2D5BD0; --sp-connect-hole: var(--sp-panel); --sp-counter-x: #F4C430; --sp-counter-o: #E5484D;
+  --sp-paper: #E9EDF2; --sp-paper-rule: #8CA2BF33; --sp-paper-ink: #3B4A60;
+  --sp-tile: #F3E7CC; --sp-tile-edge: #C9B38A; --sp-tile-ink: #2A2118;
+  --sp-wood: #9A6A3F; --sp-wood-pit: #5E3C22;
+  --sp-code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+:root[data-theme='light'] .sp-arcade { --sp-whiteboard: #FBFCFD; --sp-marker: #2B59C3; --sp-side-a: #2B63D9; --sp-side-b: #D23E33; --sp-paper: #FBFAF6; --sp-paper-rule: #6E8BB422; }
 .sp-arcade-home { display: flex; flex-direction: column; gap: 18px; }
 .sp-arcade-waiting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 16px; border: 1px solid var(--sp-accent-border); border-radius: 12px; background: var(--sp-accent-panel); }
 .sp-arcade-waiting p { display: flex; flex-direction: column; gap: 2px; margin: 0; }
 .sp-arcade-waiting strong { font-family: var(--sp-display); font-size: 17px; }
 .sp-arcade-waiting span { font-size: 13px; color: var(--sp-text-dim); }
 .sp-arcade-waiting > div { display: flex; gap: 8px; }
-/* Two shelves, solo and duels: a heading with a rule running out to, for
-   duels, the faces of everyone free to take you on. */
-.sp-arcade-shelf { display: flex; flex-direction: column; gap: 10px; }
-.sp-arcade-shelf-heading { display: flex; align-items: center; gap: 12px; min-height: 26px; }
-.sp-arcade-shelf-heading h3 { margin: 0; font-family: var(--sp-display); font-size: 15px; font-weight: 700; color: var(--sp-text-dim); white-space: nowrap; }
-.sp-arcade-shelf-heading::after { content: ''; flex: 1; order: 1; height: 1px; background: var(--sp-border); }
-.sp-arcade-faces { display: flex; align-items: center; order: 2; }
+/* Two sections, solo and duels, each under a heading with a line on what
+   it is; the duels sit on a tinted panel, with the faces of everyone free
+   to take you on, and their two shelves labelled inside. */
+.sp-arcade-section { display: flex; flex-direction: column; gap: 12px; }
+.sp-arcade-section[data-section='duels'] { margin: 0 -12px; padding: 14px 12px 16px; border: 1px solid var(--sp-accent-border); border-radius: 16px; background: color-mix(in srgb, var(--sp-accent-panel) 55%, transparent); }
+.sp-arcade-section-heading { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; }
+.sp-arcade-section-heading h3 { margin: 0; font-family: var(--sp-display); font-size: 22px; font-weight: 800; line-height: 1.1; }
+.sp-arcade-section-heading p { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--sp-text-dim); }
+.sp-arcade-shelf { display: flex; flex-direction: column; gap: 8px; }
+.sp-arcade-shelf h4 { margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--sp-text-faint); }
+.sp-arcade-faces { display: flex; align-items: center; }
 .sp-arcade-faces img { width: 26px; height: 26px; margin-left: -7px; border: 2px solid var(--sp-panel); border-radius: 50%; background: var(--sp-panel-2); }
 .sp-arcade-faces img:first-child { margin-left: 0; }
 .sp-arcade-faces b { margin-left: 4px; font-size: 12px; font-weight: 700; color: var(--sp-text-faint); }
 /* A duel's cover carries a VS token in coin gold, as duels are played for coins. */
 .sp-arcade-art { position: relative; }
 .sp-arcade-vs { position: absolute; top: 8px; left: 8px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--sp-level-0); color: var(--sp-level-ink); font-family: var(--sp-display); font-size: 11px; font-weight: 800; letter-spacing: .02em; box-shadow: 0 2px 0 color-mix(in srgb, var(--sp-level-ink) 35%, transparent); transform: rotate(-10deg); }
-.sp-arcade-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
-.sp-arcade-card { display: flex; flex-direction: column; width: 100%; padding: 0; overflow: hidden; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 2px 0 var(--sp-border-strong); transition: transform 140ms, box-shadow 140ms; }
+.sp-arcade-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.sp-arcade-cards li { display: flex; }
+.sp-arcade-card { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 0; overflow: hidden; border: 1px solid var(--sp-border-strong); border-radius: 14px; background: var(--sp-panel); color: var(--sp-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 2px 0 var(--sp-border-strong); transition: transform 140ms, box-shadow 140ms; }
 .sp-arcade-card:hover { transform: translateY(-2px); box-shadow: 0 4px 0 var(--sp-border-strong); }
 .sp-arcade-card:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--sp-border-strong); }
 .sp-arcade-card:focus-visible { outline: 3px solid var(--sp-accent); outline-offset: 2px; }
-.sp-arcade-art { display: block; height: clamp(76px, 13vw, 112px); border-bottom: 1px solid var(--sp-border); }
+.sp-arcade-art { display: block; height: clamp(70px, 10vw, 92px); border-bottom: 1px solid var(--sp-border); }
 .sp-arcade-art svg { display: block; width: 100%; height: 100%; }
 .sp-arcade-card[data-game='sorted'] .sp-arcade-art { background: var(--sp-panel-2); }
 .sp-arcade-card[data-game='rare'] .sp-arcade-art { background: var(--sp-panel-2); color: var(--sp-accent); }
-.sp-arcade-card[data-game='noughts'] .sp-arcade-art { background: var(--sp-whiteboard); color: var(--sp-marker); }
+.sp-arcade-card[data-game='ultimate'] .sp-arcade-art { background: var(--sp-whiteboard); color: var(--sp-marker); }
+.sp-arcade-card:is([data-game='reaction'], [data-game='typing'], [data-game='maths'], [data-game='words'], [data-game='mancala'], [data-game='connect']) .sp-arcade-art { background: var(--sp-panel-2); color: var(--sp-text-dim); }
+.sp-arcade-card:is([data-game='pong'], [data-game='cycles']) .sp-arcade-art { background: radial-gradient(circle at 50% 40%, #1C3254 0, var(--sp-court) 75%); }
+.sp-arcade-card[data-game='dots'] .sp-arcade-art { background: var(--sp-paper); color: var(--sp-paper-ink); }
+.sp-art-code { font-family: var(--sp-code); font-size: 12px; fill: currentColor; }
+.sp-art-sum { font-family: var(--sp-display); font-size: 26px; font-weight: 800; fill: currentColor; }
+.sp-art-tile { font-family: var(--sp-display); font-size: 17px; font-weight: 800; fill: var(--sp-tile-ink); }
 .sp-arcade-card[data-game='battleship'] .sp-arcade-art { background: radial-gradient(circle at 70% 50%, var(--sp-sea) 0, var(--sp-sea-deep) 75%); }
 .sp-arcade-card-text { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px 14px; }
-.sp-arcade-card-text strong { font-family: var(--sp-display); font-size: 19px; font-weight: 700; line-height: 1.15; }
+.sp-arcade-card-text strong { font-family: var(--sp-display); font-size: 17px; font-weight: 700; line-height: 1.15; }
 .sp-arcade-card-text small { font-size: 13px; color: var(--sp-text-faint); }
 @media (prefers-reduced-motion: reduce) { .sp-arcade-card { transition: none; } .sp-arcade-card:hover, .sp-arcade-card:active { transform: none; } .sp-arcade-coins-landed { animation: none; display: none; } }
 
@@ -71,9 +91,13 @@
   .sp-arcade { width: 100vw; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
   .sp-arcade-heading { padding: 12px 12px 12px 16px; }
   .sp-arcade-body { min-height: 0; padding: 16px 12px 24px; }
-  .sp-arcade-cards { gap: 10px; }
+  .sp-arcade-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  /* The longer shelves scroll sideways, a card and a bit showing past the edge. */
+  .sp-arcade-section[data-section='duels'] { margin: 0 -4px; padding: 12px 8px 14px; }
+  .sp-arcade-shelf:not([data-shelf='puzzles']) .sp-arcade-cards { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 42%; margin: 0 -8px; padding: 2px 8px 6px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 8px; scrollbar-width: none; }
+  .sp-arcade-shelf:not([data-shelf='puzzles']) .sp-arcade-cards li { scroll-snap-align: start; }
   .sp-arcade-card-text { padding: 10px 12px 12px; }
-  .sp-arcade-card-text strong { font-size: 16px; }
+  .sp-arcade-card-text strong { font-size: 15px; }
 }
 
 /* Sorted */
@@ -136,8 +160,8 @@
 .sp-duel-player img, .sp-duel-player-gone { width: 30px; height: 30px; border-radius: 50%; background: var(--sp-panel-3); }
 .sp-duel-player[data-turn='true'] { border-color: var(--sp-accent); color: var(--sp-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sp-accent) 30%, transparent); }
 .sp-duel-player b { font-family: var(--sp-display); font-weight: 800; }
-.sp-duel-player b[data-mark='X'] { color: var(--sp-accent-text); }
-.sp-duel-player b[data-mark='O'] { color: #E0574F; }
+.sp-duel-player b[data-mark='X'] { color: var(--sp-side-a); }
+.sp-duel-player b[data-mark='O'] { color: var(--sp-side-b); }
 .sp-duel-v { color: var(--sp-text-faint); font-size: 13px; }
 /* The pot between them, as a little stack of coins. */
 .sp-duel-coins { display: inline-block; width: 16px; height: 14px; margin-right: 5px; vertical-align: -2px; background: radial-gradient(ellipse 8px 3px at 50% 85%, #C9962B 0 98%, transparent) , radial-gradient(ellipse 8px 3px at 50% 58%, #E2B33F 0 98%, transparent), radial-gradient(ellipse 8px 3px at 50% 30%, #F2CA57 0 98%, transparent); }
@@ -146,20 +170,13 @@
 .sp-duel-timer[data-low='true'] span { background: var(--sp-warn-text); }
 @media (prefers-reduced-motion: reduce) { .sp-duel-timer span { transition: none; } }
 .sp-duel-stake { font-family: var(--sp-display); font-weight: 800; padding: 4px 10px; border: 1px solid var(--sp-accent-border); border-radius: 999px; background: var(--sp-accent-panel); font-size: 13px; font-variant-numeric: tabular-nums; }
-/* Noughts and crosses on a whiteboard: blue and red marker, drawn in. */
-.sp-noughts { --sp-ink-x: var(--sp-marker); --sp-ink-o: #C93A33; position: relative; width: min(300px, 100%); aspect-ratio: 1; border-radius: 14px; background: var(--sp-whiteboard); box-shadow: 0 3px 0 var(--sp-border-strong), inset 0 0 0 1px #0000000f; }
-.sp-noughts-lines, .sp-noughts-win { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.sp-noughts-lines path { fill: none; stroke: #9AA7B8; stroke-width: 4; stroke-linecap: round; }
-.sp-noughts-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
-.sp-noughts-cell { padding: 14%; border: 0; border-radius: 10px; background: transparent; cursor: pointer; }
-.sp-noughts-cell:enabled:hover { background: color-mix(in srgb, var(--sp-ink-x) 8%, transparent); }
-.sp-noughts-cell:disabled { cursor: default; }
-.sp-noughts-cell:focus-visible { outline: 2px solid var(--sp-ink-x); outline-offset: -6px; }
+/* Marks in marker, blue and red, each drawing itself in, and the winning stroke. */
 .sp-noughts-mark { display: block; width: 100%; height: 100%; overflow: visible; }
 .sp-noughts-mark path { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 0; animation: sp-noughts-draw 260ms ease-out backwards; }
 .sp-noughts-mark[data-mark='X'] path { stroke: var(--sp-ink-x); }
 .sp-noughts-mark[data-mark='O'] path { stroke: var(--sp-ink-o); animation-duration: 380ms; }
 .sp-noughts-mark .sp-noughts-second { animation-delay: 200ms; }
+.sp-noughts-win { position: absolute; pointer-events: none; }
 .sp-noughts-win path { fill: none; stroke: #1E2A3A; stroke-width: 9; stroke-linecap: round; stroke-dasharray: 1; opacity: .85; animation: sp-noughts-draw 520ms 250ms cubic-bezier(.4, 0, .2, 1) backwards; }
 @keyframes sp-noughts-draw { from { stroke-dashoffset: 1; } }
 @media (prefers-reduced-motion: reduce) { .sp-noughts-mark path, .sp-noughts-win path { animation: none; } }

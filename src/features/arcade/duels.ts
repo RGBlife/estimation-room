@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { DuelGame, DuelSide, DuelView } from '../../types/games.ts';
+import type { DuelSide, DuelView } from '../../types/games.ts';
+export { DUEL_GAMES } from './catalogue.ts';
 
 // Reading the room's duels from one person's seat. The service decides
 // everything; these only say where things stand, in words.
@@ -8,11 +9,6 @@ import type { DuelGame, DuelSide, DuelView } from '../../types/games.ts';
 export const OFFER_MS = 60_000;
 // How long a turn lasts; matches Duels.TurnMs.
 export const TURN_MS = 60_000;
-
-export const DUEL_GAMES: Record<DuelGame, { name: string; rules: string }> = {
-  noughts: { name: 'Noughts and crosses', rules: 'Three in a row wins. Crosses go first.' },
-  battleship: { name: 'Battleship', rules: 'Sink all four of their ships first. A hit earns another shot.' },
-};
 
 export const isLive = (duel: DuelView) => duel.status === 'offered' || duel.status === 'playing';
 export const involves = (duel: DuelView, uid: string | null) => duel.challenger.uid === uid || duel.opponent.uid === uid;
@@ -28,8 +24,9 @@ export function ownDuel(duels: DuelView[], uid: string | null): DuelView | null 
 export const incomingChallenge = (duels: DuelView[], uid: string | null) =>
   duels.find(d => d.status === 'offered' && d.opponent.uid === uid) ?? null;
 
+// Your turn, or a game you're playing at the same time as them.
 export const isMyMove = (duel: DuelView | null, uid: string | null) =>
-  !!duel && duel.status === 'playing' && !duel.paused && duel.turn === uid;
+  !!duel && duel.status === 'playing' && !duel.paused && (duel.turn === uid || (!duel.turn && involves(duel, uid)));
 
 const sideOf = (duel: DuelView, uid: string | undefined): DuelSide | undefined =>
   duel.challenger.uid === uid ? duel.challenger : duel.opponent.uid === uid ? duel.opponent : undefined;
@@ -47,10 +44,11 @@ export function duelSummary(duel: DuelView, uid: string | null): { text: string;
       return { text: `${duel.challenger.name} challenged ${duel.opponent.name}` };
     case 'playing':
       if (duel.paused) return { text: 'Paused until the next reveal' };
+      if (!duel.turn) return { text: me ? 'Game on' : `${duel.challenger.name} v ${duel.opponent.name}` };
       if (duel.turn === uid) return { text: 'Your move' };
       return { text: `${sideOf(duel, duel.turn)?.name ?? 'Their'}'s move` };
     case 'won': {
-      const how = { line: '', sunk: '', draw: '', resigned: ' resigned', timeout: ' ran out of time', left: ' left the game' }[duel.reason ?? 'line'];
+      const how = { line: '', sunk: '', played: '', draw: '', resigned: ' resigned', timeout: ' ran out of time', left: ' left the game' }[duel.reason ?? 'played'];
       if (!winner || !loser) return { text: 'Game over' };
       if (me === winner) return { text: how ? `${loser.name}${how}. You win` : 'You won', outcome: 'won' };
       if (me) return { text: how ? `You${how}` : `${winner.name} won`, outcome: 'lost' };

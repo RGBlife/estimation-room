@@ -3,7 +3,7 @@ import type { ThrowEvent } from '../../types/throws.ts';
 import type { DriverState, TableCrackEvent, TablePieceMove, WastedMap } from '../../types/gta.ts';
 import type { BacklogTicket } from '../../types/planning.ts';
 import type { PlayerProfile } from '../../types/player.ts';
-import type { DuelView } from '../../types/games.ts';
+import type { DuelFrame, DuelView } from '../../types/games.ts';
 
 type Message =
   // `player` is a newly issued player token, when the one sent was missing or unreadable.
@@ -25,6 +25,8 @@ type Message =
   | { type: 'backlog'; tickets: BacklogTicket[]; reset: boolean; done: boolean }
   | { type: 'tickets'; tickets: BacklogTicket[]; removed: string[] }
   | { type: 'duels'; duels: DuelView[] }
+  // What moved in a game in play since its last state; frames replace each other.
+  | { type: 'duelFrame'; frame: DuelFrame }
   | { type: 'closed'; reason: string };
 type Ack = Extract<Message, { type: 'ack' }>;
 const SESSION_KEY = 'sp_session_v1';

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import './arcade.css';
 
-export type ArcadeGame = 'sorted' | 'rare' | 'noughts' | 'battleship';
+import type { ArcadeGame } from './catalogue.ts';
+export type { ArcadeGame };
 
 interface ArcadeWindowProps {
   coins: number;

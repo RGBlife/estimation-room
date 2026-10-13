@@ -106,6 +106,7 @@ export default function RoomScreen({
     playSorted: useRoomStore(s => s.playSorted),
     playRare: useRoomStore(s => s.playRare),
     duel: useRoomStore(s => s.duel),
+    steer: useRoomStore(s => s.steer),
   });
   const participants: Record<string, Participant> = useMemo(() => FAKE_PARTICIPANTS
     ? { ...FAKE_PARTICIPANTS, ...room.participants }

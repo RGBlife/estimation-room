@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import useMediaQuery from '../../shared/hooks/useMediaQuery.ts';
-import { DUEL_GAMES, OFFER_MS, formatSeconds, useCountdown } from './duels.ts';
+import { OFFER_MS, formatSeconds, useCountdown } from './duels.ts';
+import { duelTitle } from './catalogue.ts';
 import type { DuelView } from '../../types/games.ts';
 import './arcade.css';
 
@@ -63,7 +64,7 @@ export default function ChallengeCard({ duel, coins, onAnswer, top }: ChallengeC
         <span className="sp-challenge-text">
           <small>Duel challenge</small>
           <strong>{duel.challenger.name} challenges you</strong>
-          <span>{DUEL_GAMES[duel.game].name}{duel.stake > 0 ? ` · 🪙 ${duel.stake} each, winner takes both` : ''}</span>
+          <span>{duelTitle(duel.game, duel.options)}{duel.stake > 0 ? ` · 🪙 ${duel.stake} each, winner takes both` : ''}</span>
         </span>
       </div>
       <div className="sp-challenge-actions">
