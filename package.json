@@ -24,7 +24,7 @@
   "dependencies": {
     "@dicebear/collection": "^9.4.3",
     "@dicebear/core": "^9.4.3",
-    "firebase": "12.19.0",
+    "firebase": "13.0.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zustand": "^5.0.14"
